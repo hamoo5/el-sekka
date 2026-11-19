@@ -160,3 +160,15 @@ html.trip-day .message{color:#8a5b09}
 html.trip-day .scheduled-card{border-bottom-color:#e2e8ef}
 html.trip-day .scheduled-card>p{color:#64748b}
 @media(max-width:420px){.scheduled-actions{grid-template-columns:1fr}}
+
+
+/* Unified seat-sharing introduction */
+.share-options{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.share-option{display:grid;gap:7px;padding:15px;border:1px solid #ffffff18;border-radius:15px;background:#101b2b}
+.share-option b{color:#b7f36b}
+.share-option small{color:#9aabc0;line-height:1.8}
+.share-rule p{color:#cbd7e5;line-height:1.9}
+html.trip-day .share-option{background:#f8fafb;border-color:#dce4eb}
+html.trip-day .share-option b{color:#176b38}
+html.trip-day .share-option small,html.trip-day .share-rule p{color:#526274}
+@media(max-width:430px){.share-options{grid-template-columns:1fr}}
