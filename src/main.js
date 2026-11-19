@@ -133,13 +133,18 @@ async function waitForNominatimSlot() {
 }
 
 async function searchPlaces(query) {
-  await waitForNominatimSlot();
-  const url = new globalThis.URL('https://nominatim.openstreetmap.org/search');
-  url.search = new URLSearchParams({ q: query, format: 'jsonv2', limit: '5', countrycodes: 'eg', 'accept-language': 'ar', addressdetails: '1' });
-  const response = await fetch(url, { headers: { 'Accept-Language': 'ar' } });
-  if (!response.ok) throw new Error('تعذر البحث عن العناوين حالياً.');
-  const rows = await response.json();
-  return rows.map(row => ({ name: row.display_name, lat: Number(row.lat), lng: Number(row.lon) }));
+  try {
+    await waitForNominatimSlot();
+    const url = new globalThis.URL('https://nominatim.openstreetmap.org/search');
+    url.search = new URLSearchParams({ q: query, format: 'jsonv2', limit: '5', countrycodes: 'eg', 'accept-language': 'ar', addressdetails: '1' });
+    const response = await fetch(url, { headers: { 'Accept-Language': 'ar' } });
+    if (!response.ok) throw new Error(`خدمة البحث غير متاحة الآن (HTTP ${response.status}).`);
+    const rows = await response.json();
+    return rows.map(row => ({ name: row.display_name, lat: Number(row.lat), lng: Number(row.lon) }));
+  } catch (error) {
+    console.warn('Nominatim address search failed:',error);
+    throw new Error(error?.name === 'TypeError' ? 'تعذر الاتصال بخدمة العناوين. تحقق من الإنترنت وحاول مرة أخرى.' : (error.message || 'تعذر البحث عن العناوين حالياً.'));
+  }
 }
 
 async function reversePlace(lat, lng) {
