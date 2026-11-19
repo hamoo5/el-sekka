@@ -1,14 +1,24 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json; charset=utf-8",
-};
+const allowedOrigins = new Set([
+  "https://el-sekka.pages.dev",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+]);
 
-const json = (status: number, body: Record<string, unknown>) =>
-  new Response(JSON.stringify(body), { status, headers: corsHeaders });
+function corsHeaders(origin: string | null): Headers {
+  const headers = new Headers({
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  });
+  if (origin && allowedOrigins.has(origin)) headers.set("Access-Control-Allow-Origin", origin);
+  headers.set("Content-Type", "application/json; charset=utf-8");
+  return headers;
+}
+
+const json = (status: number, body: Record<string, unknown>, origin: string | null) =>
+  new Response(JSON.stringify(body), { status, headers: corsHeaders(origin) });
 
 const vehicleCapacities: Record<string, number> = {
   private_car: 3,
@@ -37,31 +47,33 @@ function serviceRoleKey(): string {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
+  const origin = req.headers.get("Origin");
+  if (origin && !allowedOrigins.has(origin)) return new Response("origin_not_allowed", { status: 403 });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(origin) });
+  if (req.method !== "POST") return json(405, { error: "method_not_allowed" }, origin);
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
     if (!supabaseUrl || !anonKey) {
-      return json(500, { error: "server_configuration_error" });
+      return json(500, { error: "server_configuration_error" }, origin);
     }
 
     const authorization = req.headers.get("Authorization") ?? "";
     const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1];
-    if (!token) return json(401, { error: "login_required" });
+    if (!token) return json(401, { error: "login_required" }, origin);
 
     const authClient = createClient(supabaseUrl, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data: authData, error: authError } = await authClient.auth.getUser(token);
-    if (authError || !authData.user) return json(401, { error: "invalid_or_expired_session" });
+    if (authError || !authData.user) return json(401, { error: "invalid_or_expired_session" }, origin);
 
     let body: Record<string, unknown>;
     try {
       body = await req.json();
     } catch {
-      return json(400, { error: "invalid_json_body" });
+      return json(400, { error: "invalid_json_body" }, origin);
     }
 
     const vehicleType = String(body.vehicle_type ?? "");
@@ -75,24 +87,24 @@ Deno.serve(async (req: Request) => {
     const isScheduled = body.is_scheduled === true;
     const scheduledAt = body.scheduled_at == null ? null : String(body.scheduled_at);
 
-    if (!(vehicleType in vehicleCapacities)) return json(400, { error: "invalid_vehicle_type" });
+    if (!(vehicleType in vehicleCapacities)) return json(400, { error: "invalid_vehicle_type" }, origin);
     if (!originName || !destinationName || originName.length > 300 || destinationName.length > 300) {
-      return json(400, { error: "invalid_location_names" });
+      return json(400, { error: "invalid_location_names" }, origin);
     }
     const coordinates = [originLat, originLng, destinationLat, destinationLng];
     if (!coordinates.every(Number.isFinite) ||
         originLat < -90 || originLat > 90 || destinationLat < -90 || destinationLat > 90 ||
         originLng < -180 || originLng > 180 || destinationLng < -180 || destinationLng > 180) {
-      return json(400, { error: "invalid_coordinates" });
+      return json(400, { error: "invalid_coordinates" }, origin);
     }
     if (!Number.isInteger(passengerCount) || passengerCount < 1 ||
         passengerCount > vehicleCapacities[vehicleType]) {
-      return json(400, { error: "invalid_passenger_count_for_vehicle" });
+      return json(400, { error: "invalid_passenger_count_for_vehicle" }, origin);
     }
     if (isScheduled) {
       const timestamp = scheduledAt ? Date.parse(scheduledAt) : NaN;
       if (!Number.isFinite(timestamp) || timestamp <= Date.now()) {
-        return json(400, { error: "invalid_scheduled_at" });
+        return json(400, { error: "invalid_scheduled_at" }, origin);
       }
     }
 
@@ -106,18 +118,33 @@ Deno.serve(async (req: Request) => {
     }).toString();
 
     const routeResponse = await fetch(routeUrl, { signal: AbortSignal.timeout(15000) });
-    if (!routeResponse.ok) return json(502, { error: "route_service_unavailable" });
+    if (!routeResponse.ok) return json(502, { error: "route_service_unavailable" }, origin);
     const routeData = await routeResponse.json();
     const distanceMeters = Number(routeData?.routes?.[0]?.distance);
     if (routeData?.code !== "Ok" || !Number.isFinite(distanceMeters) || distanceMeters <= 0) {
-      return json(400, { error: "route_not_found" });
+      return json(400, { error: "route_not_found" }, origin);
     }
     const distanceKm = distanceMeters / 1000;
-    if (distanceKm > 500) return json(400, { error: "trip_distance_exceeds_limit" });
+    if (distanceKm > 500) return json(400, { error: "trip_distance_exceeds_limit" }, origin);
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey(), {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+
+    // The service-role client bypasses RLS, so enforce passenger eligibility here.
+    const { data: profile, error: profileError } = await adminClient
+      .from("profiles")
+      .select("role,is_blocked")
+      .eq("id", authData.user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error("Passenger profile lookup failed:", profileError.message);
+      return json(500, { error: "account_validation_failed" }, origin);
+    }
+    if (!profile || profile.role !== "passenger" || profile.is_blocked) {
+      return json(403, { error: "passenger_account_not_eligible" }, origin);
+    }
 
     const { data: requestId, error: createError } = await adminClient.rpc(
       "server_create_fixed_trip_request",
@@ -139,7 +166,7 @@ Deno.serve(async (req: Request) => {
 
     if (createError || !requestId) {
       console.error("server_create_fixed_trip_request failed:", createError?.message);
-      return json(400, { error: "trip_request_rejected" });
+      return json(400, { error: "trip_request_rejected" }, origin);
     }
 
     const { data: savedRequest, error: readError } = await adminClient
@@ -156,7 +183,7 @@ Deno.serve(async (req: Request) => {
         request_id: requestId,
         distance_km: Number(distanceKm.toFixed(2)),
         warning: "request_created_but_details_unavailable",
-      });
+      }, origin);
     }
 
     return json(200, {
@@ -165,9 +192,9 @@ Deno.serve(async (req: Request) => {
       distance_km: Number(distanceKm.toFixed(2)),
       fare_egp: savedRequest.fixed_fare_egp,
       status: savedRequest.request_status,
-    });
+    }, origin);
   } catch (error) {
     console.error("create-fixed-trip unexpected error:", error);
-    return json(500, { error: "internal_server_error" });
+    return json(500, { error: "internal_server_error" }, origin);
   }
 });
