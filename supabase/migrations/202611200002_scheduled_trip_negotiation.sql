@@ -301,3 +301,53 @@ grant execute on function public.respond_scheduled_trip_offer(uuid,uuid) to auth
 
 -- Remove unnecessary table-level capabilities; admin price editing remains protected by RLS.
 revoke references, trigger, truncate on table public.trip_pricing_rules from anon, authenticated;
+
+
+-- Safe discovery endpoint: captains can see only scheduled requests matching an approved active vehicle.
+create or replace function public.list_scheduled_trip_requests_for_captain()
+returns table (
+  request_id uuid,
+  passenger_id uuid,
+  vehicle_type text,
+  origin_name text,
+  destination_name text,
+  scheduled_at timestamptz,
+  passenger_count integer,
+  pending_offer_id uuid,
+  passenger_offer_egp numeric
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_captain_id uuid := auth.uid();
+begin
+  if v_captain_id is null then raise exception 'login_required'; end if;
+  perform public.require_captain_ready(v_captain_id);
+
+  return query
+  select tr.id, tr.passenger_id, tr.vehicle_type, tr.origin_name, tr.destination_name,
+         tr.scheduled_at, tr.passenger_count, o.id, o.amount_egp
+  from public.trip_requests tr
+  join public.scheduled_trip_price_offers o
+    on o.trip_request_id = tr.id
+   and o.offer_status = 'pending'
+   and o.offered_by_role = 'passenger'
+  where tr.is_scheduled = true
+    and tr.request_status = 'searching'
+    and tr.passenger_id <> v_captain_id
+    and exists (
+      select 1 from public.vehicles v
+      where v.captain_id = v_captain_id
+        and v.vehicle_type = tr.vehicle_type
+        and v.approval_status = 'approved'
+        and v.is_active = true
+        and v.passenger_capacity >= tr.passenger_count
+    )
+  order by tr.scheduled_at asc;
+end;
+$$;
+
+revoke all on function public.list_scheduled_trip_requests_for_captain() from public, anon;
+grant execute on function public.list_scheduled_trip_requests_for_captain() to authenticated;
