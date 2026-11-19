@@ -31,3 +31,35 @@ button:disabled{opacity:.6;cursor:not-allowed}[hidden]{display:none!important}
 .trip-map{width:100%;height:250px;border-radius:15px;overflow:hidden;border:1px solid #52647a;background:#182638;z-index:1}
 .trip-map .leaflet-control-attribution{font-size:9px}.trip-map .leaflet-control-zoom a{color:#172536}
 .map-hint{margin:-10px 0 0}.map-error{padding:20px;color:#ffb4b4;font-size:13px}
+
+/* Modern trip booking layout */
+.trip-page{max-width:560px}
+.trip-panel{gap:16px}
+.location-card{display:grid;gap:12px;background:#101b2b;border:1px solid #34465d;border-radius:18px;padding:16px}
+.location-card label{position:relative;gap:7px}
+.location-card input{background:#0a1422;border-color:#40536b;padding:13px 14px}
+.location-divider{height:1px;background:#ffffff16;margin:0 2px}
+.location-gps{justify-self:start;border:0;background:transparent;color:#b7f36b;font-size:12px;font-weight:800;padding:3px 0}
+.suggestions{position:absolute;top:100%;right:0;left:0;z-index:1200;margin-top:5px;max-height:220px;overflow:auto;background:#182638;border:1px solid #52647a;border-radius:12px;box-shadow:0 14px 35px #0009}
+.suggestion-item{display:block;width:100%;border:0;border-bottom:1px solid #ffffff12;background:transparent;color:#eaf1f8;text-align:right;padding:11px 12px;font-size:12px;line-height:1.7}
+.suggestion-item:last-child{border-bottom:0}
+.suggestion-item:active,.suggestion-item:hover{background:#263b2b;color:#dfffbd}
+.suggestion-loading{padding:12px;color:#a9b9ca;font-size:12px;line-height:1.7}
+.trip-map.trip-map-dark{height:300px;border-radius:18px;border:1px solid #53677f;background:#101a28}
+.trip-map-dark .leaflet-control-attribution{background:#0b1220cc;color:#d5dfeb}
+.trip-map-dark .leaflet-control-attribution a{color:#b7f36b}
+.trip-map-dark .leaflet-bar a{background:#172536;color:#fff;border-color:#40536b}
+.map-legend{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:#a9b9ca;font-size:11px;margin-top:-7px}
+.map-legend span:last-child{flex-basis:100%;color:#b7f36b}
+.trip-panel .vehicle-field{margin-top:4px}
+.trip-panel .vehicle-grid{gap:9px}
+.trip-panel .vehicle-card{min-height:88px;padding:9px}
+.trip-panel .vehicle-card .vehicle-icon{font-size:23px}
+.trip-panel .vehicle-card b{font-size:14px}
+.trip-panel .vehicle-card small{font-size:10px}
+@media(max-width:560px){
+  .trip-page{width:min(100% - 20px,560px);margin-top:12px}
+  .trip-panel{padding:13px;gap:14px}
+  .location-card{padding:13px}
+  .trip-map.trip-map-dark{height:300px}
+}
