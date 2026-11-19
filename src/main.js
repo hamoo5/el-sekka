@@ -303,17 +303,22 @@ function tripForm() {
     if (!Number.isFinite(place.lat) || !Number.isFinite(place.lng)) return;
     const isOrigin = point === 'origin';
     if (isOrigin) origin = place; else destination = place;
-    const marker = isOrigin ? originMarker : destinationMarker;
-    const pinIcon = window.L.divIcon({className:'sekka-pin-wrap',html:`<span class="sekka-pin ${isOrigin?'pickup-pin':'dropoff-pin'}"></span>`,iconSize:[24,24],iconAnchor:[12,22]});
-    if (marker) { marker.setLatLng([place.lat,place.lng]); marker.setIcon(pinIcon); }
-    else {
-      const created = window.L.marker([place.lat,place.lng],{draggable:true,icon:pinIcon}).addTo(map);
-      created.bindPopup(isOrigin ? 'مكان الركوب' : 'الوجهة');
-      if (isOrigin) originMarker = created; else destinationMarker = created;
-      created.on('dragend', async event => {
-        const p = event.target.getLatLng();
-        await setPoint(point,p.lat,p.lng,null,false);
-      });
+    // Keep the selected address even if Leaflet is still loading.
+    if (map && window.L && typeof window.L.marker === 'function') {
+      const marker = isOrigin ? originMarker : destinationMarker;
+      const pinIcon = window.L.divIcon({className:'sekka-pin-wrap',html:`<span class="sekka-pin ${isOrigin?'pickup-pin':'dropoff-pin'}"></span>`,iconSize:[24,24],iconAnchor:[12,22]});
+      if (marker) { marker.setLatLng([place.lat,place.lng]); marker.setIcon(pinIcon); }
+      else {
+        const created = window.L.marker([place.lat,place.lng],{draggable:true,icon:pinIcon}).addTo(map);
+        created.bindPopup(isOrigin ? 'مكان الركوب' : 'الوجهة');
+        if (isOrigin) originMarker = created; else destinationMarker = created;
+        created.on('dragend', async event => {
+          const p = event.target.getLatLng();
+          await setPoint(point,p.lat,p.lng,null,false);
+        });
+      }
+    } else {
+      statusHint('تم حفظ العنوان، جارٍ تجهيز الخريطة لإظهار الموقع.');
     }
     if (knownName) {
       place.name = knownName;
@@ -325,7 +330,8 @@ function tripForm() {
         $(isOrigin ? 'originName' : 'destinationName').value = label;
       }
     }
-    if (moveMap) map.setView([place.lat,place.lng],15);
+    if (moveMap && map) map.setView([place.lat,place.lng],15);
+    if (!map) return;
     if (origin && destination) await drawRoute();
     else { routeDistanceKm=null; routeDurationMinutes=null; await updateFarePreview(); statusHint('حدد النقطة الثانية لعرض المسار.'); }
   };
@@ -350,6 +356,9 @@ function tripForm() {
         attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>',
         crossOrigin:true
       }).addTo(map);
+      // Restore any addresses selected while Leaflet was loading.
+      if (origin) setPoint('origin',origin.lat,origin.lng,origin.name,true).catch(error => statusHint(error.message || 'تعذر إظهار مكان الركوب.'));
+      if (destination) setPoint('destination',destination.lat,destination.lng,destination.name,true).catch(error => statusHint(error.message || 'تعذر إظهار الوجهة.'));
       const applyMapTheme = () => {
         const day = new Date().getHours() >= 6 && new Date().getHours() < 18;
         document.documentElement.classList.toggle('trip-day',day);
