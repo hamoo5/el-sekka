@@ -36,7 +36,7 @@ function setup() {
       <section class="hero">
         <span class="tag">EL SEKKA · V2</span>
         <h1>كل الطرق <em>تبدأ من هنا</em></h1>
-        <p>مشوار فوري بسعر النظام، أو رحلة مجدولة تتفق فيها مع الكابتن على السعر.</p>
+        <p>احجز مشواراً عادياً فورياً أو مجدولاً بسعر ثابت، أو شارك كرسياً بالسعر والتفاوض بين الطرفين.</p>
       </section>
       <section class="panel">
         <h2>الاتصال بقاعدة البيانات غير مضبوط</h2>
@@ -209,10 +209,6 @@ function tripForm() {
         <label id="scheduleField" hidden>موعد المشوار
           <input type="datetime-local" id="scheduledAt">
         </label>
-        <label id="scheduledOfferField" hidden>عرضك المبدئي للسعر (جنيه)
-          <input type="number" id="initialOffer" min="1" max="100000" step="1" inputmode="numeric" placeholder="اكتب السعر اللي يناسبك">
-          <small class="muted">الكابتن يقدر يقبل عرضك أو يرسل سعرًا مقابلًا. لا يتم تأكيد الرحلة إلا بموافقتكما.</small>
-        </label>
         <section class="trip-summary" id="tripSummary"><div><small>المسافة</small><b id="summaryDistance">—</b></div><div><small>الوقت المتوقع</small><b id="summaryDuration">—</b></div><div><small>السعر النهائي</small><b id="summaryFare">—</b></div></section>
         <div class="notice" id="pricingNotice">المشوار الفوري: السعر يحسبه النظام تلقائياً. لا توجد عمولة على الرحلة، والدفع للكابتن نقداً.</div>
         <button class="btn primary" type="submit" id="sendTrip">تأكيد وطلب المشوار</button>
@@ -245,7 +241,7 @@ function tripForm() {
     }
     $('summaryDistance').textContent = `${routeDistanceKm.toFixed(1)} كم`;
     $('summaryDuration').textContent = routeDurationMinutes ? `${Math.max(1,Math.round(routeDurationMinutes))} دقيقة` : '—';
-    if ($('scheduleToggle')?.checked) { $('summaryFare').textContent = 'بالتفاوض'; return; }
+    
     $('summaryFare').textContent = 'جارٍ الحساب…';
     try {
       const {data,error}=await supabase.rpc('calculate_fixed_trip_fare',{p_vehicle_type:$('vehicleType').value,p_distance_km:routeDistanceKm});
@@ -464,14 +460,12 @@ function tripForm() {
   $('scheduleToggle').addEventListener('change',e=>{
     const scheduled=e.target.checked;
     $('scheduleField').hidden=!scheduled;
-    $('scheduledOfferField').hidden=!scheduled;
     $('scheduledAt').required=scheduled;
-    $('initialOffer').required=scheduled;
-    $('sendTrip').textContent=scheduled?'إرسال طلب التفاوض':'تأكيد وطلب المشوار';
+    $('sendTrip').textContent=scheduled?'تأكيد حجز المشوار المجدول':'تأكيد وطلب المشوار';
     $('pricingNotice').textContent=scheduled
-      ? 'الرحلة المجدولة: اكتب عرضك المبدئي، والكابتن يقدر يقبله أو يفاوضك على سعر آخر. لا توجد عمولة، والدفع نقداً.'
-      : 'المشوار الفوري: السعر يحسبه النظام تلقائياً. لا توجد عمولة على الرحلة، والدفع للكابتن نقداً.';
-    if(!scheduled){$('scheduledAt').value='';$('initialOffer').value='';}
+      ? 'المشوار المجدول بسعر ثابت يحسبه النظام تلقائياً، مثل المشوار الفوري. لا يوجد تفاوض على السعر.'
+      : 'المشوار الفوري بسعر ثابت يحسبه النظام تلقائياً. لا توجد عمولة، والدفع للكابتن نقداً.';
+    if(!scheduled) $('scheduledAt').value='';
     updateFarePreview();
   });
 
@@ -484,16 +478,13 @@ function tripForm() {
     if(origin.lat===destination.lat&&origin.lng===destination.lng){msg.textContent='مكان الركوب والوجهة متطابقان.';return;}
     const scheduled=$('scheduleToggle').checked;
     let scheduledAt=null;
-    let initialOffer=null;
     if(scheduled){
       const raw=$('scheduledAt').value;
       if(!raw||new Date(raw).getTime()<=Date.now()){msg.textContent='اختر موعداً مستقبلياً صحيحاً.';return;}
       scheduledAt=new Date(raw).toISOString();
-      initialOffer=Number($('initialOffer').value);
-      if(!Number.isFinite(initialOffer)||initialOffer<=0||initialOffer>100000){msg.textContent='اكتب عرض سعر صحيحاً أكبر من صفر.';return;}
     }
-    button.disabled=true;button.textContent=scheduled?'جارٍ إرسال طلب التفاوض...':'جارٍ حساب السعر وإرسال الطلب...';
-    msg.textContent=scheduled?'بنحسب المسافة ونسجل عرض السعر المبدئي.':'بنحسب المسافة والسعر المعتمد على الخادم.';
+    button.disabled=true;button.textContent=scheduled?'جارٍ حساب السعر الثابت وإرسال الحجز...':'جارٍ حساب السعر وإرسال الطلب...';
+    msg.textContent='بنحسب المسافة والسعر الثابت على الخادم.';
     try{
       const commonBody={
         vehicle_type:$('vehicleType').value,
@@ -501,9 +492,9 @@ function tripForm() {
         destination_name:destination.name,destination_lat:destination.lat,destination_lng:destination.lng,
         passenger_count:Number($('passengerCount').value)
       };
-      const result=scheduled
-        ? await supabase.functions.invoke('create-scheduled-trip',{body:{...commonBody,scheduled_at:scheduledAt,initial_offer_egp:initialOffer}})
-        : await supabase.functions.invoke('create-fixed-trip',{body:{...commonBody,is_scheduled:false,scheduled_at:null}});
+      const result=await supabase.functions.invoke('create-fixed-trip',{
+        body:{...commonBody,is_scheduled:scheduled,scheduled_at:scheduledAt}
+      });
       const {data,error}=result;
       if(error){
         let details=error.message||'تعذر إرسال الطلب.';
@@ -512,19 +503,19 @@ function tripForm() {
       }
       const requestId=data?.request_id||data?.requestId;
       if(!requestId)throw new Error(data?.error||'الخادم لم يرجع تأكيداً بإنشاء الطلب.');
-      const fareRaw=scheduled?initialOffer:(data.fixed_fare_egp??data.fixedFareEgp??data.fare_egp??data.fare);
+      const fareRaw=data.fixed_fare_egp??data.fixedFareEgp??data.fare_egp??data.fare;
       const distanceRaw=data.distance_km??data.distanceKm??routeDistanceKm;
       const fare=Number(fareRaw), distance=Number(distanceRaw);
       const fareLabel=Number.isFinite(fare)?`${fare.toLocaleString('ar-EG')} جنيه`:'—';
       const distanceLabel=Number.isFinite(distance)?`${distance.toFixed(1)} كم`:'غير متاحة';
       const requestStatus=data.request_status||data.requestStatus||data.status||'searching';
-      const priceTitle=scheduled?'عرضك المبدئي':'السعر المحسوب بواسطة النظام';
-      const nextStep=scheduled?'الكابتن يستطيع قبول عرضك أو إرسال عرض مقابل. تنتظر الرحلة موافقة الطرفين قبل التأكيد.':'سيظهر الطلب للكباتن ليقبل أحدهم المشوار بالسعر المحدد.';
-      $('tripResult').innerHTML=`<h3>تم إرسال طلب المشوار</h3><div class="fare-line"><span>${priceTitle}</span><strong>${fareLabel}</strong></div><p>المسافة التقريبية: ${distanceLabel}</p><p>${nextStep}</p><p>رقم الطلب: <small dir="ltr">${esc(requestId)}</small></p><p class="muted">حالة الطلب: ${esc(requestStatus)}</p>`;
+      const priceTitle='السعر الثابت المحسوب بواسطة النظام';
+      const nextStep=scheduled?'سيظهر الحجز للكباتن مع موعده المحدد، والسعر ثابت دون تفاوض.':'سيظهر الطلب للكباتن ليقبل أحدهم المشوار بالسعر المحدد.';
+      $('tripResult').innerHTML=`<h3>تم إرسال طلب المشوار${scheduled?' المجدول':''}</h3><div class="fare-line"><span>${priceTitle}</span><strong>${fareLabel}</strong></div><p>المسافة التقريبية: ${distanceLabel}</p><p>${nextStep}</p><p>رقم الطلب: <small dir="ltr">${esc(requestId)}</small></p><p class="muted">حالة الطلب: ${esc(requestStatus)}</p>`;
       $('tripResult').hidden=false;msg.textContent='تم إنشاء الطلب بنجاح.';button.textContent='تم إرسال الطلب';
     }catch(error){
       msg.textContent=error.message||'حصل خطأ غير متوقع. حاول مرة أخرى.';
-      button.disabled=false;button.textContent=$('scheduleToggle').checked?'إرسال طلب التفاوض':'تأكيد وطلب المشوار';
+      button.disabled=false;button.textContent=$('scheduleToggle').checked?'تأكيد حجز المشوار المجدول':'تأكيد وطلب المشوار';
     }
   });
 }
