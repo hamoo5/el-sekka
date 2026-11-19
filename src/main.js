@@ -272,12 +272,16 @@ function tripForm() {
     if (points.length === 2 && !routeLine) map.fitBounds(points,{padding:[35,35]});
   };
 
+  let routeSequence = 0;
   const drawRoute = async () => {
     if (!origin || !destination || !map) return;
+    const seq = ++routeSequence;
+    const start = origin, end = destination;
     try {
-      const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson&steps=false`;
-      const response = await fetch(url);
+      const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson&steps=false`;
+      const response = await fetch(url, {signal:AbortSignal.timeout(12000)});
       const data = await response.json();
+      if (seq !== routeSequence || origin !== start || destination !== end) return;
       if (!response.ok || data.code !== 'Ok' || !data.routes?.length) throw new Error('تعذر إيجاد مسار قيادة بين النقطتين.');
       if (routeLine) map.removeLayer(routeLine);
       routeLine = window.L.geoJSON(data.routes[0].geometry,{style:{color:'#a8ff45',weight:6,opacity:1}}).addTo(map);
@@ -286,7 +290,12 @@ function tripForm() {
       map.fitBounds(routeLine.getBounds(),{padding:[35,35]});
       statusHint('تم تحديد المسار على الخريطة.');
       await updateFarePreview();
-    } catch (error) { routeDistanceKm=null; routeDurationMinutes=null; await updateFarePreview(); statusHint(error.message || 'تعذر رسم المسار حالياً.'); }
+    } catch (error) {
+      if (seq !== routeSequence) return;
+      routeDistanceKm=null; routeDurationMinutes=null;
+      await updateFarePreview();
+      statusHint(error.name === 'TimeoutError' ? 'خدمة المسارات تأخرت. حاول مرة أخرى بعد لحظات.' : (error.message || 'تعذر رسم المسار حالياً.'));
+    }
   };
 
   const setPoint = async (point, lat, lng, knownName = null, moveMap = false) => {
@@ -384,7 +393,7 @@ function tripForm() {
 
   const showSuggestions = (point, rows) => {
     const box = $(point === 'origin' ? 'originSuggestions' : 'destinationSuggestions');
-    box.innerHTML = rows.map((row,index)=>`<button type="button" class="suggestion-item" data-index="${index}">${row.name}</button>`).join('');
+    box.innerHTML = rows.map((row,index)=>`<button type="button" class="suggestion-item" data-index="${index}">${esc(row.name)}</button>`).join('');
     box.hidden = !rows.length;
     box.querySelectorAll('.suggestion-item').forEach((button,index)=>button.addEventListener('click',async()=>{
       box.hidden = true;
@@ -413,7 +422,7 @@ function tripForm() {
           showSuggestions(point,rows);
           if(!rows.length) box.innerHTML='<div class="suggestion-loading">لا توجد اقتراحات. جرّب اسم شارع أو منطقة أوضح.</div>';
         } catch(error) {
-          if(seq===searchSequence[point]) box.innerHTML='<div class="suggestion-loading">تعذر تحميل الاقتراحات حالياً.</div>';
+          if(seq===searchSequence[point]) box.innerHTML=`<div class="suggestion-loading">${esc(error.message || 'تعذر تحميل الاقتراحات حالياً.')} جرّب تعديل البحث بعد قليل.</div>`;
         }
       },1100);
     });
