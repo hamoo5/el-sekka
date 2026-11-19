@@ -255,13 +255,17 @@ function tripForm() {
         try { const body = await error.context?.json(); if (body?.error) details = body.error; } catch (_) {}
         throw new Error(details);
       }
-      if (!data || !data.request_id) throw new Error(data?.error || 'الخادم لم يرجع تأكيداً بإنشاء الطلب.');
+      const requestId = data?.request_id || data?.requestId;
+      if (!requestId) throw new Error(data?.error || 'الخادم لم يرجع تأكيداً بإنشاء الطلب.');
+      const fare = data.fixed_fare_egp ?? data.fixedFareEgp ?? data.fare;
+      const distance = data.distance_km ?? data.distanceKm;
+      const requestStatus = data.request_status || data.requestStatus || data.status || 'searching';
       $('tripResult').innerHTML = `
         <h3>تم إرسال طلب المشوار</h3>
-        <div class="fare-line"><span>السعر الثابت</span><strong>${Number(data.fixed_fare_egp).toLocaleString('ar-EG')} جنيه</strong></div>
-        <p>المسافة التقريبية: ${Number(data.distance_km).toFixed(1)} كم</p>
-        <p>رقم الطلب: <small dir="ltr">${esc(data.request_id)}</small></p>
-        <p class="muted">حالة الطلب: ${esc(data.request_status || 'searching')}</p>`;
+        <div class="fare-line"><span>السعر الثابت</span><strong>${Number(fare).toLocaleString('ar-EG')} جنيه</strong></div>
+        <p>المسافة التقريبية: ${Number(distance).toFixed(1)} كم</p>
+        <p>رقم الطلب: <small dir="ltr">${esc(requestId)}</small></p>
+        <p class="muted">حالة الطلب: ${esc(requestStatus)}</p>`;
       $('tripResult').hidden = false;
       msg.textContent = 'تم إنشاء الطلب بنجاح.';
       button.textContent = 'تم إرسال الطلب';
