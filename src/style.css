@@ -136,3 +136,14 @@ html.trip-day .message{color:#8a5b09}
   .trip-summary b{font-size:12px}
   .trip-map{height:280px!important}
 }
+
+
+/* Hotfix: keep address autocomplete above the map and all form layers */
+.trip-panel{position:relative;overflow:visible}
+.location-card{position:relative;z-index:30;overflow:visible}
+.location-card label{position:relative;z-index:31}
+.location-card label:focus-within{z-index:10000}
+.location-card .suggestions{z-index:10001!important;isolation:isolate}
+.trip-map{position:relative;z-index:1}
+.map-heading,.map-legend{position:relative;z-index:1}
+.suggestion-item{position:relative;z-index:1}
