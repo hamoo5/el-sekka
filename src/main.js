@@ -120,7 +120,15 @@ function home() {
   app.querySelectorAll('[data-page]').forEach(b => b.addEventListener('click', () => { page = b.dataset.page; render(); }));
 }
 
+let nominatimLastRequestAt = 0;
+async function waitForNominatimSlot() {
+  const wait = Math.max(0, 1100 - (Date.now() - nominatimLastRequestAt));
+  if (wait) await new Promise(resolve => setTimeout(resolve, wait));
+  nominatimLastRequestAt = Date.now();
+}
+
 async function searchPlaces(query) {
+  await waitForNominatimSlot();
   const url = new globalThis.URL('https://nominatim.openstreetmap.org/search');
   url.search = new URLSearchParams({ q: query, format: 'jsonv2', limit: '5', countrycodes: 'eg', addressdetails: '1' });
   const response = await fetch(url, { headers: { 'Accept-Language': 'ar' } });
@@ -131,6 +139,7 @@ async function searchPlaces(query) {
 
 async function reversePlace(lat, lng) {
   try {
+    await waitForNominatimSlot();
     const url = new globalThis.URL('https://nominatim.openstreetmap.org/reverse');
     url.search = new URLSearchParams({lat:String(lat),lon:String(lng),format:'jsonv2',addressdetails:'1'});
     const response = await fetch(url, { headers: { 'Accept-Language': 'ar' } });
@@ -319,6 +328,7 @@ function tripForm() {
       $('tripMap').classList.toggle('trip-map-night',!day);
     };
     applyMapTheme();
+    setInterval(applyMapTheme, 60_000);
     map.on('click',event => setPoint(activePoint,event.latlng.lat,event.latlng.lng));
     setTimeout(() => map.invalidateSize(),200);
   } catch (error) {
