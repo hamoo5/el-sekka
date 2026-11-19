@@ -491,10 +491,13 @@ function tripForm() {
       }
       const requestId=data?.request_id||data?.requestId;
       if(!requestId)throw new Error(data?.error||'الخادم لم يرجع تأكيداً بإنشاء الطلب.');
-      const fare=data.fixed_fare_egp??data.fixedFareEgp??data.fare_egp??data.fare;
-      const distance=data.distance_km??data.distanceKm;
+      const fareRaw=data.fixed_fare_egp??data.fixedFareEgp??data.fare_egp??data.fare;
+      const distanceRaw=data.distance_km??data.distanceKm??routeDistanceKm;
+      const fare=Number(fareRaw), distance=Number(distanceRaw);
+      const fareLabel=Number.isFinite(fare)?`${fare.toLocaleString('ar-EG')} جنيه`:'سيتم تأكيده من الخادم';
+      const distanceLabel=Number.isFinite(distance)?`${distance.toFixed(1)} كم`:'غير متاحة';
       const requestStatus=data.request_status||data.requestStatus||data.status||'searching';
-      $('tripResult').innerHTML=`<h3>تم إرسال طلب المشوار</h3><div class="fare-line"><span>السعر الثابت</span><strong>${Number(fare).toLocaleString('ar-EG')} جنيه</strong></div><p>المسافة التقريبية: ${Number(distance).toFixed(1)} كم</p><p>رقم الطلب: <small dir="ltr">${esc(requestId)}</small></p><p class="muted">حالة الطلب: ${esc(requestStatus)}</p>`;
+      $('tripResult').innerHTML=`<h3>تم إرسال طلب المشوار</h3><div class="fare-line"><span>السعر الثابت</span><strong>${fareLabel}</strong></div><p>المسافة التقريبية: ${distanceLabel}</p><p>رقم الطلب: <small dir="ltr">${esc(requestId)}</small></p><p class="muted">حالة الطلب: ${esc(requestStatus)}</p>`;
       $('tripResult').hidden=false;msg.textContent='تم إنشاء الطلب بنجاح.';button.textContent='تم إرسال الطلب';
     }catch(error){
       msg.textContent=error.message||'حصل خطأ غير متوقع. حاول مرة أخرى.';
