@@ -155,7 +155,7 @@ function tripForm() {
         <label>الوجهة
           <input id="destinationName" required placeholder="مثال: مدينة نصر، عباس العقاد" autocomplete="off">
         </label>
-        <button class="btn outline" type="button" id="findDestination">تحديد الوجهة على الخريطة النصية</button>
+        <button class="btn outline" type="button" id="findDestination">تأكيد عنوان الوجهة</button>
         <p class="place-status" id="destinationStatus">اكتب الوجهة واضغط تحديد الوجهة.</p>
         <label>عدد الركاب
           <select name="passenger_count" id="passengerCount">
@@ -211,11 +211,13 @@ function tripForm() {
     $('scheduleField').hidden = !e.target.checked;
     $('scheduledAt').required = e.target.checked;
   });
-  $('vehicleType').addEventListener('change', e => {
+  const updatePassengerOptions = () => {
     const caps = {private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
-    const max = caps[e.target.value] || 1;
+    const max = caps[$('vehicleType').value] || 1;
     $('passengerCount').innerHTML = Array.from({length:max},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
-  });
+  };
+  $('vehicleType').addEventListener('change', updatePassengerOptions);
+  updatePassengerOptions();
   $('tripForm').addEventListener('submit', async e => {
     e.preventDefault();
     const msg = $('tripMessage');
@@ -257,7 +259,7 @@ function tripForm() {
       }
       const requestId = data?.request_id || data?.requestId;
       if (!requestId) throw new Error(data?.error || 'الخادم لم يرجع تأكيداً بإنشاء الطلب.');
-      const fare = data.fixed_fare_egp ?? data.fixedFareEgp ?? data.fare;
+      const fare = data.fixed_fare_egp ?? data.fixedFareEgp ?? data.fare_egp ?? data.fare;
       const distance = data.distance_km ?? data.distanceKm;
       const requestStatus = data.request_status || data.requestStatus || data.status || 'searching';
       $('tripResult').innerHTML = `
