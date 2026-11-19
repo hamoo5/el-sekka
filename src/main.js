@@ -121,10 +121,15 @@ function home() {
 }
 
 let nominatimLastRequestAt = 0;
+let nominatimQueue = Promise.resolve();
 async function waitForNominatimSlot() {
-  const wait = Math.max(0, 1100 - (Date.now() - nominatimLastRequestAt));
-  if (wait) await new Promise(resolve => setTimeout(resolve, wait));
-  nominatimLastRequestAt = Date.now();
+  const next = nominatimQueue.then(async () => {
+    const wait = Math.max(0, 1100 - (Date.now() - nominatimLastRequestAt));
+    if (wait) await new Promise(resolve => setTimeout(resolve, wait));
+    nominatimLastRequestAt = Date.now();
+  });
+  nominatimQueue = next.catch(() => {});
+  await next;
 }
 
 async function searchPlaces(query) {
