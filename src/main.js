@@ -112,6 +112,7 @@ function home() {
       <section class="cards">
         <button class="service" data-page="trip"><span>🚕</span><b>مشوار عادي</b><small>السعر يحسبه النظام تلقائياً</small><strong>اطلب مشوار ←</strong></button>
         <button class="service" data-page="share"><span>🛣️</span><b>مشاركة السكة</b><small>احجز كرسي أو انشر طريقك</small><strong>اكتشف الرحلات ←</strong></button>
+        ${profile.role === 'passenger' ? '<button class="service" data-page="myScheduled"><span>🗓️</span><b>رحلاتي المجدولة</b><small>تابع عروض الكباتن واتفاق السعر</small><strong>متابعة الرحلات ←</strong></button>' : ''}
       </section>
       ${profile.role === 'captain' ? '<section class="panel"><h2>مساحة الكابتن</h2><p class="muted">إدارة المركبة والرحلات والحجوزات والاشتراك.</p><button class="btn primary" data-page="captain">لوحة الكابتن</button></section>' : ''}
       ${profile.role === 'admin' ? '<section class="panel"><h2>إدارة المنصة</h2><p class="muted">مراجعة الكباتن والمركبات والاشتراكات والبلاغات.</p><button class="btn primary" data-page="admin">لوحة الإدارة</button></section>' : ''}
@@ -528,6 +529,101 @@ function tripForm() {
   });
 }
 
+async function myScheduledTrips() {
+  layout(`
+    <main class="wrap narrow">
+      <button class="back" id="back">→ الرئيسية</button>
+      <section class="hero compact"><span class="tag">الراكب · الرحلات المجدولة</span><h1>رحلاتي المجدولة</h1><p>تابع عروض الكباتن، فاوض على السعر، أو وافق على العرض المناسب.</p></section>
+      <section id="scheduledList" class="panel">جاري تحميل رحلاتك...</section>
+    </main>`);
+  document.querySelector('#back').addEventListener('click',()=>{page='home';render();});
+  const host=document.querySelector('#scheduledList');
+  const {data,error}=await supabase.rpc('list_my_scheduled_trip_requests');
+  if(error){host.innerHTML='<p class="message">تعذر تحميل الرحلات. تأكد من تطبيق تحديث قاعدة البيانات.</p>';return;}
+  if(!data?.length){host.innerHTML='<p class="muted">لا توجد رحلات مجدولة حتى الآن.</p>';return;}
+  host.innerHTML=data.map(r=>{
+    const current=r.pending_offer_id ? (r.pending_offer_by_role==='captain'
+      ? `<div class="notice">عرض الكابتن: <b>${Number(r.pending_offer_amount_egp).toLocaleString('ar-EG')} جنيه</b></div>
+         <div class="scheduled-actions"><button class="btn primary" data-accept-offer="${r.pending_offer_id}">موافقة على السعر</button>
+         <input type="number" min="1" step="1" inputmode="numeric" placeholder="سعرك المقابل" data-counter-amount="${r.request_id}">
+         <button class="btn outline" data-counter-request="${r.request_id}">إرسال عرض مقابل</button></div>`
+      : `<div class="notice">عرضك الحالي: <b>${Number(r.pending_offer_amount_egp).toLocaleString('ar-EG')} جنيه</b> · في انتظار رد الكباتن</div>`)
+      : (r.request_status==='accepted' ? `<div class="notice">تم الاتفاق على السعر: <b>${Number(r.agreed_fare_egp).toLocaleString('ar-EG')} جنيه</b></div>` : '<p class="muted">في انتظار عروض الكباتن.</p>');
+    return `<article class="scheduled-card"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b>
+      <p>المركبة: ${esc(r.vehicle_type)} · الركاب: ${r.passenger_count}</p>
+      <p>الموعد: ${new Date(r.scheduled_at).toLocaleString('ar-EG')}</p>
+      <p>الحالة: ${esc(r.request_status)}</p>${current}</article>`;
+  }).join('');
+  host.querySelectorAll('[data-accept-offer]').forEach(button=>button.addEventListener('click',async()=>{
+    button.disabled=true;
+    const {error}=await supabase.rpc('respond_scheduled_trip_offer',{p_offer_id:button.dataset.acceptOffer,p_vehicle_id:null});
+    if(error){button.disabled=false;alert('تعذر قبول العرض. ربما انتهت صلاحيته أو تغيرت حالة الرحلة.');return;}
+    myScheduledTrips();
+  }));
+  host.querySelectorAll('[data-counter-request]').forEach(button=>button.addEventListener('click',async()=>{
+    const amount=Number(host.querySelector(`[data-counter-amount="${button.dataset.counterRequest}"]`)?.value);
+    if(!Number.isFinite(amount)||amount<=0){alert('اكتب سعراً صحيحاً أكبر من صفر.');return;}
+    button.disabled=true;
+    const {error}=await supabase.rpc('passenger_counter_scheduled_trip_offer',{p_request_id:button.dataset.counterRequest,p_amount_egp:amount});
+    if(error){button.disabled=false;alert('تعذر إرسال العرض المقابل. ربما وصل عرض آخر أو تم حسم الرحلة.');return;}
+    myScheduledTrips();
+  }));
+}
+
+async function captainDashboard() {
+  layout(`
+    <main class="wrap narrow">
+      <button class="back" id="back">→ الرئيسية</button>
+      <section class="hero compact"><span class="tag">الكابتن · الرحلات المجدولة</span><h1>طلبات التفاوض</h1><p>اقبل عرض الراكب أو قدم سعراً مقابلاً. لا تتأكد الرحلة إلا بعد الاتفاق.</p></section>
+      <section id="captainScheduledList" class="panel">جاري تحميل الطلبات والمركبات...</section>
+    </main>`);
+  document.querySelector('#back').addEventListener('click',()=>{page='home';render();});
+  const host=document.querySelector('#captainScheduledList');
+  const [requestsResult,vehiclesResult]=await Promise.all([
+    supabase.rpc('list_scheduled_trip_requests_for_captain'),
+    supabase.from('vehicles').select('id,vehicle_type,passenger_capacity,make,model')
+      .eq('captain_id',session.user.id).eq('approval_status','approved').eq('is_active',true)
+  ]);
+  if(requestsResult.error||vehiclesResult.error){
+    host.innerHTML='<p class="message">تعذر تحميل الطلبات. تأكد من اعتماد حسابك واشتراكك وتطبيق تحديث قاعدة البيانات.</p>';return;
+  }
+  const vehicles=vehiclesResult.data||[];
+  const requests=requestsResult.data||[];
+  if(!requests.length){host.innerHTML='<p class="muted">لا توجد حالياً رحلات مجدولة مناسبة لمركباتك.</p>';return;}
+  host.innerHTML=requests.map(r=>{
+    const matching=vehicles.filter(v=>v.vehicle_type===r.vehicle_type&&v.passenger_capacity>=r.passenger_count);
+    const options=matching.map(v=>`<option value="${v.id}">${esc([v.make,v.model].filter(Boolean).join(' '))||'مركبة'} · سعة ${v.passenger_capacity}</option>`).join('');
+    return `<article class="scheduled-card"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b>
+      <p>الموعد: ${new Date(r.scheduled_at).toLocaleString('ar-EG')} · عدد الركاب: ${r.passenger_count}</p>
+      <p>عرض الراكب: <strong>${Number(r.passenger_offer_egp).toLocaleString('ar-EG')} جنيه</strong></p>
+      ${matching.length?`<label>المركبة المناسبة<select data-vehicle-for="${r.request_id}">${options}</select></label>
+      <div class="scheduled-actions"><button class="btn primary" data-accept-passenger-offer="${r.pending_offer_id}">قبول عرض الراكب</button>
+      <input type="number" min="1" step="1" inputmode="numeric" placeholder="السعر المقابل" data-captain-amount="${r.request_id}">
+      <button class="btn outline" data-captain-counter="${r.request_id}">إرسال عرض مقابل</button></div>`
+      : '<p class="muted">لا توجد مركبة معتمدة ونشطة بسعة مناسبة لهذا الطلب.</p>'}
+    </article>`;
+  }).join('');
+  host.querySelectorAll('[data-accept-passenger-offer]').forEach(button=>button.addEventListener('click',async()=>{
+    const request=button.closest('.scheduled-card');
+    const vehicleId=request.querySelector('select')?.value;
+    if(!vehicleId){alert('اختار المركبة المناسبة أولاً.');return;}
+    button.disabled=true;
+    const {error}=await supabase.rpc('respond_scheduled_trip_offer',{p_offer_id:button.dataset.acceptPassengerOffer,p_vehicle_id:vehicleId});
+    if(error){button.disabled=false;alert('تعذر قبول العرض. ربما تم حسم الرحلة بالفعل.');return;}
+    captainDashboard();
+  }));
+  host.querySelectorAll('[data-captain-counter]').forEach(button=>button.addEventListener('click',async()=>{
+    const requestId=button.dataset.captainCounter;
+    const amount=Number(host.querySelector(`[data-captain-amount="${requestId}"]`)?.value);
+    const vehicleId=host.querySelector(`[data-vehicle-for="${requestId}"]`)?.value;
+    if(!vehicleId||!Number.isFinite(amount)||amount<=0){alert('اختار المركبة واكتب سعراً صحيحاً أكبر من صفر.');return;}
+    button.disabled=true;
+    const {error}=await supabase.rpc('captain_counter_scheduled_trip_offer',{p_request_id:requestId,p_vehicle_id:vehicleId,p_amount_egp:amount});
+    if(error){button.disabled=false;alert('تعذر إرسال العرض المقابل. ربما تغيرت حالة الطلب.');return;}
+    captainDashboard();
+  }));
+}
+
 function placeholder(title, desc) {
   layout(`
     <main class="wrap narrow">
@@ -544,7 +640,8 @@ function render() {
   if (page === 'home') return home();
   if (page === 'trip') return tripForm();
   if (page === 'share') return placeholder('مشاركة السكة', 'ابحث عن رحلة مناسبة أو انشر طريقك كمقاعد متاحة.');
-  if (page === 'captain') return placeholder('لوحة الكابتن', 'إدارة المركبة والرحلات والحجوزات والاشتراك.');
+  if (page === 'myScheduled') return myScheduledTrips();
+  if (page === 'captain') return captainDashboard();
   if (page === 'admin') return placeholder('لوحة الإدارة', 'مراجعة الحسابات والمركبات والاشتراكات والبلاغات.');
   page = 'home'; home();
 }
