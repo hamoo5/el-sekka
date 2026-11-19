@@ -280,7 +280,7 @@ function tripForm() {
       const data = await response.json();
       if (!response.ok || data.code !== 'Ok' || !data.routes?.length) throw new Error('تعذر إيجاد مسار قيادة بين النقطتين.');
       if (routeLine) map.removeLayer(routeLine);
-      routeLine = L.geoJSON(data.routes[0].geometry,{style:{color:'#a8ff45',weight:6,opacity:1}}).addTo(map);
+      routeLine = window.L.geoJSON(data.routes[0].geometry,{style:{color:'#a8ff45',weight:6,opacity:1}}).addTo(map);
       routeDistanceKm = data.routes[0].distance / 1000;
       routeDurationMinutes = data.routes[0].duration / 60;
       map.fitBounds(routeLine.getBounds(),{padding:[35,35]});
@@ -295,10 +295,10 @@ function tripForm() {
     const isOrigin = point === 'origin';
     if (isOrigin) origin = place; else destination = place;
     const marker = isOrigin ? originMarker : destinationMarker;
-    const pinIcon = L.divIcon({className:'sekka-pin-wrap',html:`<span class="sekka-pin ${isOrigin?'pickup-pin':'dropoff-pin'}"></span>`,iconSize:[24,24],iconAnchor:[12,22]});
+    const pinIcon = window.L.divIcon({className:'sekka-pin-wrap',html:`<span class="sekka-pin ${isOrigin?'pickup-pin':'dropoff-pin'}"></span>`,iconSize:[24,24],iconAnchor:[12,22]});
     if (marker) { marker.setLatLng([place.lat,place.lng]); marker.setIcon(pinIcon); }
     else {
-      const created = L.marker([place.lat,place.lng],{draggable:true,icon:pinIcon}).addTo(map);
+      const created = window.L.marker([place.lat,place.lng],{draggable:true,icon:pinIcon}).addTo(map);
       created.bindPopup(isOrigin ? 'مكان الركوب' : 'الوجهة');
       if (isOrigin) originMarker = created; else destinationMarker = created;
       created.on('dragend', async event => {
