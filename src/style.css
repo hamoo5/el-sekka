@@ -147,3 +147,16 @@ html.trip-day .message{color:#8a5b09}
 .trip-map{position:relative;z-index:1}
 .map-heading,.map-legend{position:relative;z-index:1}
 .suggestion-item{position:relative;z-index:1}
+
+
+/* Scheduled trip negotiation cards */
+.scheduled-card{display:grid;gap:10px;padding:16px 0;border-bottom:1px solid #ffffff18;line-height:1.8}
+.scheduled-card:last-child{border-bottom:0}
+.scheduled-card>p{margin:0;color:#9aabc0;font-size:12px}
+.scheduled-card label{display:grid;gap:7px;font-size:12px;font-weight:700}
+.scheduled-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:center}
+.scheduled-actions input{min-width:0}
+.scheduled-actions button{font-size:12px;padding:10px}
+html.trip-day .scheduled-card{border-bottom-color:#e2e8ef}
+html.trip-day .scheduled-card>p{color:#64748b}
+@media(max-width:420px){.scheduled-actions{grid-template-columns:1fr}}
