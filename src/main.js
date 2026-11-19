@@ -120,7 +120,6 @@ function home() {
   app.querySelectorAll('[data-page]').forEach(b => b.addEventListener('click', () => { page = b.dataset.page; render(); }));
 }
 
-
 async function findPlace(query) {
   const url = new URL('https://nominatim.openstreetmap.org/search');
   url.search = new URLSearchParams({ q: query, format: 'jsonv2', limit: '1', countrycodes: 'eg' });
@@ -131,35 +130,64 @@ async function findPlace(query) {
   return { name: rows[0].display_name, lat: Number(rows[0].lat), lng: Number(rows[0].lon) };
 }
 
+async function reversePlace(lat, lng) {
+  try {
+    const url = new URL('https://nominatim.openstreetmap.org/reverse');
+    url.search = new URLSearchParams({lat:String(lat),lon:String(lng),format:'jsonv2'});
+    const response = await fetch(url);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.display_name) return data.display_name;
+    }
+  } catch (_) {}
+  return 'نقطة محددة على الخريطة';
+}
+
 function tripForm() {
   const types = [
-    ['private_car','ملاكي'],['taxi','تاكسي'],['suzuki','سوزوكي'],
-    ['microbus','ميكروباص'],['scooter','اسكوتر'],['motorcycle','موتوسيكل']
+    ['private_car','🚘','ملاكي','حتى 3 ركاب'],
+    ['suzuki','🚐','سوزوكي','حتى 6 ركاب'],
+    ['microbus','🚌','ميكروباص','حتى 13 راكب'],
+    ['bus','🚍','أتوبيس','قريباً']
   ];
   layout(`
     <main class="wrap narrow">
       <button class="back" id="back">→ الرئيسية</button>
-      <section class="hero compact"><span class="tag">مشوار عادي · سعر ثابت</span><h1>اطلب مشوارك</h1><p>حدد نقطة الركوب والوجهة، والنظام يحسب السعر قبل إرسال الطلب.</p></section>
+      <section class="hero compact"><span class="tag">مشوار عادي · سعر ثابت</span><h1>اطلب مشوارك</h1><p>اختار المركبة وحدد الركوب والوجهة على الخريطة، والسعر يظهر قبل إرسال الطلب.</p></section>
       <form class="panel form" id="tripForm">
-        <label>نوع المركبة
-          <select name="vehicle_type" id="vehicleType" required>${types.map(([v,n]) => `<option value="${v}">${n}</option>`).join('')}</select>
-        </label>
+        <fieldset class="vehicle-field">
+          <legend>اختار نوع المركبة</legend>
+          <div class="vehicle-grid">
+            ${types.map(([value,icon,name,desc]) => `
+              <button class="vehicle-card ${value === 'bus' ? 'coming-soon' : ''}" type="button" data-vehicle="${value}" ${value === 'bus' ? 'disabled aria-disabled="true"' : ''}>
+                <span class="vehicle-icon">${icon}</span><b>${name}</b><small>${desc}</small>
+              </button>`).join('')}
+          </div>
+          <input type="hidden" name="vehicle_type" id="vehicleType" value="private_car">
+        </fieldset>
         <label>مكان الركوب
-          <input id="originName" required placeholder="مثال: التجمع الخامس، شارع التسعين" autocomplete="street-address">
+          <input id="originName" required placeholder="اكتب المنطقة أو اختار نقطة على الخريطة" autocomplete="street-address">
         </label>
         <div class="place-actions">
           <button class="btn outline" type="button" id="findOrigin">تحديد العنوان</button>
           <button class="btn outline" type="button" id="useLocation">استخدم موقعي الحالي</button>
         </div>
-        <p class="place-status" id="originStatus">لم يتم تحديد الموقع بعد.</p>
+        <p class="place-status" id="originStatus">اضغط على الخريطة لتحديد مكان الركوب.</p>
         <label>الوجهة
-          <input id="destinationName" required placeholder="مثال: مدينة نصر، عباس العقاد" autocomplete="off">
+          <input id="destinationName" required placeholder="اكتب الوجهة أو اختارها على الخريطة" autocomplete="off">
         </label>
         <button class="btn outline" type="button" id="findDestination">تأكيد عنوان الوجهة</button>
-        <p class="place-status" id="destinationStatus">اكتب الوجهة واضغط تحديد الوجهة.</p>
+        <p class="place-status" id="destinationStatus">اختار الوجهة من الخريطة أو ابحث بالاسم.</p>
+        <div class="map-heading"><b>حدد النقطتين على الخريطة</b><small>اضغط على الخريطة لوضع الدبوس للمكان المحدد بالأسفل.</small></div>
+        <div class="map-pick-mode">
+          <button type="button" class="map-mode active" id="pickOrigin">📍 تحديد الركوب</button>
+          <button type="button" class="map-mode" id="pickDestination">🏁 تحديد الوجهة</button>
+        </div>
+        <div id="tripMap" class="trip-map" role="application" aria-label="خريطة تحديد مكان الركوب والوجهة"></div>
+        <p class="map-hint" id="mapHint">الوضع الحالي: تحديد مكان الركوب.</p>
         <label>عدد الركاب
           <select name="passenger_count" id="passengerCount">
-            ${Array.from({length:13},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}
+            <option value="1">1</option><option value="2">2</option><option value="3">3</option>
           </select>
         </label>
         <label class="schedule-toggle"><input type="checkbox" id="scheduleToggle"> حجز المشوار في موعد لاحق</label>
@@ -172,52 +200,130 @@ function tripForm() {
         <section id="tripResult" class="trip-result" hidden></section>
       </form>
     </main>`);
+
   let origin = null;
   let destination = null;
+  let activePoint = 'origin';
+  let map = null;
+  let originMarker = null;
+  let destinationMarker = null;
+  let routeLine = null;
   const $ = id => document.getElementById(id);
-  $('back').addEventListener('click', () => { page = 'home'; render(); });
   const status = (id, message, bad=false) => { $(id).textContent = message; $(id).classList.toggle('error', bad); };
-  const locate = async (field, statusId) => {
+  $('back').addEventListener('click', () => { page = 'home'; render(); });
+
+  const setVehicle = value => {
+    $('vehicleType').value = value;
+    document.querySelectorAll('.vehicle-card').forEach(card => card.classList.toggle('selected', card.dataset.vehicle === value));
+    const caps = {private_car:3,suzuki:6,microbus:13};
+    const max = caps[value] || 1;
+    $('passengerCount').innerHTML = Array.from({length:max},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
+  };
+  document.querySelectorAll('.vehicle-card:not(:disabled)').forEach(card => card.addEventListener('click', () => setVehicle(card.dataset.vehicle)));
+  setVehicle('private_car');
+
+  const setActivePoint = point => {
+    activePoint = point;
+    $('pickOrigin').classList.toggle('active', point === 'origin');
+    $('pickDestination').classList.toggle('active', point === 'destination');
+    $('mapHint').textContent = point === 'origin' ? 'الوضع الحالي: اضغط لتحديد مكان الركوب.' : 'الوضع الحالي: اضغط لتحديد الوجهة.';
+  };
+  $('pickOrigin').addEventListener('click', () => setActivePoint('origin'));
+  $('pickDestination').addEventListener('click', () => setActivePoint('destination'));
+
+  const drawRoute = async () => {
+    if (!origin || !destination || !map) return;
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson&steps=false`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (!response.ok || data.code !== 'Ok' || !data.routes?.length) throw new Error('لا يوجد مسار قيادة متاح بين النقطتين.');
+      if (routeLine) map.removeLayer(routeLine);
+      routeLine = L.geoJSON(data.routes[0].geometry, {style:{color:'#a8e85e',weight:5,opacity:.9}}).addTo(map);
+      map.fitBounds(routeLine.getBounds(), {padding:[28,28]});
+      $('mapHint').textContent = `تم رسم المسار التقريبي على الخريطة · ${(data.routes[0].distance/1000).toFixed(1)} كم`;
+    } catch (error) {
+      $('mapHint').textContent = error.message || 'تعذر رسم المسار الآن؛ تأكد من النقطتين.';
+    }
+  };
+
+  const setPoint = async (point, lat, lng, name = null) => {
+    const place = {lat:Number(lat),lng:Number(lng),name:name || 'نقطة محددة على الخريطة'};
+    if (!Number.isFinite(place.lat) || !Number.isFinite(place.lng)) return;
+    if (!name) place.name = await reversePlace(place.lat, place.lng);
+    const isOrigin = point === 'origin';
+    if (isOrigin) {
+      origin = place;
+      $('originName').value = place.name;
+      status('originStatus','تم تحديد مكان الركوب على الخريطة.');
+      if (originMarker) originMarker.setLatLng([place.lat,place.lng]);
+      else originMarker = L.marker([place.lat,place.lng], {draggable:true}).addTo(map).bindPopup('مكان الركوب');
+      originMarker.off('dragend').on('dragend', async event => {
+        const p = event.target.getLatLng();
+        await setPoint('origin',p.lat,p.lng);
+      });
+    } else {
+      destination = place;
+      $('destinationName').value = place.name;
+      status('destinationStatus','تم تحديد الوجهة على الخريطة.');
+      if (destinationMarker) destinationMarker.setLatLng([place.lat,place.lng]);
+      else destinationMarker = L.marker([place.lat,place.lng], {draggable:true}).addTo(map).bindPopup('الوجهة');
+      destinationMarker.off('dragend').on('dragend', async event => {
+        const p = event.target.getLatLng();
+        await setPoint('destination',p.lat,p.lng);
+      });
+    }
+    if (origin && destination) await drawRoute();
+  };
+
+  try {
+    if (!window.L) throw new Error('تعذر تحميل مكتبة الخريطة.');
+    map = L.map('tripMap', {zoomControl:true}).setView([30.0444,31.2357], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom:19,
+      attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+    }).addTo(map);
+    map.on('click', async event => {
+      await setPoint(activePoint,event.latlng.lat,event.latlng.lng);
+    });
+    setTimeout(() => map.invalidateSize(), 150);
+  } catch (error) {
+    $('tripMap').innerHTML = '<p class="map-error">تعذر تحميل الخريطة. يمكنك استخدام البحث عن العنوان مؤقتاً.</p>';
+    $('mapHint').textContent = error.message;
+  }
+
+  const locate = async (field, pointName, statusId) => {
     const value = $(field).value.trim();
-    if (!value) { status(statusId, 'اكتب العنوان أولاً.', true); return null; }
-    status(statusId, 'جارٍ تحديد العنوان...');
+    if (!value) { status(statusId,'اكتب العنوان أولاً.',true); return; }
+    status(statusId,'جارٍ البحث عن العنوان...');
     try {
       const point = await findPlace(value);
-      if (field === 'originName') origin = point; else destination = point;
-      status(statusId, 'تم تحديد: ' + point.name);
-      return point;
-    } catch (e) { status(statusId, e.message, true); return null; }
+      await setPoint(pointName,point.lat,point.lng,point.name);
+      if (map) map.setView([point.lat,point.lng],15);
+    } catch (error) { status(statusId,error.message,true); }
   };
-  $('findOrigin').addEventListener('click', () => locate('originName','originStatus'));
-  $('findDestination').addEventListener('click', () => locate('destinationName','destinationStatus'));
-  $('originName').addEventListener('input', () => { origin = null; status('originStatus','العنوان اتغير؛ اضغط تحديد العنوان مرة أخرى.'); });
-  $('destinationName').addEventListener('input', () => { destination = null; status('destinationStatus','الوجهة اتغيرت؛ اضغط تحديد الوجهة مرة أخرى.'); });
+  $('findOrigin').addEventListener('click', () => locate('originName','origin','originStatus'));
+  $('findDestination').addEventListener('click', () => locate('destinationName','destination','destinationStatus'));
+  $('originName').addEventListener('input', () => { origin = null; if(originMarker && map) map.removeLayer(originMarker); originMarker = null; if(routeLine && map) map.removeLayer(routeLine); routeLine = null; status('originStatus','العنوان اتغير؛ اضغط تحديد العنوان أو اختار على الخريطة.'); });
+  $('destinationName').addEventListener('input', () => { destination = null; if(destinationMarker && map) map.removeLayer(destinationMarker); destinationMarker = null; if(routeLine && map) map.removeLayer(routeLine); routeLine = null; status('destinationStatus','الوجهة اتغيرت؛ اضغط تأكيد العنوان أو اختار على الخريطة.'); });
+
   $('useLocation').addEventListener('click', () => {
     if (!navigator.geolocation) { status('originStatus','تحديد الموقع غير مدعوم على هذا الجهاز.',true); return; }
     status('originStatus','جارٍ تحديد موقعك...');
     navigator.geolocation.getCurrentPosition(async pos => {
-      origin = { lat: pos.coords.latitude, lng: pos.coords.longitude, name: 'موقعي الحالي' };
-      try {
-        const u = new URL('https://nominatim.openstreetmap.org/reverse');
-        u.search = new URLSearchParams({lat:String(origin.lat),lon:String(origin.lng),format:'jsonv2'});
-        const r = await fetch(u);
-        if (r.ok) { const d = await r.json(); if (d.display_name) origin.name = d.display_name; }
-      } catch (_) {}
+      await setPoint('origin',pos.coords.latitude,pos.coords.longitude,'موقعي الحالي');
       $('originName').value = origin.name;
       status('originStatus','تم تحديد موقع الركوب بنجاح.');
-    }, err => status('originStatus', err.code === 1 ? 'اسمح للموقع بالوصول إلى موقعك من إعدادات المتصفح.' : 'تعذر تحديد موقعك. اكتب العنوان يدوياً.', true), {enableHighAccuracy:true,timeout:15000});
+      if (map) map.setView([origin.lat,origin.lng],16);
+    }, err => status('originStatus',err.code === 1 ? 'اسمح للموقع بالوصول إلى موقعك من إعدادات المتصفح.' : 'تعذر تحديد موقعك. اكتب العنوان يدوياً.',true), {enableHighAccuracy:true,timeout:15000});
   });
+
   $('scheduleToggle').addEventListener('change', e => {
     $('scheduleField').hidden = !e.target.checked;
     $('scheduledAt').required = e.target.checked;
+    if (!e.target.checked) $('scheduledAt').value = '';
   });
-  const updatePassengerOptions = () => {
-    const caps = {private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
-    const max = caps[$('vehicleType').value] || 1;
-    $('passengerCount').innerHTML = Array.from({length:max},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
-  };
-  $('vehicleType').addEventListener('change', updatePassengerOptions);
-  updatePassengerOptions();
+
   $('tripForm').addEventListener('submit', async e => {
     e.preventDefault();
     const msg = $('tripMessage');
@@ -271,8 +377,8 @@ function tripForm() {
       $('tripResult').hidden = false;
       msg.textContent = 'تم إنشاء الطلب بنجاح.';
       button.textContent = 'تم إرسال الطلب';
-    } catch (err) {
-      msg.textContent = err.message || 'حصل خطأ غير متوقع. حاول مرة أخرى.';
+    } catch (error) {
+      msg.textContent = error.message || 'حصل خطأ غير متوقع. حاول مرة أخرى.';
       button.disabled = false;
       button.textContent = 'احسب السعر واطلب المشوار';
     }
