@@ -158,7 +158,7 @@ function tripForm() {
       <form class="panel form trip-panel" id="tripForm">
         <section class="location-card">
           <label>مكان الركوب
-            <input id="originName" required placeholder="اكتب اسم الشارع أو المنطقة" autocomplete="off">
+            <div class="input-with-action"><input id="originName" required placeholder="اكتب اسم الشارع أو المنطقة" autocomplete="off"><button class="gps-icon" type="button" id="useLocation" aria-label="تحديد موقعي الحالي" title="موقعي الحالي">◎</button></div>
             <div class="suggestions" id="originSuggestions" role="listbox"></div>
           </label>
           <div class="location-divider"></div>
@@ -166,11 +166,10 @@ function tripForm() {
             <input id="destinationName" required placeholder="رايح فين؟ اكتب اسم المكان" autocomplete="off">
             <div class="suggestions" id="destinationSuggestions" role="listbox"></div>
           </label>
-          <button class="location-gps" type="button" id="useLocation">◎ استخدم موقعي الحالي</button>
-        </section>
+         </section>
 
         <div class="map-heading"><b>مسارك على الخريطة</b><small>اختار الحقل ثم اضغط على الخريطة أو حرّك الدبوس.</small></div>
-        <div id="tripMap" class="trip-map trip-map-dark" role="application" aria-label="خريطة تحديد مكان الركوب والوجهة"></div>
+        <div id="tripMap" class="trip-map" role="application" aria-label="خريطة تحديد مكان الركوب والوجهة"></div>
         <div class="map-legend"><span>🟢 الركوب</span><span>🔴 الوجهة</span><span id="mapHint">حدد النقطتين لعرض المسار.</span></div>
 
         <fieldset class="vehicle-field">
@@ -190,14 +189,24 @@ function tripForm() {
         <label id="scheduleField" hidden>موعد المشوار
           <input type="datetime-local" id="scheduledAt">
         </label>
-        <div class="notice">السعر ثابت ويظهر بعد تحديد المسافة. لا توجد عمولة على الرحلة، والدفع للكابتن نقداً.</div>
-        <button class="btn primary" type="submit" id="sendTrip">احسب السعر واطلب المشوار</button>
+        <section class="trip-summary" id="tripSummary"><div><small>المسافة</small><b id="summaryDistance">—</b></div><div><small>الوقت المتوقع</small><b id="summaryDuration">—</b></div><div><small>السعر النهائي</small><b id="summaryFare">—</b></div></section>
+        <div class="notice">السعر النهائي يُحسب من قواعد التسعير المعتمدة على الخادم. لا توجد عمولة على الرحلة، والدفع للكابتن نقداً.</div>
+        <button class="btn primary" type="submit" id="sendTrip">تأكيد وطلب المشوار</button>
         <p class="message" id="tripMessage" aria-live="polite"></p>
         <section id="tripResult" class="trip-result" hidden></section>
       </form>
     </main>`);
 
   let origin = null, destination = null, activePoint = 'origin';
+  let routeDistanceKm = null, routeDurationMinutes = null, summarySequence = 0;
+  const hour = new Date().getHours();
+  const isDay = hour >= 6 && hour < 18;
+  document.documentElement.classList.toggle('trip-day', isDay);
+  document.documentElement.classList.toggle('trip-night', !isDay);
+  document.body.classList.toggle('trip-day', isDay);
+  document.body.classList.toggle('trip-night', !isDay);
+  $('tripMap')?.classList.toggle('trip-map-night', !isDay);
+  $('tripMap')?.classList.toggle('trip-map-day', isDay);
   let map = null, originMarker = null, destinationMarker = null, routeLine = null;
   const searchTimers = {origin:null,destination:null};
   const searchSequence = {origin:0,destination:0};
@@ -205,12 +214,32 @@ function tripForm() {
   const statusHint = message => { $('mapHint').textContent = message; };
   $('back').addEventListener('click', () => { page = 'home'; render(); });
 
+  const updateFarePreview = async () => {
+    const seq = ++summarySequence;
+    if (!origin || !destination || !routeDistanceKm) {
+      $('summaryDistance').textContent = '—'; $('summaryDuration').textContent = '—'; $('summaryFare').textContent = '—'; return;
+    }
+    $('summaryDistance').textContent = `${routeDistanceKm.toFixed(1)} كم`;
+    $('summaryDuration').textContent = routeDurationMinutes ? `${Math.max(1,Math.round(routeDurationMinutes))} دقيقة` : '—';
+    $('summaryFare').textContent = 'جارٍ الحساب…';
+    try {
+      const {data,error}=await supabase.rpc('calculate_fixed_trip_fare',{p_vehicle_type:$('vehicleType').value,p_distance_km:routeDistanceKm});
+      if(error) throw error;
+      if(seq!==summarySequence) return;
+      const fare = typeof data === 'number' ? data : Number(data);
+      $('summaryFare').textContent = Number.isFinite(fare) ? `${fare.toLocaleString('ar-EG')} جنيه` : 'يظهر عند الطلب';
+    } catch (_) {
+      if(seq===summarySequence) $('summaryFare').textContent = 'يظهر عند الطلب';
+    }
+  };
+
   const setVehicle = value => {
     $('vehicleType').value = value;
     document.querySelectorAll('.vehicle-card').forEach(card => card.classList.toggle('selected', card.dataset.vehicle === value));
     const caps = {private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
     const max = caps[value] || 1;
     $('passengerCount').innerHTML = Array.from({length:max},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
+    updateFarePreview();
   };
   document.querySelectorAll('.vehicle-card').forEach(card => card.addEventListener('click', () => setVehicle(card.dataset.vehicle)));
   setVehicle('private_car');
@@ -232,10 +261,13 @@ function tripForm() {
       const data = await response.json();
       if (!response.ok || data.code !== 'Ok' || !data.routes?.length) throw new Error('تعذر إيجاد مسار قيادة بين النقطتين.');
       if (routeLine) map.removeLayer(routeLine);
-      routeLine = L.geoJSON(data.routes[0].geometry,{style:{color:'#a8e85e',weight:5,opacity:.95}}).addTo(map);
+      routeLine = L.geoJSON(data.routes[0].geometry,{style:{color:'#a8ff45',weight:6,opacity:1}}).addTo(map);
+      routeDistanceKm = data.routes[0].distance / 1000;
+      routeDurationMinutes = data.routes[0].duration / 60;
       map.fitBounds(routeLine.getBounds(),{padding:[35,35]});
-      statusHint(`المسافة التقريبية على الطريق: ${(data.routes[0].distance/1000).toFixed(1)} كم`);
-    } catch (error) { statusHint(error.message || 'تعذر رسم المسار حالياً.'); }
+      statusHint('تم تحديد المسار على الخريطة.');
+      await updateFarePreview();
+    } catch (error) { routeDistanceKm=null; routeDurationMinutes=null; await updateFarePreview(); statusHint(error.message || 'تعذر رسم المسار حالياً.'); }
   };
 
   const setPoint = async (point, lat, lng, knownName = null, moveMap = false) => {
@@ -244,9 +276,10 @@ function tripForm() {
     const isOrigin = point === 'origin';
     if (isOrigin) origin = place; else destination = place;
     const marker = isOrigin ? originMarker : destinationMarker;
-    if (marker) marker.setLatLng([place.lat,place.lng]);
+    const pinIcon = L.divIcon({className:'sekka-pin-wrap',html:`<span class="sekka-pin ${isOrigin?'pickup-pin':'dropoff-pin'}"></span>`,iconSize:[24,24],iconAnchor:[12,22]});
+    if (marker) { marker.setLatLng([place.lat,place.lng]); marker.setIcon(pinIcon); }
     else {
-      const created = L.marker([place.lat,place.lng],{draggable:true}).addTo(map);
+      const created = L.marker([place.lat,place.lng],{draggable:true,icon:pinIcon}).addTo(map);
       created.bindPopup(isOrigin ? 'مكان الركوب' : 'الوجهة');
       if (isOrigin) originMarker = created; else destinationMarker = created;
       created.on('dragend', async event => {
@@ -266,16 +299,26 @@ function tripForm() {
     }
     if (moveMap) map.setView([place.lat,place.lng],15);
     if (origin && destination) await drawRoute();
-    else statusHint('حدد النقطة الثانية لعرض المسار.');
+    else { routeDistanceKm=null; routeDurationMinutes=null; await updateFarePreview(); statusHint('حدد النقطة الثانية لعرض المسار.'); }
   };
 
   try {
     if (!window.L) throw new Error('تعذر تحميل مكتبة الخريطة.');
     map = L.map('tripMap',{zoomControl:true}).setView([30.0444,31.2357],11);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-      maxZoom:20,
-      attribution:'&copy; OpenStreetMap &copy; CARTO'
+    const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      maxZoom:19,
+      attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>'
     }).addTo(map);
+    const applyMapTheme = () => {
+      const day = new Date().getHours() >= 6 && new Date().getHours() < 18;
+      document.documentElement.classList.toggle('trip-day',day);
+      document.documentElement.classList.toggle('trip-night',!day);
+      document.body.classList.toggle('trip-day',day);
+      document.body.classList.toggle('trip-night',!day);
+      $('tripMap').classList.toggle('trip-map-day',day);
+      $('tripMap').classList.toggle('trip-map-night',!day);
+    };
+    applyMapTheme();
     map.on('click',event => setPoint(activePoint,event.latlng.lat,event.latlng.lng));
     setTimeout(() => map.invalidateSize(),200);
   } catch (error) {
@@ -301,7 +344,7 @@ function tripForm() {
       activePoint=point;
       if (point === 'origin') origin=null; else destination=null;
       if (routeLine && map) map.removeLayer(routeLine);
-      routeLine=null;
+      routeLine=null; routeDistanceKm=null; routeDurationMinutes=null; updateFarePreview();
       const query=field.value.trim();
       clearTimeout(searchTimers[point]);
       const seq=++searchSequence[point];
@@ -327,7 +370,7 @@ function tripForm() {
       $('originSuggestions').hidden=true;
       $('destinationSuggestions').hidden=true;
     }
-  },{once:true});
+  });
 
   $('useLocation').addEventListener('click',()=>{
     activePoint='origin';
@@ -381,7 +424,7 @@ function tripForm() {
       $('tripResult').hidden=false;msg.textContent='تم إنشاء الطلب بنجاح.';button.textContent='تم إرسال الطلب';
     }catch(error){
       msg.textContent=error.message||'حصل خطأ غير متوقع. حاول مرة أخرى.';
-      button.disabled=false;button.textContent='احسب السعر واطلب المشوار';
+      button.disabled=false;button.textContent='تأكيد وطلب المشوار';
     }
   });
 }
