@@ -86,6 +86,7 @@ Deno.serve(async (req: Request) => {
     const passengerCount = Number(body.passenger_count);
     const isScheduled = body.is_scheduled === true;
     const scheduledAt = body.scheduled_at == null ? null : String(body.scheduled_at);
+    if (isScheduled) return json(400, { error: "scheduled_trips_use_negotiation_flow" }, origin);
 
     if (!(vehicleType in vehicleCapacities)) return json(400, { error: "invalid_vehicle_type" }, origin);
     if (!originName || !destinationName || originName.length > 300 || destinationName.length > 300) {
