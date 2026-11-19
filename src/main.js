@@ -321,11 +321,20 @@ function tripForm() {
     else { routeDistanceKm=null; routeDurationMinutes=null; await updateFarePreview(); statusHint('حدد النقطة الثانية لعرض المسار.'); }
   };
 
+  let leafletWaitAttempts = 0;
   const initializeTripMap = () => {
     try {
       const mapElement = $('tripMap');
       if (!mapElement) throw new Error('لم يتم العثور على مساحة الخريطة.');
-      if (!window.L || typeof window.L.map !== 'function') throw new Error('مكتبة Leaflet لم تكتمل. أعد تحميل الصفحة أو تحقق من الاتصال.');
+      if (!window.L || typeof window.L.map !== 'function') {
+        if (leafletWaitAttempts < 40) {
+          leafletWaitAttempts += 1;
+          statusHint('جارٍ تحميل مكتبة الخريطة، لحظات...');
+          window.setTimeout(initializeTripMap,150);
+          return;
+        }
+        throw new Error('تعذر تحميل مكتبة الخريطة. تحقق من الاتصال ثم أعد تحميل الصفحة.');
+      }
       map = window.L.map(mapElement,{zoomControl:true,preferCanvas:true}).setView([30.0444,31.2357],11);
       window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
         maxZoom:19,
