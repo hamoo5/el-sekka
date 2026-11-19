@@ -120,6 +120,159 @@ function home() {
   app.querySelectorAll('[data-page]').forEach(b => b.addEventListener('click', () => { page = b.dataset.page; render(); }));
 }
 
+
+async function findPlace(query) {
+  const url = new URL('https://nominatim.openstreetmap.org/search');
+  url.search = new URLSearchParams({ q: query, format: 'jsonv2', limit: '1', countrycodes: 'eg' });
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('تعذر البحث عن العنوان حالياً.');
+  const rows = await response.json();
+  if (!rows.length) throw new Error('العنوان غير واضح. جرّب كتابة اسم المنطقة والشارع.');
+  return { name: rows[0].display_name, lat: Number(rows[0].lat), lng: Number(rows[0].lon) };
+}
+
+function tripForm() {
+  const types = [
+    ['private_car','ملاكي'],['taxi','تاكسي'],['suzuki','سوزوكي'],
+    ['microbus','ميكروباص'],['scooter','اسكوتر'],['motorcycle','موتوسيكل']
+  ];
+  layout(`
+    <main class="wrap narrow">
+      <button class="back" id="back">→ الرئيسية</button>
+      <section class="hero compact"><span class="tag">مشوار عادي · سعر ثابت</span><h1>اطلب مشوارك</h1><p>حدد نقطة الركوب والوجهة، والنظام يحسب السعر قبل إرسال الطلب.</p></section>
+      <form class="panel form" id="tripForm">
+        <label>نوع المركبة
+          <select name="vehicle_type" id="vehicleType" required>${types.map(([v,n]) => `<option value="${v}">${n}</option>`).join('')}</select>
+        </label>
+        <label>مكان الركوب
+          <input id="originName" required placeholder="مثال: التجمع الخامس، شارع التسعين" autocomplete="street-address">
+        </label>
+        <div class="place-actions">
+          <button class="btn outline" type="button" id="findOrigin">تحديد العنوان</button>
+          <button class="btn outline" type="button" id="useLocation">استخدم موقعي الحالي</button>
+        </div>
+        <p class="place-status" id="originStatus">لم يتم تحديد الموقع بعد.</p>
+        <label>الوجهة
+          <input id="destinationName" required placeholder="مثال: مدينة نصر، عباس العقاد" autocomplete="off">
+        </label>
+        <button class="btn outline" type="button" id="findDestination">تحديد الوجهة على الخريطة النصية</button>
+        <p class="place-status" id="destinationStatus">اكتب الوجهة واضغط تحديد الوجهة.</p>
+        <label>عدد الركاب
+          <select name="passenger_count" id="passengerCount">
+            ${Array.from({length:13},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}
+          </select>
+        </label>
+        <label class="schedule-toggle"><input type="checkbox" id="scheduleToggle"> حجز المشوار في موعد لاحق</label>
+        <label id="scheduleField" hidden>موعد المشوار
+          <input type="datetime-local" id="scheduledAt">
+        </label>
+        <div class="notice">السعر ثابت ويظهر بعد تحديد المسافة. لا توجد عمولة على الرحلة، والدفع للكابتن نقداً.</div>
+        <button class="btn primary" type="submit" id="sendTrip">احسب السعر واطلب المشوار</button>
+        <p class="message" id="tripMessage" aria-live="polite"></p>
+        <section id="tripResult" class="trip-result" hidden></section>
+      </form>
+    </main>`);
+  let origin = null;
+  let destination = null;
+  const $ = id => document.getElementById(id);
+  $('back').addEventListener('click', () => { page = 'home'; render(); });
+  const status = (id, message, bad=false) => { $(id).textContent = message; $(id).classList.toggle('error', bad); };
+  const locate = async (field, statusId) => {
+    const value = $(field).value.trim();
+    if (!value) { status(statusId, 'اكتب العنوان أولاً.', true); return null; }
+    status(statusId, 'جارٍ تحديد العنوان...');
+    try {
+      const point = await findPlace(value);
+      if (field === 'originName') origin = point; else destination = point;
+      status(statusId, 'تم تحديد: ' + point.name);
+      return point;
+    } catch (e) { status(statusId, e.message, true); return null; }
+  };
+  $('findOrigin').addEventListener('click', () => locate('originName','originStatus'));
+  $('findDestination').addEventListener('click', () => locate('destinationName','destinationStatus'));
+  $('originName').addEventListener('input', () => { origin = null; status('originStatus','العنوان اتغير؛ اضغط تحديد العنوان مرة أخرى.'); });
+  $('destinationName').addEventListener('input', () => { destination = null; status('destinationStatus','الوجهة اتغيرت؛ اضغط تحديد الوجهة مرة أخرى.'); });
+  $('useLocation').addEventListener('click', () => {
+    if (!navigator.geolocation) { status('originStatus','تحديد الموقع غير مدعوم على هذا الجهاز.',true); return; }
+    status('originStatus','جارٍ تحديد موقعك...');
+    navigator.geolocation.getCurrentPosition(async pos => {
+      origin = { lat: pos.coords.latitude, lng: pos.coords.longitude, name: 'موقعي الحالي' };
+      try {
+        const u = new URL('https://nominatim.openstreetmap.org/reverse');
+        u.search = new URLSearchParams({lat:String(origin.lat),lon:String(origin.lng),format:'jsonv2'});
+        const r = await fetch(u);
+        if (r.ok) { const d = await r.json(); if (d.display_name) origin.name = d.display_name; }
+      } catch (_) {}
+      $('originName').value = origin.name;
+      status('originStatus','تم تحديد موقع الركوب بنجاح.');
+    }, err => status('originStatus', err.code === 1 ? 'اسمح للموقع بالوصول إلى موقعك من إعدادات المتصفح.' : 'تعذر تحديد موقعك. اكتب العنوان يدوياً.', true), {enableHighAccuracy:true,timeout:15000});
+  });
+  $('scheduleToggle').addEventListener('change', e => {
+    $('scheduleField').hidden = !e.target.checked;
+    $('scheduledAt').required = e.target.checked;
+  });
+  $('vehicleType').addEventListener('change', e => {
+    const caps = {private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
+    const max = caps[e.target.value] || 1;
+    $('passengerCount').innerHTML = Array.from({length:max},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
+  });
+  $('tripForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const msg = $('tripMessage');
+    const button = $('sendTrip');
+    msg.textContent = '';
+    $('tripResult').hidden = true;
+    if (!origin) { status('originStatus','حدد مكان الركوب أولاً.',true); return; }
+    if (!destination) { status('destinationStatus','حدد الوجهة أولاً.',true); return; }
+    if (origin.lat === destination.lat && origin.lng === destination.lng) { msg.textContent = 'مكان الركوب والوجهة متطابقان.'; return; }
+    const scheduled = $('scheduleToggle').checked;
+    let scheduledAt = null;
+    if (scheduled) {
+      const raw = $('scheduledAt').value;
+      if (!raw || new Date(raw).getTime() <= Date.now()) { msg.textContent = 'اختر موعداً مستقبلياً صحيحاً.'; return; }
+      scheduledAt = new Date(raw).toISOString();
+    }
+    button.disabled = true;
+    button.textContent = 'جارٍ حساب المسافة والسعر...';
+    msg.textContent = 'بنحسب المسافة ونتأكد من السعر على الخادم.';
+    try {
+      const { data, error } = await supabase.functions.invoke('create-fixed-trip', {
+        body: {
+          vehicle_type: $('vehicleType').value,
+          origin_name: origin.name,
+          origin_lat: origin.lat,
+          origin_lng: origin.lng,
+          destination_name: destination.name,
+          destination_lat: destination.lat,
+          destination_lng: destination.lng,
+          is_scheduled: scheduled,
+          scheduled_at: scheduledAt,
+          passenger_count: Number($('passengerCount').value)
+        }
+      });
+      if (error) {
+        let details = error.message || 'تعذر إرسال الطلب.';
+        try { const body = await error.context?.json(); if (body?.error) details = body.error; } catch (_) {}
+        throw new Error(details);
+      }
+      if (!data || !data.request_id) throw new Error(data?.error || 'الخادم لم يرجع تأكيداً بإنشاء الطلب.');
+      $('tripResult').innerHTML = `
+        <h3>تم إرسال طلب المشوار</h3>
+        <div class="fare-line"><span>السعر الثابت</span><strong>${Number(data.fixed_fare_egp).toLocaleString('ar-EG')} جنيه</strong></div>
+        <p>المسافة التقريبية: ${Number(data.distance_km).toFixed(1)} كم</p>
+        <p>رقم الطلب: <small dir="ltr">${esc(data.request_id)}</small></p>
+        <p class="muted">حالة الطلب: ${esc(data.request_status || 'searching')}</p>`;
+      $('tripResult').hidden = false;
+      msg.textContent = 'تم إنشاء الطلب بنجاح.';
+      button.textContent = 'تم إرسال الطلب';
+    } catch (err) {
+      msg.textContent = err.message || 'حصل خطأ غير متوقع. حاول مرة أخرى.';
+      button.disabled = false;
+      button.textContent = 'احسب السعر واطلب المشوار';
+    }
+  });
+}
+
 function placeholder(title, desc) {
   layout(`
     <main class="wrap narrow">
@@ -134,7 +287,7 @@ function render() {
   if (!supabase) return setup();
   if (!session) return auth();
   if (page === 'home') return home();
-  if (page === 'trip') return placeholder('المشوار العادي', 'طلب رحلة بسعر ثابت يحدده النظام.');
+  if (page === 'trip') return tripForm();
   if (page === 'share') return placeholder('مشاركة السكة', 'ابحث عن رحلة مناسبة أو انشر طريقك كمقاعد متاحة.');
   if (page === 'captain') return placeholder('لوحة الكابتن', 'إدارة المركبة والرحلات والحجوزات والاشتراك.');
   if (page === 'admin') return placeholder('لوحة الإدارة', 'مراجعة الحسابات والمركبات والاشتراكات والبلاغات.');
