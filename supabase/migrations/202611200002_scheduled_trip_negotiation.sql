@@ -242,21 +242,28 @@ declare
   v_user_id uuid := auth.uid();
   v_offer public.scheduled_trip_price_offers%rowtype;
   v_request public.trip_requests%rowtype;
+  v_request_id uuid;
   v_captain_id uuid;
   v_vehicle_id uuid;
   v_vehicle public.vehicles%rowtype;
 begin
   if v_user_id is null then raise exception 'login_required'; end if;
 
-  select * into v_offer from public.scheduled_trip_price_offers
-  where id = p_offer_id for update;
-  if not found or v_offer.offer_status <> 'pending' then raise exception 'offer_not_pending'; end if;
+  select trip_request_id into v_request_id
+  from public.scheduled_trip_price_offers
+  where id = p_offer_id;
+  if v_request_id is null then raise exception 'offer_not_found'; end if;
 
+  -- Lock the request before the offer in every negotiation function to avoid lock-order deadlocks.
   select * into v_request from public.trip_requests
-  where id = v_offer.trip_request_id for update;
+  where id = v_request_id for update;
   if not found or v_request.is_scheduled is not true or v_request.request_status <> 'searching' then
     raise exception 'scheduled_request_unavailable';
   end if;
+
+  select * into v_offer from public.scheduled_trip_price_offers
+  where id = p_offer_id and trip_request_id = v_request_id for update;
+  if not found or v_offer.offer_status <> 'pending' then raise exception 'offer_not_pending'; end if;
 
   if v_offer.offered_by_role = 'captain' then
     if v_user_id <> v_request.passenger_id then raise exception 'only_passenger_can_accept'; end if;
