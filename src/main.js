@@ -316,7 +316,7 @@ function tripForm() {
         } catch(error) {
           if(seq===searchSequence[point]) box.innerHTML='<div class="suggestion-loading">تعذر تحميل الاقتراحات حالياً.</div>';
         }
-      },850);
+      },1100);
     });
     field.addEventListener('keydown',event=>{if(event.key==='Escape')box.hidden=true;});
   };
