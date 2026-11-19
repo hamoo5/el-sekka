@@ -262,6 +262,14 @@ begin
     if v_user_id <> v_request.passenger_id then raise exception 'only_passenger_can_accept'; end if;
     v_captain_id := v_offer.offered_by;
     v_vehicle_id := v_offer.vehicle_id;
+    perform public.require_captain_ready(v_captain_id);
+    select * into v_vehicle from public.vehicles
+    where id = v_vehicle_id and captain_id = v_captain_id
+      and vehicle_type = v_request.vehicle_type
+      and approval_status = 'approved' and is_active = true
+      and passenger_capacity >= v_request.passenger_count
+    for update;
+    if not found then raise exception 'vehicle_not_eligible'; end if;
   else
     if v_user_id = v_request.passenger_id then raise exception 'captain_must_accept_passenger_offer'; end if;
     perform public.require_captain_ready(v_user_id);
@@ -351,3 +359,48 @@ $$;
 
 revoke all on function public.list_scheduled_trip_requests_for_captain() from public, anon;
 grant execute on function public.list_scheduled_trip_requests_for_captain() to authenticated;
+
+
+-- Passenger inbox for their own scheduled requests and the current pending counter-offer.
+create or replace function public.list_my_scheduled_trip_requests()
+returns table (
+  request_id uuid,
+  vehicle_type text,
+  origin_name text,
+  destination_name text,
+  scheduled_at timestamptz,
+  passenger_count integer,
+  request_status text,
+  agreed_fare_egp numeric,
+  pending_offer_id uuid,
+  pending_offer_by_role text,
+  pending_offer_amount_egp numeric
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+begin
+  if v_user_id is null then raise exception 'login_required'; end if;
+  return query
+  select tr.id, tr.vehicle_type, tr.origin_name, tr.destination_name,
+         tr.scheduled_at, tr.passenger_count, tr.request_status, tr.fixed_fare_egp,
+         current_offer.id, current_offer.offered_by_role, current_offer.amount_egp
+  from public.trip_requests tr
+  left join lateral (
+    select o.id, o.offered_by_role, o.amount_egp
+    from public.scheduled_trip_price_offers o
+    where o.trip_request_id = tr.id and o.offer_status = 'pending'
+    order by o.created_at desc
+    limit 1
+  ) current_offer on true
+  where tr.passenger_id = v_user_id
+    and tr.is_scheduled = true
+  order by tr.created_at desc;
+end;
+$$;
+
+revoke all on function public.list_my_scheduled_trip_requests() from public, anon;
+grant execute on function public.list_my_scheduled_trip_requests() to authenticated;
