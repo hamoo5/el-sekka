@@ -135,7 +135,7 @@ async function waitForNominatimSlot() {
 async function searchPlaces(query) {
   await waitForNominatimSlot();
   const url = new globalThis.URL('https://nominatim.openstreetmap.org/search');
-  url.search = new URLSearchParams({ q: query, format: 'jsonv2', limit: '5', countrycodes: 'eg', addressdetails: '1' });
+  url.search = new URLSearchParams({ q: query, format: 'jsonv2', limit: '5', countrycodes: 'eg', 'accept-language': 'ar', addressdetails: '1' });
   const response = await fetch(url, { headers: { 'Accept-Language': 'ar' } });
   if (!response.ok) throw new Error('تعذر البحث عن العناوين حالياً.');
   const rows = await response.json();
@@ -212,6 +212,7 @@ function tripForm() {
     </main>`);
 
   let origin = null, destination = null, activePoint = 'origin';
+  const $ = id => document.getElementById(id);
   let routeDistanceKm = null, routeDurationMinutes = null, summarySequence = 0;
   const hour = new Date().getHours();
   const isDay = hour >= 6 && hour < 18;
@@ -224,7 +225,6 @@ function tripForm() {
   let map = null, originMarker = null, destinationMarker = null, routeLine = null;
   const searchTimers = {origin:null,destination:null};
   const searchSequence = {origin:0,destination:0};
-  const $ = id => document.getElementById(id);
   const statusHint = message => { $('mapHint').textContent = message; };
   $('back').addEventListener('click', () => { page = 'home'; render(); });
 
@@ -316,29 +316,56 @@ function tripForm() {
     else { routeDistanceKm=null; routeDurationMinutes=null; await updateFarePreview(); statusHint('حدد النقطة الثانية لعرض المسار.'); }
   };
 
-  try {
-    if (!window.L) throw new Error('تعذر تحميل مكتبة الخريطة.');
-    map = L.map('tripMap',{zoomControl:true}).setView([30.0444,31.2357],11);
-    const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      maxZoom:19,
-      attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>'
-    }).addTo(map);
-    const applyMapTheme = () => {
-      const day = new Date().getHours() >= 6 && new Date().getHours() < 18;
-      document.documentElement.classList.toggle('trip-day',day);
-      document.documentElement.classList.toggle('trip-night',!day);
-      document.body.classList.toggle('trip-day',day);
-      document.body.classList.toggle('trip-night',!day);
-      $('tripMap').classList.toggle('trip-map-day',day);
-      $('tripMap').classList.toggle('trip-map-night',!day);
-    };
-    applyMapTheme();
-    setInterval(applyMapTheme, 60_000);
-    map.on('click',event => setPoint(activePoint,event.latlng.lat,event.latlng.lng));
-    setTimeout(() => map.invalidateSize(),200);
-  } catch (error) {
-    $('tripMap').innerHTML = '<p class="map-error">تعذر تحميل الخريطة. تحقق من الاتصال بالإنترنت.</p>';
-    statusHint(error.message);
+  const initializeTripMap = () => {
+    try {
+      const mapElement = $('tripMap');
+      if (!mapElement) throw new Error('لم يتم العثور على مساحة الخريطة.');
+      if (!window.L || typeof window.L.map !== 'function') throw new Error('مكتبة Leaflet لم تكتمل. أعد تحميل الصفحة أو تحقق من الاتصال.');
+      map = window.L.map(mapElement,{zoomControl:true,preferCanvas:true}).setView([30.0444,31.2357],11);
+      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+        maxZoom:19,
+        attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>',
+        crossOrigin:true
+      }).addTo(map);
+      const applyMapTheme = () => {
+        const day = new Date().getHours() >= 6 && new Date().getHours() < 18;
+        document.documentElement.classList.toggle('trip-day',day);
+        document.documentElement.classList.toggle('trip-night',!day);
+        document.body.classList.toggle('trip-day',day);
+        document.body.classList.toggle('trip-night',!day);
+        mapElement.classList.toggle('trip-map-day',day);
+        mapElement.classList.toggle('trip-map-night',!day);
+      };
+      applyMapTheme();
+      window.setInterval(applyMapTheme,60_000);
+      map.on('click',event => {
+        try { setPoint(activePoint,event.latlng.lat,event.latlng.lng).catch(error => statusHint(error.message || 'تعذر تحديد النقطة.')); }
+        catch(error) { statusHint(error.message || 'تعذر تحديد النقطة.'); }
+      });
+      const refreshSize = () => {
+        if (!map) return;
+        try { map.invalidateSize({pan:false,animate:false}); }
+        catch(error) { console.warn('Leaflet invalidateSize:',error); }
+      };
+      window.requestAnimationFrame(() => {
+        refreshSize();
+        window.setTimeout(refreshSize,250);
+        window.setTimeout(refreshSize,800);
+      });
+      window.addEventListener('resize',refreshSize,{passive:true});
+      window.addEventListener('orientationchange',()=>window.setTimeout(refreshSize,300),{passive:true});
+      map.on('tileerror',() => statusHint('تعذر تحميل بعض بلاطات الخريطة. تحقق من اتصال الإنترنت.'));
+      map.on('tileload',() => { if ($('mapHint')?.textContent.includes('بلاطات')) statusHint('الخريطة جاهزة. حدد مكان الركوب والوجهة.'); });
+    } catch (error) {
+      console.error('Trip map initialization failed:',error);
+      $('tripMap').innerHTML = '<p class="map-error">تعذر تهيئة الخريطة حالياً. يمكنك تجربة إعادة تحميل الصفحة أو تحديد العناوين من البحث.</p>';
+      statusHint(error.message || 'تعذر تحميل الخريطة.');
+    }
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded',initializeTripMap,{once:true});
+  } else {
+    window.requestAnimationFrame(initializeTripMap);
   }
 
   const showSuggestions = (point, rows) => {
