@@ -1,0 +1,11 @@
+{
+  "name": "السكة",
+  "short_name": "السكة",
+  "description": "منصة التنقل ومشاركة الطريق",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#101827"
+}
