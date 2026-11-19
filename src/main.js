@@ -146,9 +146,11 @@ async function reversePlace(lat, lng) {
 function tripForm() {
   const types = [
     ['private_car','🚘','ملاكي','حتى 3 ركاب'],
+    ['taxi','🚕','تاكسي','حتى 4 ركاب'],
     ['suzuki','🚐','سوزوكي','حتى 6 ركاب'],
     ['microbus','🚌','ميكروباص','حتى 13 راكب'],
-    ['bus','🚍','أتوبيس','قريباً']
+    ['scooter','🛵','اسكوتر','راكب واحد'],
+    ['motorcycle','🏍️','موتوسيكل','راكب واحد']
   ];
   layout(`
     <main class="wrap narrow">
@@ -215,7 +217,7 @@ function tripForm() {
   const setVehicle = value => {
     $('vehicleType').value = value;
     document.querySelectorAll('.vehicle-card').forEach(card => card.classList.toggle('selected', card.dataset.vehicle === value));
-    const caps = {private_car:3,suzuki:6,microbus:13};
+    const caps = {private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
     const max = caps[value] || 1;
     $('passengerCount').innerHTML = Array.from({length:max},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
   };
