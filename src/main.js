@@ -79,7 +79,7 @@ function layout(body) {
       <button type="button" data-nav-page="captain-account" class="${page==='captain-account'?'active':''}"><span>💳</span><small>اشتراكي ومستنداتي</small></button>
       <button type="button" data-nav-page="profile" class="${page==='profile'?'active':''}"><span>👤</span><small>حسابي</small></button>
     </nav>` : rider ? `<nav class="app-bottom-nav rider-nav" aria-label="تنقل الراكب">
-      <button type="button" data-nav-page="trip" class="${page==='trip'?'active':''}"><span>🚖</span><small>اطلب مشوار</small></button>
+      <button type="button" data-nav-page="trip" class="${['trip','trip-search','trip-options'].includes(page)?'active':''}"><span>🚖</span><small>اطلب مشوار</small></button>
       <button type="button" data-nav-page="trips" class="${page==='trips'||page==='trip-status'?'active':''}"><span>📋</span><small>مشاويري</small></button>
       <button type="button" data-nav-page="profile" class="${page==='profile'||page==='rewards'?'active':''}"><span>👤</span><small>حسابي</small></button>
     </nav>` : `<nav class="app-bottom-nav"><button type="button" data-nav-page="admin" class="${page==='admin'?'active':''}"><span>⚙️</span><small>الإدارة</small></button><button type="button" data-nav-page="profile"><span>👤</span><small>حسابي</small></button></nav>` : ''}
@@ -296,6 +296,30 @@ async function reversePlace(lat, lng) {
     }
   } catch (_) {}
   return 'نقطة محددة على الخريطة';
+}
+
+const RIDER_DRAFT_KEY='el-sekka-rider-trip-draft';
+function readRiderDraft(){try{return JSON.parse(sessionStorage.getItem(RIDER_DRAFT_KEY)||'{}')||{};}catch(_){return {};}}
+function saveRiderDraft(value){try{sessionStorage.setItem(RIDER_DRAFT_KEY,JSON.stringify(value));}catch(_){}}
+function riderStartPage(){
+ const draft=readRiderDraft(),places=savedPassengerDestinations(),icons={home:'🏠',work:'💼',metro:'🚇'},labels={home:'البيت',work:'الشغل',metro:'المترو'};
+ layout(`<main class="rider-start-screen"><section class="rider-search-hero"><button type="button" class="rider-search-box" id="openRiderSearch"><span>🔎</span><b>إلى أين تتجه؟</b><small>اضغط لاختيار مكان الركوب والوجهة</small></button><button type="button" class="rider-mode-mini" id="riderModeMini">${draft.mode==='shared'?'👥 مشترك':'🚖 عادي'} <span>⌄</span></button><div class="rider-mode-menu" id="riderModeMenu" hidden><button type="button" data-mode="normal">🚖 مشوار عادي</button><button type="button" data-mode="shared">👥 مشوار مشترك</button></div></section><section class="rider-saved-section"><h2>أماكنك المحفوظة</h2><div class="rider-saved-places">${['home','work','metro'].map(k=>`<button type="button" data-saved-place="${k}" class="rider-saved-place ${places[k]?'saved':'empty'}"><span>${icons[k]}</span><b>${labels[k]}</b><small>${places[k]?.name?esc(places[k].name):'إضافة مكان'}</small></button>`).join('')}</div></section>${draft.destination?.name?`<section class="rider-recent-place"><small>آخر وجهة اخترتها</small><b>${esc(draft.destination.name)}</b><button type="button" id="continueLastTrip">متابعة الاختيار ←</button></section>`:''}</main>`);
+ document.getElementById('openRiderSearch')?.addEventListener('click',()=>{page='trip-search';render();});
+ document.getElementById('riderModeMini')?.addEventListener('click',()=>{document.getElementById('riderModeMenu').hidden=!document.getElementById('riderModeMenu').hidden;});
+ document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{const d=readRiderDraft();d.mode=b.dataset.mode;saveRiderDraft(d);render();}));
+ document.querySelectorAll('[data-saved-place]').forEach(b=>b.addEventListener('click',()=>{const place=places[b.dataset.savedPlace];if(!place){page='trip-search';render();return;}const d=readRiderDraft();d.destination=place;d.mode=d.mode||'normal';saveRiderDraft(d);page='trip-options';render();}));
+ document.getElementById('continueLastTrip')?.addEventListener('click',()=>{page='trip-options';render();});
+}
+function riderSearchPage(){
+ const draft=readRiderDraft(),places=savedPassengerDestinations();
+ layout(`<main class="rider-search-screen"><header class="rider-search-header"><button type="button" id="searchBack" aria-label="رجوع">←</button><h1>حدد مشوارك</h1></header><section class="rider-search-fields"><label><span class="pickup-dot"></span>مكان الركوب<input id="searchOrigin" autocomplete="off" placeholder="حدد مكان الركوب" value="${esc(draft.origin?.name||'')}" /><div class="rider-search-suggestions" id="searchOriginSuggestions"></div></label><label><span class="destination-dot"></span>الوجهة<input id="searchDestination" autocomplete="off" placeholder="إلى أين تتجه؟" value="${esc(draft.destination?.name||'')}" /><div class="rider-search-suggestions" id="searchDestinationSuggestions"></div></label><button type="button" id="searchUseLocation" class="rider-use-location">◎ استخدام موقعي الحالي</button></section><section class="rider-search-saved"><h2>أماكن محفوظة</h2><div>${['home','work','metro'].map(k=>`<button type="button" data-search-place="${k}">${({home:'🏠 البيت',work:'💼 الشغل',metro:'🚇 المترو'})[k]}</button>`).join('')}</div></section><p id="riderSearchMessage" class="message" aria-live="polite"></p></main>`);
+ const originInput=document.getElementById('searchOrigin'),destInput=document.getElementById('searchDestination');
+ const setDraftPoint=(key,p)=>{const d=readRiderDraft();d[key]=p;saveRiderDraft(d);};
+ const bind=(key,input,box)=>{let timer=null,seq=0;input.addEventListener('input',()=>{const d=readRiderDraft();delete d[key];saveRiderDraft(d);const q=input.value.trim(),n=++seq;clearTimeout(timer);if(q.length<3){box.hidden=true;box.innerHTML='';return;}box.hidden=false;box.innerHTML='<div class="suggestion-loading">جارٍ البحث عن العناوين...</div>';timer=setTimeout(async()=>{try{const rows=await searchPlaces(q);if(n!==seq)return;box.innerHTML=rows.map((p,i)=>`<button type="button" data-result="${i}">${esc(p.name)}</button>`).join('')||'<p>لا توجد نتائج مناسبة.</p>';box.querySelectorAll('[data-result]').forEach(b=>b.addEventListener('click',()=>{const p=rows[Number(b.dataset.result)];setDraftPoint(key,p);input.value=p.name;box.hidden=true;if(key==='destination'){const d=readRiderDraft();if(!d.origin){document.getElementById('riderSearchMessage').textContent='حدد مكان الركوب أولاً.';return;}page='trip-options';render();}}));}catch(e){box.innerHTML='<p>تعذر البحث الآن، حاول مرة أخرى.</p>';}} ,650);});};
+ bind('origin',originInput,document.getElementById('searchOriginSuggestions'));bind('destination',destInput,document.getElementById('searchDestinationSuggestions'));
+ document.getElementById('searchBack').addEventListener('click',()=>{page='trip';render();});
+ document.getElementById('searchUseLocation').addEventListener('click',()=>{if(!navigator.geolocation)return;const m=document.getElementById('riderSearchMessage');m.textContent='جارٍ تحديد موقعك...';navigator.geolocation.getCurrentPosition(async pos=>{const name=await reversePlace(pos.coords.latitude,pos.coords.longitude);const p={lat:pos.coords.latitude,lng:pos.coords.longitude,name};setDraftPoint('origin',p);originInput.value=name;m.textContent='تم تحديد مكان الركوب.';},()=>m.textContent='تعذر تحديد الموقع. اكتب العنوان يدويًا.');});
+ document.querySelectorAll('[data-search-place]').forEach(b=>b.addEventListener('click',()=>{const p=places[b.dataset.searchPlace];if(!p){document.getElementById('riderSearchMessage').textContent='المكان غير محفوظ بعد.';return;}setDraftPoint('destination',p);destInput.value=p.name;page='trip-options';render();}));
 }
 
 function tripForm() {
@@ -2227,7 +2251,9 @@ function render() {
   if (page === 'rewards') return rewardsPage();
   if (page === 'trips') return tripsPage();
   if (page === 'profile') return profilePage();
-  if (page === 'trip') return tripForm();
+  if (page === 'trip') return riderStartPage();
+  if (page === 'trip-search') return riderSearchPage();
+  if (page === 'trip-options') return tripForm();
   if (page === 'share') return shareHome();
   if (page === 'apply-captain') return applyCaptainPage();
   if (page === 'admin') return profile?.role === 'admin' ? adminApplicationsPage() : (page='home',render());
