@@ -1,6 +1,38 @@
 -- El Sekka: enforce captain subscription + document eligibility across all captain actions.
 -- This migration is intentionally separate from 006 so the document workflow can be reviewed independently.
 
+-- Private subscription payment proofs: owner and admins only.
+insert into storage.buckets (id,name,public,file_size_limit,allowed_mime_types)
+values ('captain-payment-proofs','captain-payment-proofs',false,5242880,array['image/jpeg','image/png','image/webp','application/pdf'])
+on conflict (id) do update
+set public=false,file_size_limit=5242880,allowed_mime_types=excluded.allowed_mime_types;
+
+drop policy if exists captain_payment_proofs_owner_read on storage.objects;
+create policy captain_payment_proofs_owner_read on storage.objects
+for select to authenticated
+using (bucket_id='captain-payment-proofs' and (storage.foldername(name))[1]=auth.uid()::text);
+
+drop policy if exists captain_payment_proofs_admin_read on storage.objects;
+create policy captain_payment_proofs_admin_read on storage.objects
+for select to authenticated
+using (bucket_id='captain-payment-proofs' and public.is_admin());
+
+drop policy if exists captain_payment_proofs_owner_insert on storage.objects;
+create policy captain_payment_proofs_owner_insert on storage.objects
+for insert to authenticated
+with check (bucket_id='captain-payment-proofs' and (storage.foldername(name))[1]=auth.uid()::text);
+
+drop policy if exists captain_payment_proofs_owner_update on storage.objects;
+create policy captain_payment_proofs_owner_update on storage.objects
+for update to authenticated
+using (bucket_id='captain-payment-proofs' and (storage.foldername(name))[1]=auth.uid()::text)
+with check (bucket_id='captain-payment-proofs' and (storage.foldername(name))[1]=auth.uid()::text);
+
+drop policy if exists captain_payment_proofs_owner_delete on storage.objects;
+create policy captain_payment_proofs_owner_delete on storage.objects
+for delete to authenticated
+using (bucket_id='captain-payment-proofs' and (storage.foldername(name))[1]=auth.uid()::text);
+
 create or replace function public.require_captain_ready_for(
   p_captain_id uuid,
   p_activity_at timestamptz default now()
@@ -58,7 +90,7 @@ revoke all on function public.require_captain_ready_for(uuid,timestamptz) from p
 revoke all on function public.require_captain_ready(uuid) from public, anon, authenticated;
 
 -- Keep vehicle visibility aligned with operational eligibility.
-create or replace function public.sync_captain_subscription_status()
+create or replace function public.sync_captain_subscription_status_for(p_captain_id uuid)
 returns void
 language plpgsql
 security definer
@@ -69,31 +101,45 @@ begin
   set is_active = (
     v.approval_status = 'approved'
     and exists (
-      select 1
-      from public.profiles p
-      join public.captain_applications a on a.user_id = p.id
-      where p.id = v.captain_id
-        and p.role = 'captain'
-        and coalesce(p.is_blocked, true) = false
-        and a.application_status = 'approved'
-        and a.national_id_expiry > current_date
-        and a.license_expiry > current_date
-        and a.vehicle_license_expiry > current_date
+      select 1 from public.profiles p
+      join public.captain_applications a on a.user_id=p.id
+      where p.id=v.captain_id and p.id=p_captain_id
+        and p.role='captain' and coalesce(p.is_blocked,true)=false
+        and a.application_status='approved'
+        and a.national_id_expiry>current_date
+        and a.license_expiry>current_date
+        and a.vehicle_license_expiry>current_date
     )
     and exists (
-      select 1
-      from public.captain_subscriptions s
-      where s.captain_id = v.captain_id
-        and s.payment_status = 'approved'
-        and s.starts_at <= now()
-        and s.expires_at > now()
+      select 1 from public.captain_subscriptions s
+      where s.captain_id=v.captain_id
+        and s.payment_status='approved'
+        and s.starts_at<=now() and s.expires_at>now()
     )
   )
-  where v.captain_id is not null;
+  where v.captain_id=p_captain_id;
 end;
 $$;
 
-revoke all on function public.sync_captain_subscription_status() from public, anon, authenticated;
+create or replace function public.sync_captain_subscription_status()
+returns void
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  v_captain_id uuid;
+begin
+  for v_captain_id in
+    select distinct v.captain_id from public.vehicles v where v.captain_id is not null
+  loop
+    perform public.sync_captain_subscription_status_for(v_captain_id);
+  end loop;
+end;
+$$;
+
+revoke all on function public.sync_captain_subscription_status_for(uuid) from public,anon,authenticated;
+revoke all on function public.sync_captain_subscription_status() from public,anon,authenticated;
 
 -- A captain can submit a first subscription or renew after expiry.
 -- Payment approval remains a human/admin action because payment is external.
@@ -136,6 +182,13 @@ begin
   end if;
   if nullif(btrim(p_proof_path), '') is null then
     raise exception 'payment_proof_required';
+  end if;
+  if (storage.foldername(btrim(p_proof_path)))[1] <> v_id::text
+     or not exists (
+       select 1 from storage.objects o
+       where o.bucket_id='captain-payment-proofs' and o.name=btrim(p_proof_path)
+     ) then
+    raise exception 'payment_proof_not_owned_or_missing';
   end if;
 
   perform 1 from public.profiles where id = v_id for update;
@@ -208,7 +261,11 @@ begin
   )
   values (
     v_sub.captain_id,
-    case when v_sub.plan_days = 30 then 'subscription' else 'renewal' end,
+    case when exists (
+      select 1 from public.captain_subscriptions old
+      where old.captain_id=v_sub.captain_id
+        and old.id<>v_sub.id and old.payment_status='approved'
+    ) then 'renewal' else 'subscription' end,
     v_sub.amount_egp,
     p_subscription_id,
     'Captain subscription approved',
@@ -218,12 +275,40 @@ begin
   insert into public.audit_logs(actor_id, action, entity_type, entity_id)
   values (auth.uid(), 'subscription_approved', 'subscription', p_subscription_id::text);
 
-  perform public.sync_captain_subscription_status();
+  perform public.sync_captain_subscription_status_for(v_sub.captain_id);
 end;
-$$;
+$;
 
 revoke all on function public.admin_approve_subscription(uuid) from public, anon;
 grant execute on function public.admin_approve_subscription(uuid) to authenticated;
+
+-- Admin rejection is explicit and leaves the captain free to submit a corrected request.
+create or replace function public.admin_reject_subscription(p_subscription_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $
+declare
+  v_sub public.captain_subscriptions%rowtype;
+begin
+  perform public.require_admin();
+  select * into v_sub from public.captain_subscriptions
+  where id=p_subscription_id for update;
+  if not found then raise exception 'subscription_not_found'; end if;
+  if v_sub.payment_status<>'submitted' then raise exception 'subscription_already_reviewed'; end if;
+
+  update public.captain_subscriptions
+  set payment_status='rejected',reviewed_by=auth.uid(),reviewed_at=now()
+  where id=p_subscription_id;
+
+  insert into public.audit_logs(actor_id,action,entity_type,entity_id)
+  values(auth.uid(),'subscription_rejected','subscription',p_subscription_id::text);
+end;
+$;
+
+revoke all on function public.admin_reject_subscription(uuid) from public,anon;
+grant execute on function public.admin_reject_subscription(uuid) to authenticated;
 
 -- A captain may reject a booking while inactive, but cannot accept or counter-offer.
 create or replace function public.captain_reply_booking(
@@ -426,8 +511,8 @@ set search_path = pg_catalog, public
 as $$
 begin
   if auth.uid() is null then raise exception 'login_required'; end if;
-  perform public.process_captain_document_expiry();
-  perform public.sync_captain_subscription_status();
+  perform public.process_captain_document_expiry_for(auth.uid());
+  perform public.sync_captain_subscription_status_for(auth.uid());
 end;
 $$;
 
