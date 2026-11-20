@@ -326,7 +326,7 @@ function tripForm() {
   const types = [['private_car','🚘','ملاكي','3 ركاب'],['taxi','🚕','تاكسي','4 ركاب'],['suzuki','🚐','سوزوكي','6 ركاب']];
   layout(`
     <main class="passenger-map-first"><section class="passenger-map-stage"><div id="tripMap" class="trip-map" role="application" aria-label="خريطة تحديد مكان الركوب والوجهة"></div><div class="map-floating-status" id="mapHint">حدد مكان الركوب والوجهة لعرض المسار</div><button type="button" class="map-locate-button" id="useLocation" aria-label="تحديد موقعي الحالي">◎</button></section>
-      <form class="panel form trip-panel passenger-bottom-sheet" id="tripForm"><div class="bottom-sheet-handle"></div><div class="ride-mode-switch"><button type="button" class="active" id="normalRideMode">🚖 مشوار عادي</button><button type="button" id="sharedRideMode">👥 مشوار مشترك</button></div>
+      <form class="panel form trip-panel passenger-bottom-sheet" id="tripForm"><div class="bottom-sheet-handle"></div><div class="trip-options-heading"><b>اختار المركبة المناسبة</b><small id="selectedRouteNames"></small></div>
         <button type="button" class="trip-step-back" id="tripOptionsBack">← تعديل العناوين</button>
         <section class="location-card" hidden>
           <label>مكان الركوب<input id="originName" required autocomplete="off"><div class="suggestions" id="originSuggestions" role="listbox"></div><div class="pickup-marker-row"><button type="button" data-pickup-note="قدام البوابة">قدام البوابة</button><button type="button" data-pickup-note="عند الصيدلية">عند الصيدلية</button><button type="button" data-pickup-note="على الناصية">على الناصية</button></div><input id="pickupNote" maxlength="160" autocomplete="off"></label>
@@ -401,6 +401,7 @@ function tripForm() {
   const statusHint = message => { $('mapHint').textContent = message; };
   const riderDraft = readRiderDraft();
   const rememberedTrip = pendingTrip || riderDraft || readPassengerStore('last-trip');
+  const routeNames=document.getElementById('selectedRouteNames');if(routeNames)routeNames.textContent=[riderDraft.origin?.name,riderDraft.destination?.name].filter(Boolean).join(' ← ');
   if (pendingTrip?.origin) setTimeout(() => setPoint('origin',pendingTrip.origin.lat,pendingTrip.origin.lng,pendingTrip.origin.name,true),250);
   if (pendingTrip?.destination) setTimeout(() => setPoint('destination',pendingTrip.destination.lat,pendingTrip.destination.lng,pendingTrip.destination.name,true),450);
   if (!pendingTrip?.origin && riderDraft.origin) setTimeout(() => setPoint('origin',riderDraft.origin.lat,riderDraft.origin.lng,riderDraft.origin.name,true),300);
