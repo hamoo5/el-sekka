@@ -1920,11 +1920,6 @@ async function captainDashboardPage() {
   const postTrialNotice=showPostTrialSubscription
     ? '<section class="panel post-trial-subscription-notice"><h2>اشتراك الكابتن</h2><p>أتممت مشوارك التجريبي بنجاح! فعّل اشتراكك الشهري الآن (150 ج / شهر أو 400 ج / 3 شهور) لمواصلة استقبال الطلبات.</p></section>'
     : '';
-  const requestsSection=`<section class="panel">
-    <div class="fixed-trip-section-head"><div><h2>طلبات المشاوير المتاحة</h2><p class="muted">اقبل الطلب المناسب لمركبتك. السعر محدد مسبقًا ولا يوجد تفاوض.</p></div><button type="button" class="btn outline" id="refreshFixedTrips">تحديث</button></div>
-    <div class="fixed-trip-list">${requestCards}</div>
-    ${vehicleError?'<p class="message">تعذر تحميل مركباتك المعتمدة.</p>':''}
-  </section>`;
   const activeTripCards=(activeTrips||[]).map(trip=>`<article class="fixed-trip-card active-captain-trip">
     <div class="fixed-trip-card-head"><b>${trip.request_status==='in_progress'?'رحلة جارية':'رحلة مقبولة'}</b><strong>${Number(trip.fixed_fare_egp||0).toLocaleString('ar-EG')} جنيه</strong></div>
     <p><b>من:</b> ${esc(trip.origin_name)}</p><p><b>إلى:</b> ${esc(trip.destination_name)}</p>
@@ -1958,6 +1953,11 @@ async function captainDashboardPage() {
           </article>`;
         }).join('')
       : '<div class="notice">مفيش طلبات مشاوير مفتوحة حاليًا. هنظهر هنا الطلبات المناسبة لمركباتك المعتمدة.</div>';
+  const requestsSection=`<section class="panel">
+    <div class="fixed-trip-section-head"><div><h2>طلبات المشاوير المتاحة</h2><p class="muted">اقبل الطلب المناسب لمركبتك. السعر محدد مسبقًا ولا يوجد تفاوض.</p></div><button type="button" class="btn outline" id="refreshFixedTrips">تحديث</button></div>
+    <div class="fixed-trip-list">${requestCards}</div>
+    ${vehicleError?'<p class="message">تعذر تحميل مركباتك المعتمدة.</p>':''}
+  </section>`;
   const retainedSubscriptionPanel=preserveCaptainSubscriptionPanel?document.getElementById('captainSubscriptionPanel'):null;
   const captainAccountPage=page==='captain-account';
   layout(`
@@ -2153,7 +2153,7 @@ async function profilePage(){
     ${profile.account_type==='captain'?'<section class="panel profile-section"><h2>حالة الكابتن</h2><div class="profile-info-row"><span>طلب الانضمام</span><b>'+esc(captainApp?.application_status==='approved'?'معتمد':captainApp?.application_status==='pending'?'قيد المراجعة':captainApp?.application_status==='suspended'?'موقوف':'غير مكتمل')+'</b></div><div class="profile-info-row"><span>الاشتراك</span><b>'+esc(activeSubscription?.expires_at&&new Date(activeSubscription.expires_at)>new Date()?'نشط حتى '+new Date(activeSubscription.expires_at).toLocaleDateString('ar-EG'):'لا يوجد اشتراك نشط')+'</b></div></section>':''}
     <section class="profile-actions-grid">
       <button class="profile-action" id="openRewards"><span>🎁</span><b>النقاط والمكافآت</b><small>الدعوات والخصومات وأيام المكافأة</small></button>
-      <button class="profile-action" id="openTrips"><span>🧾</span><b>سجل الرحلات</b><small>راجع مشاويرك السابقة والحالية</small></button>
+      ${profile.account_type!=='captain'?'<button class="profile-action" id="openTrips"><span>🧾</span><b>سجل الرحلات</b><small>راجع مشاويرك السابقة والحالية</small></button>':''}
       ${profile.role==='admin'?'<button class="profile-action" id="openAdminProfile"><span>⚙️</span><b>إدارة المنصة</b><small>طلبات الكباتن والاشتراكات</small></button>':''}
     </section>
     <section class="panel profile-section"><h2>الأمان والخصوصية</h2><p class="muted">التواصل بين أطراف الرحلة يتم داخل التطبيق. أرقام الهواتف لا تظهر للطرف الآخر.</p><button class="btn outline" id="profileLogout">تسجيل الخروج</button></section>
@@ -2224,7 +2224,7 @@ function render() {
   if(profile&&profile.role!=='admin'){
     const captain=profile.account_type==='captain';
     const captainOnly=['captain','captain-account'];
-    const riderOnly=['home','trip','share','trips','rewards','apply-captain'];
+    const riderOnly=['home','trip','share','trips','apply-captain'];
     if(captain&&riderOnly.includes(page))page='captain';
     if(!captain&&captainOnly.includes(page))page='home';
   }
