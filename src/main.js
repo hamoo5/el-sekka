@@ -531,22 +531,32 @@ function shareHome() {
       <section class="hero compact">
         <span class="tag">مشاركة السكة · سعر الكرسي بالتفاوض</span>
         <h1>شارك الطريق</h1>
-        <p>الكابتن يقدر يطلب كرسي كأي راكب، والراكب يقدر ينشر طلب مشاركة. تنفيذ النقل للكابتن المعتمد فقط.</p>
       </section>
-      <section class="panel share-rule">
-        <h2>قواعد المشاركة</h2>
-        <p>صاحب الطلب يحدد السعر المبدئي، والكابتن المعتمد يقدر يقبل أو يقدم سعراً مقابلاً.</p>
-        <p>الكابتن يقدر يستخدم التطبيق كراكب، لكن الراكب لا يحصل على صلاحيات الكابتن.</p>
-        <div class="notice">نفس التفاوض للمشاركة الفورية والمجدولة. الحجز العادي يظل بسعر ثابت ومنفصل.</div>
-      </section>
+      <details class="panel share-rule">
+        <summary><b>كيف تعمل المشاركة؟</b></summary>
+        <p>صاحب الطلب يحدد السعر المبدئي، والطرف الآخر يقدر يقبل أو يقدم سعراً مقابلاً. نفس القاعدة للمشاركة الفورية والمجدولة.</p>
+        <p>الكابتن يقدر يطلب كرسياً كأي راكب، لكن الراكب لا يحصل على صلاحيات الكابتن. الحجز العادي يظل بسعر ثابت ومنفصل.</p>
+      </details>
       <section class="panel">
         <h2>انشر طلب مشاركة طريق</h2>
         <form id="shareRequestForm" class="form">
           <label>نوع المشاركة
             <select id="shareMode"><option value="live_share">فوري</option><option value="scheduled_share">مجدول</option></select>
           </label>
-          <label>مكان البداية<input id="shareOrigin" required maxlength="180" placeholder="مثال: مدينة نصر"></label>
-          <label>الوجهة<input id="shareDestination" required maxlength="180" placeholder="مثال: التجمع الخامس"></label>
+          <section class="location-card">
+            <label>مكان البداية
+              <input id="shareOrigin" required maxlength="180" placeholder="اكتب اسم الشارع أو المنطقة" autocomplete="off">
+              <div class="suggestions" id="shareOriginSuggestions" role="listbox" hidden></div>
+            </label>
+            <div class="location-divider"></div>
+            <label>الوجهة
+              <input id="shareDestination" required maxlength="180" placeholder="اكتب وجهتك" autocomplete="off">
+              <div class="suggestions" id="shareDestinationSuggestions" role="listbox" hidden></div>
+            </label>
+          </section>
+          <div class="map-heading"><b>حدد الطريق على الخريطة</b><small>اختار الحقل ثم اضغط على الخريطة أو حرّك الدبوس.</small></div>
+          <div id="shareMap" class="trip-map" role="application" aria-label="خريطة تحديد بداية ونهاية المشاركة"></div>
+          <div class="map-legend"><span>🟢 البداية</span><span>🔴 الوجهة</span><span id="shareMapHint">حدد النقطتين لعرض المسار.</span></div>
           <label id="shareDateField" hidden>موعد التحرك<input id="shareDeparture" type="datetime-local"></label>
           <label>عدد الكراسي المطلوبة<input id="shareSeats" type="number" min="1" max="13" value="1" required></label>
           <label>السعر المبدئي للكرسي (جنيه)<input id="sharePrice" type="number" min="0" step="0.5" required placeholder="اكتب السعر الذي تقترحه"></label>
@@ -591,6 +601,109 @@ function shareHome() {
       </section>
     </main>`);
   const $ = id => document.getElementById(id);
+  let shareOriginPoint=null, shareDestinationPoint=null, shareActivePoint='origin';
+  let shareMap=null, shareOriginMarker=null, shareDestinationMarker=null, shareRouteLine=null;
+  let shareRouteSequence=0, shareLeafletAttempts=0;
+  const shareSearchTimers={origin:null,destination:null};
+  const shareSearchSequence={origin:0,destination:0};
+  const shareMapHint=message=>{if($('shareMapHint'))$('shareMapHint').textContent=message;};
+  const setSharePoint=async(point,lat,lng,knownName=null,moveMap=false)=>{
+    const place={lat:Number(lat),lng:Number(lng),name:knownName||'جارٍ تحديد العنوان...'};
+    if(!Number.isFinite(place.lat)||!Number.isFinite(place.lng))return;
+    const isOrigin=point==='origin';
+    if(isOrigin)shareOriginPoint=place;else shareDestinationPoint=place;
+    const marker=isOrigin?shareOriginMarker:shareDestinationMarker;
+    const pinIcon=window.L?.divIcon({className:'sekka-pin-wrap',html:`<span class="sekka-pin ${isOrigin?'pickup-pin':'dropoff-pin'}"></span>`,iconSize:[24,24],iconAnchor:[12,22]});
+    if(shareMap&&window.L){
+      if(marker){marker.setLatLng([place.lat,place.lng]);marker.setIcon(pinIcon);}
+      else{
+        const created=window.L.marker([place.lat,place.lng],{draggable:true,icon:pinIcon}).addTo(shareMap);
+        created.bindPopup(isOrigin?'بداية المشاركة':'وجهة المشاركة');
+        if(isOrigin)shareOriginMarker=created;else shareDestinationMarker=created;
+        created.on('dragend',event=>{const p=event.target.getLatLng();setSharePoint(point,p.lat,p.lng,null,false);});
+      }
+    }
+    const field=$(isOrigin?'shareOrigin':'shareDestination');
+    if(knownName){place.name=knownName;field.value=knownName;}
+    else{
+      const label=await reversePlace(place.lat,place.lng);
+      if((isOrigin?shareOriginPoint:shareDestinationPoint)===place){place.name=label;field.value=label;}
+    }
+    if(moveMap&&shareMap)shareMap.setView([place.lat,place.lng],15);
+    if(shareOriginPoint&&shareDestinationPoint&&shareMap){
+      const seq=++shareRouteSequence,start=shareOriginPoint,end=shareDestinationPoint;
+      shareMapHint('جارٍ رسم مسار القيادة...');
+      try{
+        const url=`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson&steps=false`;
+        const response=await fetch(url,{signal:AbortSignal.timeout(12000)});
+        const data=await response.json();
+        if(seq!==shareRouteSequence||shareOriginPoint!==start||shareDestinationPoint!==end)return;
+        if(!response.ok||data.code!=='Ok'||!data.routes?.length)throw new Error('تعذر إيجاد مسار قيادة بين النقطتين.');
+        if(shareRouteLine)shareMap.removeLayer(shareRouteLine);
+        shareRouteLine=window.L.geoJSON(data.routes[0].geometry,{style:{color:'#a8ff45',weight:6,opacity:1}}).addTo(shareMap);
+        shareMap.fitBounds(shareRouteLine.getBounds(),{padding:[35,35]});
+        shareMapHint('تم تحديد المسار على الخريطة.');
+      }catch(error){if(seq===shareRouteSequence)shareMapHint(error.message||'تعذر رسم المسار حالياً.');}
+    }else shareMapHint('حدد النقطة الثانية لعرض المسار.');
+  };
+  const showShareSuggestions=(point,rows)=>{
+    const box=$(point==='origin'?'shareOriginSuggestions':'shareDestinationSuggestions');
+    box.innerHTML=rows.map((row,index)=>`<button type="button" class="suggestion-item" data-index="${index}">${esc(row.name)}</button>`).join('');
+    box.hidden=!rows.length;
+    box.querySelectorAll('.suggestion-item').forEach((button,index)=>button.addEventListener('click',async()=>{
+      box.hidden=true;await setSharePoint(point,rows[index].lat,rows[index].lng,rows[index].name,true);
+    }));
+  };
+  const bindShareAutocomplete=point=>{
+    const field=$(point==='origin'?'shareOrigin':'shareDestination');
+    const box=$(point==='origin'?'shareOriginSuggestions':'shareDestinationSuggestions');
+    field.addEventListener('focus',()=>{shareActivePoint=point;});
+    field.addEventListener('input',()=>{
+      shareActivePoint=point;
+      if(point==='origin')shareOriginPoint=null;else shareDestinationPoint=null;
+      if(shareRouteLine&&shareMap)shareMap.removeLayer(shareRouteLine);
+      shareRouteLine=null;++shareRouteSequence;
+      const query=field.value.trim();clearTimeout(shareSearchTimers[point]);
+      const seq=++shareSearchSequence[point];
+      if(query.length<3){box.hidden=true;box.innerHTML='';return;}
+      box.hidden=false;box.innerHTML='<div class="suggestion-loading">جارٍ البحث عن عناوين في مصر...</div>';
+      shareSearchTimers[point]=setTimeout(async()=>{
+        try{
+          const rows=await searchPlaces(query);
+          if(seq!==shareSearchSequence[point])return;
+          showShareSuggestions(point,rows);
+          if(!rows.length)box.innerHTML='<div class="suggestion-loading">لا توجد اقتراحات. جرّب اسم شارع أو منطقة أوضح.</div>';
+        }catch(error){if(seq===shareSearchSequence[point])box.innerHTML=`<div class="suggestion-loading">${esc(error.message||'تعذر تحميل الاقتراحات حالياً.')}</div>`;}
+      },1100);
+    });
+    field.addEventListener('keydown',event=>{if(event.key==='Escape')box.hidden=true;});
+  };
+  bindShareAutocomplete('origin');bindShareAutocomplete('destination');
+  document.addEventListener('click',event=>{
+    if(!event.target.closest('#shareRequestForm .location-card')){
+      $('shareOriginSuggestions').hidden=true;$('shareDestinationSuggestions').hidden=true;
+    }
+  });
+  const initializeShareMap=()=>{
+    const el=$('shareMap');if(!el)return;
+    if(!window.L||typeof window.L.map!=='function'){
+      if(shareLeafletAttempts++<40){window.setTimeout(initializeShareMap,150);return;}
+      shareMapHint('تعذر تحميل الخريطة. يمكنك استخدام البحث عن العناوين.');return;
+    }
+    shareMap=window.L.map(el,{zoomControl:true,preferCanvas:true}).setView([30.0444,31.2357],11);
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>',crossOrigin:true
+    }).addTo(shareMap);
+    shareMap.on('click',event=>setSharePoint(shareActivePoint,event.latlng.lat,event.latlng.lng,null,false));
+    const refresh=()=>shareMap?.invalidateSize({pan:false,animate:false});
+    window.requestAnimationFrame(()=>{refresh();window.setTimeout(refresh,250);window.setTimeout(refresh,800);});
+    window.addEventListener('resize',refresh,{passive:true});
+    window.addEventListener('orientationchange',()=>window.setTimeout(refresh,300),{passive:true});
+    if(shareOriginPoint)setSharePoint('origin',shareOriginPoint.lat,shareOriginPoint.lng,shareOriginPoint.name,true);
+    if(shareDestinationPoint)setSharePoint('destination',shareDestinationPoint.lat,shareDestinationPoint.lng,shareDestinationPoint.name,true);
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initializeShareMap,{once:true});
+  else window.requestAnimationFrame(initializeShareMap);
   const shareVehicleCapacity = {private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
   const updateShareVehicleOptions = () => {
     const select = $('shareVehicle');
@@ -621,6 +734,9 @@ function shareHome() {
     msg.textContent='جارٍ نشر الطلب...'; btn.disabled=true;
     const seats = Number($('shareSeats').value);
     const selectedVehicle = $('shareVehicle').value;
+    if(!shareOriginPoint){msg.textContent='اختار مكان البداية من اقتراحات البحث أو من الخريطة.';btn.disabled=false;return;}
+    if(!shareDestinationPoint){msg.textContent='اختار الوجهة من اقتراحات البحث أو من الخريطة.';btn.disabled=false;return;}
+    if(shareOriginPoint.lat===shareDestinationPoint.lat&&shareOriginPoint.lng===shareDestinationPoint.lng){msg.textContent='مكان البداية والوجهة متطابقان.';btn.disabled=false;return;}
     if (!Number.isInteger(seats) || seats < 1 || seats > 13 ||
         (selectedVehicle && (shareVehicleCapacity[selectedVehicle] || 0) < seats)) {
       msg.textContent='نوع المركبة المختار لا يستوعب عدد الكراسي. عدّل العدد أو اختر مركبة مناسبة.';
@@ -635,10 +751,10 @@ function shareHome() {
     }
     const {data,error}=await supabase.rpc('create_share_route_request',{
       p_ride_mode:mode,
-      p_origin_name:$('shareOrigin').value.trim(),
-      p_origin_lat:null,p_origin_lng:null,
-      p_destination_name:$('shareDestination').value.trim(),
-      p_destination_lat:null,p_destination_lng:null,
+      p_origin_name:shareOriginPoint.name,
+      p_origin_lat:shareOriginPoint.lat,p_origin_lng:shareOriginPoint.lng,
+      p_destination_name:shareDestinationPoint.name,
+      p_destination_lat:shareDestinationPoint.lat,p_destination_lng:shareDestinationPoint.lng,
       p_route_description:null,
       p_departure_at:departure.toISOString(),
       p_seats:Number($('shareSeats').value),
@@ -649,6 +765,12 @@ function shareHome() {
     if(error){msg.textContent=shareError(error);return;}
     msg.textContent='تم نشر طلب المشاركة بنجاح. سيظهر للكباتن المعتمدين.';
     e.currentTarget.reset(); $('shareMode').value='live_share'; $('shareDateField').hidden=true;
+    shareOriginPoint=null;shareDestinationPoint=null;
+    $('shareOriginSuggestions').hidden=true;$('shareDestinationSuggestions').hidden=true;
+    if(shareOriginMarker){shareMap?.removeLayer(shareOriginMarker);shareOriginMarker=null;}
+    if(shareDestinationMarker){shareMap?.removeLayer(shareDestinationMarker);shareDestinationMarker=null;}
+    if(shareRouteLine){shareMap?.removeLayer(shareRouteLine);shareRouteLine=null;}
+    ++shareRouteSequence;shareMapHint('حدد النقطتين لعرض المسار.');
     updateShareVehicleOptions();
     await loadMyShareRequests();
   });
