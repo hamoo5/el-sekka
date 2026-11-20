@@ -1088,7 +1088,7 @@ async function captainApplicationStatusPage(knownApplicationId = null) {
     .select('id,application_status,admin_notes,created_at,reviewed_at,national_id_expiry,license_expiry,vehicle_license_expiry')
     .eq('user_id',profile.id).maybeSingle();
   const application = data;
-  const status = application?.application_status || (knownApplicationId ? 'approved' : null);
+  const status = application?.application_status || (knownApplicationId ? 'pending' : null);
   const labels = {
     pending:['طلبك قيد مراجعة الإدارة','اكتمل إرسال البيانات والمستندات. لن يتم تفعيل نشاط القيادة قبل مراجعة الإدارة واعتماد الطلب والمركبة.'],
     approved:['تم اعتماد حساب الكابتن','اعتمدت الإدارة بياناتك ومستنداتك. يلزم وجود اشتراك ساري لممارسة نشاط القيادة.'],
