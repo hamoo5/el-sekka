@@ -157,7 +157,8 @@ begin
       model_year=p_model_year,color=btrim(p_color),plate_number=btrim(p_plate_number),
       passenger_capacity=p_passenger_capacity,has_ac=coalesce(p_has_ac,false),
       has_large_trunk=coalesce(p_has_large_trunk,false),no_smoking=coalesce(p_no_smoking,true),
-      pets_allowed=coalesce(p_pets_allowed,false),approval_status='approved',is_active=true,
+      pets_allowed=coalesce(p_pets_allowed,false),approval_status='approved',
+      is_active=exists(select 1 from public.captain_subscriptions s where s.captain_id=v_uid and s.payment_status='approved' and s.starts_at<=now() and s.expires_at>now()),
       photo_front_path=p_vehicle_front_path,photo_side_path=p_vehicle_side_path,photo_rear_path=p_vehicle_rear_path
     where id=v_vehicle_id and captain_id=v_uid;
     if not found then v_vehicle_id:=null; end if;
@@ -169,7 +170,8 @@ begin
       photo_front_path,photo_side_path,photo_rear_path)
     values(v_uid,p_vehicle_type,btrim(p_make),btrim(p_model),p_model_year,btrim(p_color),btrim(p_plate_number),
       p_passenger_capacity,coalesce(p_has_ac,false),coalesce(p_has_large_trunk,false),coalesce(p_no_smoking,true),
-      coalesce(p_pets_allowed,false),'approved',true,p_vehicle_front_path,p_vehicle_side_path,p_vehicle_rear_path)
+      coalesce(p_pets_allowed,false),'approved',
+      exists(select 1 from public.captain_subscriptions s where s.captain_id=v_uid and s.payment_status='approved' and s.starts_at<=now() and s.expires_at>now()),p_vehicle_front_path,p_vehicle_side_path,p_vehicle_rear_path)
     returning id into v_vehicle_id;
   end if;
 
