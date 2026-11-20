@@ -205,3 +205,9 @@ html.trip-day .share-negotiation{background:#f2f6f8}
 @media(max-width:420px){.review-photos{gap:6px}}
 
 .review-avatar{width:88px;height:88px;object-fit:cover;border-radius:50%;border:2px solid var(--line,#ddd);margin:10px 0}
+
+
+/* Captain application image previews */
+.captain-image-preview{margin:-5px 0 14px;min-height:0}
+.captain-image-preview:empty{display:none}
+.captain-image-preview img{display:block;width:100%;max-width:220px;max-height:180px;object-fit:cover;border-radius:12px;border:1px solid var(--line,#ddd)}
