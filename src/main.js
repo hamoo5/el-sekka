@@ -1359,7 +1359,6 @@ async function adminApplicationsPage(){
   const appCards=[];
   for(const a of applications||[]){
     const links=[];
-    const mediaLabels=[['profile?.avatar_path','الصورة الشخصية']];
     const profilePath=a.profile?.avatar_path;
     if(profilePath){const {data:signed}=await supabase.storage.from('captain-media').createSignedUrl(profilePath,300);if(signed?.signedUrl)links.push('<a class="btn outline" target="_blank" rel="noopener" href="'+esc(signed.signedUrl)+'">الصورة الشخصية</a>');}
     for(const [field,label] of docLabels){
