@@ -1157,15 +1157,16 @@ async function adminApplicationsPage(){
   document.getElementById('back').addEventListener('click',()=>{page='home';render();});
   const host=document.getElementById('captainApplicationsList');
   const {data,error}=await supabase.from('captain_applications')
-    .select('id,user_id,national_id_last4,license_number,license_expiry,application_status,admin_notes,created_at,vehicle_id,vehicle:vehicles(id,vehicle_type,make,model,model_year,color,plate_number,passenger_capacity,has_ac,has_large_trunk,no_smoking,pets_allowed,photo_front_path,photo_side_path,photo_rear_path)')
+    .select('id,user_id,national_id_last4,license_number,license_expiry,application_status,admin_notes,created_at,vehicle_id,profile:profiles!captain_applications_user_id_fkey(display_name,avatar_path),vehicle:vehicles(id,vehicle_type,make,model,model_year,color,plate_number,passenger_capacity,has_ac,has_large_trunk,no_smoking,pets_allowed,photo_front_path,photo_side_path,photo_rear_path)')
     .eq('application_status','pending').order('created_at',{ascending:false}).limit(100);
   if(error){host.textContent='تعذر تحميل الطلبات. تأكد من صلاحيات الإدارة.';return;}
   const rows=data||[];
   if(!rows.length){host.innerHTML='<p class="muted">لا توجد طلبات جديدة للمراجعة.</p>';return;}
   const photo=(path,label)=>path?'<figure><img class="review-photo" src="'+esc(supabase.storage.from('captain-media').getPublicUrl(path).data.publicUrl)+'" alt="'+label+'"><figcaption>'+label+'</figcaption></figure>':'';
   host.innerHTML=rows.map(a=>{
-    const v=a.vehicle||{};
-    return '<article class="share-item"><b>طلب كابتن</b>'+
+    const v=a.vehicle||{}, p=a.profile||{};
+    const profilePhoto=p.avatar_path?'<img class="review-avatar" src="'+esc(supabase.storage.from('captain-media').getPublicUrl(p.avatar_path).data.publicUrl)+'" alt="الصورة الشخصية للكابتن">':'';
+    return '<article class="share-item"><b>طلب كابتن: '+esc(p.display_name||'مستخدم')+'</b>'+profilePhoto+
       '<p>آخر 4 أرقام من الرقم القومي: '+esc(a.national_id_last4||'—')+'</p>'+
       '<p>رقم الرخصة: '+esc(a.license_number||'—')+'</p>'+
       '<p>انتهاء الرخصة: '+esc(a.license_expiry||'—')+'</p>'+
