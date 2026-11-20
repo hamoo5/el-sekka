@@ -775,3 +775,10 @@ html.trip-night .rider-saved-section h2{color:#fff}
 html.trip-night .rider-search-hero .rider-search-box{border-color:#35495e}
 html.trip-night .rider-mode-menu{border-color:#35495e}
 html.trip-day .rider-search-suggestions button{background:#fff;color:#111827}
+
+.rider-save-current{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:14px 0 4px;padding:11px;border-radius:13px;background:#eef7f0;color:#14532d}
+.rider-save-current[hidden]{display:none}
+.rider-save-current small{width:100%;font-size:11px;font-weight:800}
+.rider-save-current button{border:1px solid #b9d8c2;border-radius:20px;padding:7px 10px;background:#fff;color:#14532d;font-size:11px;font-weight:800}
+html.trip-night .rider-save-current{background:#173b2a;color:#d9fbe3}
+html.trip-night .rider-save-current button{background:#1d2d40;color:#d9fbe3;border-color:#42664e}
