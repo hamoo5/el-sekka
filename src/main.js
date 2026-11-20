@@ -755,16 +755,29 @@ function shareHome() {
 
   async function loadLegacyShareBookings(){
     const host=$('legacyShareBookings'); if(!host)return;
-    let rideIds=[];
+    const columns='id,ride_id,passenger_id,pickup_name,dropoff_name,seats_requested,passenger_offer_egp,captain_counter_offer_egp,agreed_price_egp,booking_status,created_at';
+    let bs=[];
     if(isCaptain){
-      const {data:rides}=await supabase.from('rides').select('id').eq('captain_id',profile.id);
-      rideIds=(rides||[]).map(r=>r.id);
+      const [{data:asRequester,error:e1},{data:rides,error:e2}]=await Promise.all([
+        supabase.from('bookings').select(columns).eq('passenger_id',profile.id).order('created_at',{ascending:false}).limit(50),
+        supabase.from('rides').select('id').eq('captain_id',profile.id)
+      ]);
+      if(e1||e2){host.textContent='تعذر تحميل حجوزات الكراسي.';return;}
+      const ids=(rides||[]).map(r=>r.id);
+      let asCaptain=[];
+      if(ids.length){
+        const result=await supabase.from('bookings').select(columns).in('ride_id',ids).order('created_at',{ascending:false}).limit(50);
+        if(result.error){host.textContent='تعذر تحميل حجوزات الكراسي.';return;}
+        asCaptain=result.data||[];
+      }
+      bs=[...new Map([...(asRequester||[]),...asCaptain].map(b=>[b.id,b])).values()]
+        .sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,50);
+    }else{
+      const result=await supabase.from('bookings').select(columns).eq('passenger_id',profile.id).order('created_at',{ascending:false}).limit(50);
+      if(result.error){host.textContent='تعذر تحميل حجوزات الكراسي.';return;}
+      bs=result.data||[];
     }
-    let q=supabase.from('bookings').select('id,ride_id,passenger_id,pickup_name,dropoff_name,seats_requested,passenger_offer_egp,captain_counter_offer_egp,agreed_price_egp,booking_status,created_at').order('created_at',{ascending:false}).limit(50);
-    q=isCaptain?(rideIds.length?q.in('ride_id',rideIds):q.eq('passenger_id',profile.id)):q.eq('passenger_id',profile.id);
-    const {data:bs,error}=await q;
-    if(error){host.textContent='تعذر تحميل حجوزات الكراسي.';return;}
-    if(!bs?.length){host.innerHTML='<p class="muted">لا توجد حجوزات كراسي حتى الآن.</p>';return;}
+    if(!bs.length){host.innerHTML='<p class="muted">لا توجد حجوزات كراسي حتى الآن.</p>';return;}
     host.innerHTML=bs.map(b=>{
       const requester=b.passenger_id===profile.id;
       let actions='';
