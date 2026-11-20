@@ -520,30 +520,198 @@ function tripForm() {
 }
 
 function shareHome() {
+  const isCaptain = profile?.role === 'captain';
+  const types = [
+    ['private_car','ملاكي'],['taxi','تاكسي'],['suzuki','سوزوكي'],
+    ['microbus','ميكروباص'],['scooter','اسكوتر'],['motorcycle','موتوسيكل']
+  ];
   layout(`
     <main class="wrap narrow">
       <button class="back" id="back">→ الرئيسية</button>
       <section class="hero compact">
         <span class="tag">مشاركة السكة · سعر الكرسي بالتفاوض</span>
         <h1>شارك الطريق</h1>
-        <p>انشر كرسياً متاحاً أو خط سير، أو ابحث عن كرسي يناسب طريقك.</p>
+        <p>الكابتن يقدر يطلب كرسي كأي راكب، والراكب يقدر ينشر طلب مشاركة. تنفيذ النقل للكابتن المعتمد فقط.</p>
       </section>
       <section class="panel share-rule">
         <h2>قواعد المشاركة</h2>
-        <p>صاحب العرض، كابتناً كان أو راكباً، هو الذي يحدد سعر الكرسي أو يضع عرضه الأول لخط السير.</p>
-        <p>الطرف الآخر يقدر يقبل السعر أو يرسل سعراً مقابلاً، ويستمر التفاوض حتى الاتفاق.</p>
-        <div class="notice">نفس القاعدة للرحلة الفورية والمجدولة. التفاوض خاص بمشاركة الكراسي وخطوط السير فقط، وليس بالحجز العادي.</div>
+        <p>صاحب الطلب يحدد السعر المبدئي، والكابتن المعتمد يقدر يقبل أو يقدم سعراً مقابلاً.</p>
+        <p>الكابتن يقدر يستخدم التطبيق كراكب، لكن الراكب لا يحصل على صلاحيات الكابتن.</p>
+        <div class="notice">نفس التفاوض للمشاركة الفورية والمجدولة. الحجز العادي يظل بسعر ثابت ومنفصل.</div>
       </section>
       <section class="panel">
-        <h2>الخطوة التالية</h2>
-        <p class="muted">يجري تجهيز البحث والنشر والتفاوض على نفس نظام العروض، بعد مطابقة الجداول الحالية حتى لا تتكرر البيانات أو تتأثر الرحلات المسجلة.</p>
-        <div class="share-options">
-          <div class="share-option"><b>ابحث عن كرسي</b><small>اعرض الرحلات والكراسي المتاحة على طريقك.</small></div>
-          <div class="share-option"><b>انشر كرسي أو خط سير</b><small>حدد المسار والموعد وسعر الكرسي، وانتظر قبول الطرف الآخر أو تفاوضه.</small></div>
-        </div>
+        <h2>انشر طلب مشاركة طريق</h2>
+        <form id="shareRequestForm" class="form">
+          <label>نوع المشاركة
+            <select id="shareMode"><option value="live_share">فوري</option><option value="scheduled_share">مجدول</option></select>
+          </label>
+          <label>مكان البداية<input id="shareOrigin" required maxlength="180" placeholder="مثال: مدينة نصر"></label>
+          <label>الوجهة<input id="shareDestination" required maxlength="180" placeholder="مثال: التجمع الخامس"></label>
+          <label id="shareDateField" hidden>موعد التحرك<input id="shareDeparture" type="datetime-local"></label>
+          <label>عدد الكراسي المطلوبة<input id="shareSeats" type="number" min="1" max="13" value="1" required></label>
+          <label>السعر المبدئي للكرسي (جنيه)<input id="sharePrice" type="number" min="0" step="0.5" required placeholder="اكتب السعر الذي تقترحه"></label>
+          <label>نوع المركبة المفضل (اختياري)
+            <select id="shareVehicle"><option value="">أي مركبة مناسبة</option>${types.map(([v,n])=>`<option value="${v}">${n}</option>`).join('')}</select>
+          </label>
+          <button class="btn primary" type="submit">نشر طلب المشاركة</button>
+          <p id="shareCreateMessage" class="message" aria-live="polite"></p>
+        </form>
       </section>
+      ${isCaptain ? `
+      <section class="panel">
+        <h2>طلبات مشاركة متاحة على الطريق</h2>
+        <p class="muted">تظهر هنا طلبات الركاب والكباتن الذين يستخدمون الخدمة كطالبي مقاعد.</p>
+        <div id="shareOpenRequests" class="share-list">جارٍ تحميل الطلبات...</div>
+      </section>` : `
+      <section class="panel">
+        <h2>الردود على طلبات المشاركة</h2>
+        <p class="muted">عندما يرد كابتن معتمد على طلبك سيظهر عرضه هنا.</p>
+        <div id="shareMyRequests" class="share-list">جارٍ تحميل طلباتك...</div>
+      </section>`}
+      ${isCaptain ? `
+      <section class="panel">
+        <h2>طلباتي كمستخدم للطريق</h2>
+        <div id="shareMyRequests" class="share-list">جارٍ تحميل طلباتك...</div>
+      </section>` : ''}
     </main>`);
-  document.querySelector('#back').addEventListener('click',()=>{page='home';render();});
+  const $ = id => document.getElementById(id);
+  $('back').addEventListener('click',()=>{page='home';render();});
+  $('shareMode').addEventListener('change',()=>{
+    const scheduled=$('shareMode').value==='scheduled_share';
+    $('shareDateField').hidden=!scheduled;
+    $('shareDeparture').required=scheduled;
+  });
+  $('shareRequestForm').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const msg=$('shareCreateMessage');
+    const btn=e.currentTarget.querySelector('button[type="submit"]');
+    msg.textContent='جارٍ نشر الطلب...'; btn.disabled=true;
+    const mode=$('shareMode').value;
+    const departure=mode==='scheduled_share'
+      ? new Date($('shareDeparture').value)
+      : new Date(Date.now()+60000);
+    if(mode==='scheduled_share' && (! $('shareDeparture').value || Number.isNaN(departure.getTime()) || departure<=new Date())){
+      msg.textContent='اختار موعداً مستقبلياً صحيحاً.'; btn.disabled=false; return;
+    }
+    const {data,error}=await supabase.rpc('create_share_route_request',{
+      p_ride_mode:mode,
+      p_origin_name:$('shareOrigin').value.trim(),
+      p_origin_lat:null,p_origin_lng:null,
+      p_destination_name:$('shareDestination').value.trim(),
+      p_destination_lat:null,p_destination_lng:null,
+      p_route_description:null,
+      p_departure_at:departure.toISOString(),
+      p_seats:Number($('shareSeats').value),
+      p_seat_price:Number($('sharePrice').value),
+      p_vehicle_type:$('shareVehicle').value || null
+    });
+    btn.disabled=false;
+    if(error){msg.textContent=shareError(error);return;}
+    msg.textContent='تم نشر طلب المشاركة بنجاح. سيظهر للكباتن المعتمدين.';
+    e.currentTarget.reset(); $('shareMode').value='live_share'; $('shareDateField').hidden=true;
+    await loadMyShareRequests();
+  });
+
+  async function loadMyShareRequests(){
+    const host=$('shareMyRequests'); if(!host) return;
+    const {data:requests,error}=await supabase.from('share_route_requests')
+      .select('id,requester_id,ride_mode,origin_name,destination_name,departure_at,seats_requested,requester_seat_price_egp,request_status,created_at')
+      .eq('requester_id',profile.id).order('created_at',{ascending:false}).limit(20);
+    if(error){host.textContent='تعذر تحميل الطلبات. تأكد من تنفيذ تحديث قاعدة البيانات أولاً.';return;}
+    if(!requests?.length){host.innerHTML='<p class="muted">لا توجد طلبات مشاركة منشورة حتى الآن.</p>';return;}
+    const ids=requests.map(x=>x.id);
+    const {data:negotiations}=await supabase.from('share_route_negotiations')
+      .select('id,request_id,captain_id,vehicle_id,requester_offer_egp,captain_counter_offer_egp,agreed_price_egp,negotiation_status,created_at')
+      .in('request_id',ids).order('created_at',{ascending:false});
+    const rows=requests.map(r=>{
+      const ns=(negotiations||[]).filter(n=>n.request_id===r.id);
+      return `<article class="share-item">
+        <b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b>
+        <small>${r.ride_mode==='live_share'?'فوري':'مجدول'} · ${new Date(r.departure_at).toLocaleString('ar-EG')} · ${r.seats_requested} كرسي</small>
+        <p>سعرك المبدئي: ${Number(r.requester_seat_price_egp).toLocaleString('ar-EG')} جنيه للكرسي · الحالة: ${shareStatus(r.request_status)}</p>
+        ${ns.length?ns.map(n=>`<div class="share-negotiation">
+          <small>عرض الكابتن: ${n.captain_counter_offer_egp==null?'لم يقدم سعراً مقابلاً':Number(n.captain_counter_offer_egp).toLocaleString('ar-EG')+' جنيه'} · ${shareStatus(n.negotiation_status)}</small>
+          ${n.negotiation_status==='counter_offer'?`<div class="share-actions"><button class="btn primary" data-share-accept="${n.id}">قبول السعر</button><input type="number" min="0" step="0.5" id="offer-${n.id}" placeholder="سعرك الجديد"><button class="btn outline" data-share-counter="${n.id}">إرسال سعر مقابل</button></div>`:''}
+          ${n.negotiation_status==='accepted'?'<span class="notice">تم الاتفاق على السعر. في انتظار تأكيد المطابقة.</span>':''}
+          ${n.negotiation_status==='accepted'?'<button class="btn primary" data-share-confirm="'+n.id+'">تأكيد الاتفاق</button>':''}
+        </div>`).join(''):'<p class="muted">لا توجد ردود حتى الآن.</p>'}
+      </article>`;
+    }).join('');
+    host.innerHTML=rows;
+    host.querySelectorAll('[data-share-accept]').forEach(b=>b.addEventListener('click',()=>replyToShare(b.dataset.shareAccept,'accept')));
+    host.querySelectorAll('[data-share-counter]').forEach(b=>b.addEventListener('click',()=>{
+      const amount=Number($('offer-'+b.dataset.shareCounter).value);
+      if(!Number.isFinite(amount)||amount<0){alert('اكتب سعراً صحيحاً.');return;}
+      replyToShare(b.dataset.shareCounter,'counter',amount);
+    }));
+    host.querySelectorAll('[data-share-confirm]').forEach(b=>b.addEventListener('click',async()=>{
+      b.disabled=true;
+      const {error}=await supabase.rpc('confirm_share_route_match',{p_negotiation_id:b.dataset.shareConfirm});
+      if(error){alert(shareError(error));b.disabled=false;} else await loadMyShareRequests();
+    }));
+  }
+
+  async function replyToShare(id,action,amount){
+    const args={p_negotiation_id:id,p_action:action,p_new_offer:amount??null};
+    const {error}=await supabase.rpc('requester_reply_share_route',args);
+    if(error){alert(shareError(error));return;}
+    await loadMyShareRequests();
+  }
+
+  async function loadCaptainRequests(){
+    const host=$('shareOpenRequests'); if(!host)return;
+    const [{data:requests,error},{data:vehicles}] = await Promise.all([
+      supabase.from('share_route_requests').select('id,requester_id,ride_mode,origin_name,destination_name,departure_at,seats_requested,requester_seat_price_egp,preferred_vehicle_type')
+        .eq('request_status','open').neq('requester_id',profile.id).order('departure_at',{ascending:true}).limit(40),
+      supabase.from('vehicles').select('id,vehicle_type,make,model,passenger_capacity')
+        .eq('captain_id',profile.id).eq('approval_status','approved').eq('is_active',true)
+    ]);
+    if(error){host.textContent='تعذر تحميل الطلبات. تأكد من تنفيذ تحديث قاعدة البيانات أولاً.';return;}
+    if(!requests?.length){host.innerHTML='<p class="muted">لا توجد طلبات مشاركة متاحة حالياً.</p>';return;}
+    if(!vehicles?.length){host.innerHTML='<div class="notice">لازم يكون عندك مركبة معتمدة ونشطة حتى ترد على طلب مشاركة.</div>';return;}
+    host.innerHTML=requests.map(r=>{
+      const matching=vehicles.filter(v=>(!r.preferred_vehicle_type||v.vehicle_type===r.preferred_vehicle_type)&&v.passenger_capacity>=r.seats_requested);
+      const options=matching.map(v=>`<option value="${v.id}">${esc([v.make,v.model].filter(Boolean).join(' ')||v.vehicle_type)} · ${v.passenger_capacity} مقعد</option>`).join('');
+      return `<article class="share-item">
+        <b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b>
+        <small>${r.ride_mode==='live_share'?'فوري':'مجدول'} · ${new Date(r.departure_at).toLocaleString('ar-EG')} · ${r.seats_requested} كرسي</small>
+        <p>السعر المقترح: ${Number(r.requester_seat_price_egp).toLocaleString('ar-EG')} جنيه للكرسي</p>
+        ${matching.length?`<label>مركبتك<select id="vehicle-${r.id}">${options}</select></label>
+          <div class="share-actions"><button class="btn primary" data-captain-accept="${r.id}">قبول السعر</button><input id="counter-${r.id}" type="number" min="0" step="0.5" placeholder="سعرك المقابل"><button class="btn outline" data-captain-counter="${r.id}">تقديم سعر</button></div>`
+          :'<small>لا توجد مركبة مناسبة لعدد الكراسي أو النوع المطلوب.</small>'}
+      </article>`;
+    }).join('');
+    const captainReply=async(id,action,price)=>{
+      const vehicleId=$('vehicle-'+id)?.value;
+      const {error}=await supabase.rpc('captain_reply_share_route_request',{
+        p_request_id:id,p_vehicle_id:vehicleId,p_action:action,p_counter_price:price??null
+      });
+      if(error){alert(shareError(error));return;}
+      alert(action==='accept'?'تم قبول السعر. على صاحب الطلب تأكيد الاتفاق.':'تم إرسال سعرك المقابل لصاحب الطلب.');
+      await loadCaptainRequests(); await loadMyShareRequests();
+    };
+    host.querySelectorAll('[data-captain-accept]').forEach(b=>b.addEventListener('click',()=>captainReply(b.dataset.captainAccept,'accept')));
+    host.querySelectorAll('[data-captain-counter]').forEach(b=>b.addEventListener('click',()=>{
+      const price=Number($('counter-'+b.dataset.captainCounter).value);
+      if(!Number.isFinite(price)||price<0){alert('اكتب سعراً صحيحاً.');return;}
+      captainReply(b.dataset.captainCounter,'counter',price);
+    }));
+  }
+
+  loadMyShareRequests();
+  if(isCaptain) loadCaptainRequests();
+}
+
+function shareStatus(value) {
+  return ({open:'مفتوح',matched:'تمت المطابقة',cancelled:'ملغي',completed:'مكتمل',pending:'في انتظار الرد',counter_offer:'سعر مقابل',accepted:'تم قبول السعر',confirmed:'تم التأكيد',rejected:'مرفوض'})[value] || value;
+}
+function shareError(error) {
+  const code=error?.message||'';
+  if(code.includes('does not exist')||code.includes('schema cache')) return 'وظائف مشاركة الطريق الجديدة لم تُفعّل بعد على قاعدة البيانات.';
+  if(code.includes('approved_active_vehicle_required')) return 'لازم تختار مركبة معتمدة ونشطة.';
+  if(code.includes('not_enough_vehicle_capacity')) return 'عدد الكراسي المطلوبة أكبر من سعة مركبتك.';
+  if(code.includes('account_not_allowed')) return 'الحساب غير مسموح له باستخدام الخدمة.';
+  return code||'حدث خطأ غير متوقع. حاول مرة أخرى.';
 }
 
 function placeholder(title, desc) {
