@@ -129,7 +129,7 @@ async function home() {
         <button class="service" data-page="share"><span>🛣️</span><b>مشاركة السكة</b><small>احجز كرسي أو انشر طريقك</small><strong>اكتشف الرحلات ←</strong></button>
       </section>
       ${profile.role === 'captain' ? '<section class="panel"><h2>مساحة الكابتن</h2><p class="muted">إدارة المركبة والرحلات والحجوزات والاشتراك.</p><button class="btn primary" data-page="captain">لوحة الكابتن</button></section>' + await captainDocumentsPanel() : ''}
-      ${profile.role === 'admin' ? '<section class="panel"><h2>إدارة المنصة</h2><p class="muted">متابعة التشغيل التلقائي والتنبيهات.</p><button class="btn primary" data-page="admin">إعدادات التشغيل</button></section>' : ''}
+      ${profile.role === 'admin' ? '<section class="panel"><h2>إدارة المنصة</h2><p class="muted">مراجعة طلبات الكباتن والاشتراكات وإدارة التشغيل.</p><button class="btn primary" data-page="admin">مراجعة الطلبات والاشتراكات</button></section>' : ''}
       ${profile.role === 'passenger' ? await captainApplicationStatus() : ''}
       <section class="panel"><h3>اختار طريقك</h3><p class="muted">في المشوار العادي السعر يحدده النظام. وفي مشاركة الكرسي السعر بالتفاوض وموافقة الطرفين.</p></section>
     </main>`);
@@ -1346,8 +1346,8 @@ async function captainDashboardPage() {
 
 async function adminApplicationsPage(){
   const {data:applications,error:appError}=await supabase.from('captain_applications')
-    .select('id,user_id,national_id_last4,national_id_expiry,license_number,license_expiry,vehicle_license_expiry,application_status,created_at,national_id_front_path,national_id_back_path,driver_license_front_path,driver_license_back_path,vehicle_license_front_path,vehicle_license_back_path,vehicle:vehicles!captain_applications_vehicle_id_fkey(vehicle_type,make,model,model_year,color,plate_number,passenger_capacity)')
-    .eq('application_status','pending').order('created_at',{ascending:true});
+    .select('id,user_id,national_id_last4,national_id_expiry,license_number,license_expiry,vehicle_license_expiry,application_status,created_at,national_id_front_path,national_id_back_path,driver_license_front_path,driver_license_back_path,vehicle_license_front_path,vehicle_license_back_path,profile:profiles!captain_applications_user_id_fkey(display_name,avatar_path),vehicle:vehicles!captain_applications_vehicle_id_fkey(vehicle_type,make,model,model_year,color,plate_number,passenger_capacity,photo_front_path,photo_side_path,photo_rear_path)')
+    .in('application_status',['pending','suspended']).order('created_at',{ascending:true});
   const {data:subscriptions,error:subError}=await supabase.from('captain_subscriptions')
     .select('id,captain_id,plan_days,amount_egp,payment_reference,payment_proof_path,payment_status,created_at')
     .eq('payment_status','submitted').order('created_at',{ascending:true});
@@ -1359,6 +1359,9 @@ async function adminApplicationsPage(){
   const appCards=[];
   for(const a of applications||[]){
     const links=[];
+    const mediaLabels=[['profile?.avatar_path','الصورة الشخصية']];
+    const profilePath=a.profile?.avatar_path;
+    if(profilePath){const {data:signed}=await supabase.storage.from('captain-media').createSignedUrl(profilePath,300);if(signed?.signedUrl)links.push('<a class="btn outline" target="_blank" rel="noopener" href="'+esc(signed.signedUrl)+'">الصورة الشخصية</a>');}
     for(const [field,label] of docLabels){
       const path=a[field];
       if(!path) continue;
@@ -1366,7 +1369,8 @@ async function adminApplicationsPage(){
       if(signed?.signedUrl) links.push('<a class="btn outline" target="_blank" rel="noopener" href="'+esc(signed.signedUrl)+'">'+label+'</a>');
     }
     const v=a.vehicle||{};
-    appCards.push('<article class="panel"><h3>طلب كابتن · '+esc(a.user_id.slice(0,8))+'</h3><p>تاريخ الطلب: '+esc(new Date(a.created_at).toLocaleString('ar-EG'))+'</p><p>آخر 4 أرقام: '+esc(a.national_id_last4)+' · انتهاء البطاقة: '+esc(a.national_id_expiry)+'</p><p>رخصة القيادة: '+esc(a.license_number)+' · تنتهي: '+esc(a.license_expiry)+'</p><p>رخصة المركبة تنتهي: '+esc(a.vehicle_license_expiry)+'</p><p>المركبة: '+esc([v.make,v.model,v.model_year,v.color].filter(Boolean).join(' '))+' · '+esc(v.vehicle_type||'')+' · اللوحة: '+esc(v.plate_number||'')+' · السعة: '+esc(v.passenger_capacity||'')+'</p><div class="share-actions">'+links.join(' ')+'</div><label>ملاحظات الإدارة<textarea data-notes="'+esc(a.id)+'" maxlength="1000" rows="2" placeholder="ملاحظات اختيارية"></textarea></label><div class="share-actions"><button class="btn primary" data-review-app="'+esc(a.id)+'" data-decision="approved">اعتماد الكابتن والمركبة</button><button class="btn outline" data-review-app="'+esc(a.id)+'" data-decision="rejected">رفض الطلب</button></div></article>');
+    for(const [path,label] of [[v.photo_front_path,'صورة المركبة الأمامية'],[v.photo_side_path,'صورة المركبة الجانبية'],[v.photo_rear_path,'صورة المركبة الخلفية']]){if(path){const {data:signed}=await supabase.storage.from('captain-media').createSignedUrl(path,300);if(signed?.signedUrl)links.push('<a class="btn outline" target="_blank" rel="noopener" href="'+esc(signed.signedUrl)+'">'+label+'</a>');}}
+    appCards.push('<article class="panel"><h3>طلب كابتن · '+esc(a.profile?.display_name||a.user_id.slice(0,8))+'</h3><p>الحالة: '+esc(a.application_status==='suspended'?'موقوف — يحتاج مراجعة':'قيد المراجعة')+'</p><p>تاريخ الطلب: '+esc(new Date(a.created_at).toLocaleString('ar-EG'))+'</p><p>آخر 4 أرقام: '+esc(a.national_id_last4)+' · انتهاء البطاقة: '+esc(a.national_id_expiry)+'</p><p>رخصة القيادة: '+esc(a.license_number)+' · تنتهي: '+esc(a.license_expiry)+'</p><p>رخصة المركبة تنتهي: '+esc(a.vehicle_license_expiry)+'</p><p>المركبة: '+esc([v.make,v.model,v.model_year,v.color].filter(Boolean).join(' '))+' · '+esc(v.vehicle_type||'')+' · اللوحة: '+esc(v.plate_number||'')+' · السعة: '+esc(v.passenger_capacity||'')+'</p><div class="share-actions">'+links.join(' ')+'</div><label>ملاحظات الإدارة<textarea data-notes="'+esc(a.id)+'" maxlength="1000" rows="2" placeholder="ملاحظات اختيارية"></textarea></label><div class="share-actions"><button class="btn primary" data-review-app="'+esc(a.id)+'" data-decision="approved">اعتماد الكابتن والمركبة</button><button class="btn outline" data-review-app="'+esc(a.id)+'" data-decision="rejected">رفض الطلب</button></div></article>');
   }
   const subCards=[];
   for(const sub of subscriptions||[]){
@@ -1427,7 +1431,6 @@ function render() {
   if (page === 'apply-captain') return applyCaptainPage();
   if (page === 'admin') return profile?.role === 'admin' ? adminApplicationsPage() : (page='home',home());
   if (page === 'captain') return profile?.role === 'captain' ? captainDashboardPage() : (page='home',home());
-  if (page === 'admin') return placeholder('لوحة الإدارة', 'مراجعة الحسابات والمركبات والاشتراكات والبلاغات.');
   page = 'home'; home();
 }
 
