@@ -1242,7 +1242,6 @@ async function applyCaptainPage() {
         p_profile_photo_path:media.profile,p_vehicle_front_path:media.front,p_vehicle_side_path:media.side,p_vehicle_rear_path:media.rear
       });
       if(error) throw error;
-      profile={...profile,role:'captain'};
       page='apply-captain';
       await captainApplicationStatusPage(applicationId);
     }catch(error){msg.textContent=applicationError(error);}
@@ -1264,6 +1263,14 @@ function applicationError(error){
 
 
 async function captainSubscriptionPanel() {
+  const {data:application}=await supabase.from('captain_applications')
+    .select('application_status,national_id_expiry,license_expiry,vehicle_license_expiry')
+    .eq('user_id',profile.id).maybeSingle();
+  const today=new Date().toISOString().slice(0,10);
+  const documentsReady=application?.application_status==='approved'
+    && application.national_id_expiry>today
+    && application.license_expiry>today
+    && application.vehicle_license_expiry>today;
   const {data,error}=await supabase.from('captain_subscriptions')
     .select('id,plan_days,amount_egp,payment_reference,payment_status,starts_at,expires_at,created_at')
     .eq('captain_id',profile.id).order('created_at',{ascending:false}).limit(10);
@@ -1280,7 +1287,7 @@ async function captainSubscriptionPanel() {
       : latest?.payment_status==='rejected' ? '<div class="notice">تم رفض آخر طلب اشتراك. راجع بيانات التحويل والإثبات ثم أرسل طلباً جديداً.</div>'
       : !active ? '<p class="muted">يمكنك تقديم طلب اشتراك جديد.</p>' : '');
   const history=rows.length?'<h3>سجل الاشتراكات</h3><ul>'+rows.map(x=>'<li>'+esc(x.plan_days)+' يوم · '+esc(x.amount_egp)+' جنيه · '+(x.payment_status==='approved'?'معتمد':x.payment_status==='submitted'?'قيد المراجعة':'مرفوض')+(x.expires_at?' · ينتهي '+esc(new Date(x.expires_at).toLocaleDateString('ar-EG')):'')+'</li>').join('')+'</ul>':'';
-  const form=pending?'':`
+  const form=(pending||!documentsReady)?'':`
     <form class="form" id="subscriptionForm">
       <h3>تقديم / تجديد الاشتراك</h3>
       <label>مدة الاشتراك
@@ -1292,7 +1299,8 @@ async function captainSubscriptionPanel() {
       <button class="btn primary" type="submit">إرسال طلب الاشتراك</button>
       <p class="message" id="subscriptionMessage" aria-live="polite"></p>
     </form>`;
-  return '<section class="panel"><h2>اشتراك الكابتن</h2>'+status+history+form+'</section>';
+  const documentsNotice=documentsReady?'':'<div class="notice">لن تتمكن من تقديم اشتراك قبل مراجعة الإدارة واعتماد المستندات وصلاحيتها.</div>';
+  return '<section class="panel"><h2>اشتراك الكابتن</h2>'+status+documentsNotice+history+form+'</section>';
 }
 
 async function captainDashboardPage() {
