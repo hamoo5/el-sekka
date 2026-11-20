@@ -1797,11 +1797,11 @@ function applicationError(error){
 }
 
 
-async function captainSubscriptionPanel() {
+async function captainSubscriptionPanel(completedTripsCount=0) {
   const {data:application}=await supabase.from('captain_applications')
     .select('application_status,national_id_expiry,license_expiry,vehicle_license_expiry')
     .eq('user_id',profile.id).maybeSingle();
-  const today=new Date().toISOString().slice(0,10);
+  const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Africa/Cairo'}).format(new Date());
   const documentsReady=application?.application_status==='approved'
     && application.national_id_expiry>today
     && application.license_expiry>today
@@ -1809,7 +1809,7 @@ async function captainSubscriptionPanel() {
   const {data,error}=await supabase.from('captain_subscriptions')
     .select('id,plan_days,amount_egp,payment_reference,payment_status,starts_at,expires_at,created_at')
     .eq('captain_id',profile.id).order('created_at',{ascending:false}).limit(10);
-  if(error) return '<section class="panel"><h2>اشتراك الكابتن</h2><p class="message">تعذر تحميل بيانات الاشتراك حالياً.</p></section>';
+  if(error) return {active:null,html:'<section class="panel" id="captainSubscriptionPanel"><h2>اشتراك الكابتن</h2><p class="message">تعذر تحميل بيانات الاشتراك حالياً.</p></section>'};
   const rows=data||[];
   const now=Date.now();
   const active=rows.find(x=>x.payment_status==='approved'&&x.starts_at&&x.expires_at&&new Date(x.starts_at).getTime()<=now&&new Date(x.expires_at).getTime()>now);
@@ -1840,18 +1840,23 @@ async function captainSubscriptionPanel() {
       <button class="btn primary" type="submit">إرسال طلب الاشتراك</button>
       <p class="message" id="subscriptionMessage" aria-live="polite"></p>
     </form>`;
-  return '<section class="panel" id="captainSubscriptionPanel"><h2>اشتراك الكابتن</h2>'+status+history+form+'</section>';
+  const earlyActivation=(Number(completedTripsCount)===0&&!active);
+  const subscriptionContent=status+history+(earlyActivation
+    ? '<details class="subscription-early-details"><summary>تفعيل الاشتراك مبكراً (اختياري)</summary>'+form+'</details>'
+    : form);
+  return {active:active||null,html:'<section class="panel" id="captainSubscriptionPanel"><h2>اشتراك الكابتن</h2>'+subscriptionContent+'</section>'};
 }
 
 async function captainDashboardPage() {
-  const docs=await captainDocumentsPanel();
-  const subscription=await captainSubscriptionPanel();
   const [{count:completedTripsCount,error:completedTripsCountError},{data:captainApp,error:captainAppError}]=await Promise.all([
     supabase.from('trip_requests').select('id',{count:'exact',head:true})
       .eq('accepted_captain_id',profile.id).eq('request_status','completed'),
     supabase.from('captain_applications').select('application_status,national_id_expiry,license_expiry,vehicle_license_expiry')
       .eq('user_id',profile.id).maybeSingle()
   ]);
+  const docs=await captainDocumentsPanel();
+  const subscriptionState=await captainSubscriptionPanel(completedTripsCount||0);
+  const subscription=subscriptionState.html;
   const cairoToday=new Intl.DateTimeFormat('sv-SE',{timeZone:'Africa/Cairo'}).format(new Date());
   const trialEligible=!completedTripsCountError&&!captainAppError
     && captainApp?.application_status==='approved'
@@ -1873,9 +1878,19 @@ async function captainDashboardPage() {
       .order('created_at',{ascending:false}).limit(10)
   ]);
   const availableVehicles=(vehicles||[]).filter(vehicle=>vehicle.is_active||trialEligible);
-  const trialNotice=trialEligible
-    ? '<div class="notice">متاح لك قبول مشوار تجريبي واحد بدون اشتراك مدفوع. أجرة المشوار تظل محسوبة على الراكب، وبعد إكماله يلزم اشتراك نشط لقبول رحلات أخرى.</div>'
+  const showFirstTripOffer=trialEligible&&!subscriptionState.active;
+  const showPostTrialSubscription=(Number(completedTripsCount||0)>=1&&!subscriptionState.active);
+  const firstTripOffer=showFirstTripOffer
+    ? '<section class="panel first-trip-free-card"><div class="first-trip-free-icon">🎁</div><h2>مشوارك الأول مجاني 100%</h2><p>اقبل أول طلب من قائمة المشاوير المتاحة بالأسفل وجرّب السكة مجاناً بدون اشتراك!</p></section>'
     : '';
+  const postTrialNotice=showPostTrialSubscription
+    ? '<section class="panel post-trial-subscription-notice"><h2>اشتراك الكابتن</h2><p>أتممت مشوارك التجريبي بنجاح! فعّل اشتراكك الشهري الآن (150 ج / شهر أو 400 ج / 3 شهور) لمواصلة استقبال الطلبات.</p></section>'
+    : '';
+  const requestsSection=`<section class="panel">
+    <div class="fixed-trip-section-head"><div><h2>طلبات المشاوير المتاحة</h2><p class="muted">اقبل الطلب المناسب لمركبتك. السعر محدد مسبقًا ولا يوجد تفاوض.</p></div><button type="button" class="btn outline" id="refreshFixedTrips">تحديث</button></div>
+    <div class="fixed-trip-list">${requestCards}</div>
+    ${vehicleError?'<p class="message">تعذر تحميل مركباتك المعتمدة.</p>':''}
+  </section>`;
   const activeTripCards=(activeTrips||[]).map(trip=>`<article class="fixed-trip-card active-captain-trip">
     <div class="fixed-trip-card-head"><b>${trip.request_status==='in_progress'?'رحلة جارية':'رحلة مقبولة'}</b><strong>${Number(trip.fixed_fare_egp||0).toLocaleString('ar-EG')} جنيه</strong></div>
     <p><b>من:</b> ${esc(trip.origin_name)}</p><p><b>إلى:</b> ${esc(trip.destination_name)}</p>
@@ -1914,18 +1929,17 @@ async function captainDashboardPage() {
     <main class="wrap narrow">
       <button type="button" class="back" id="captainHome">→ الرئيسية</button>
       <section class="hero compact"><span class="tag">مساحة الكابتن</span><h1>إدارة حسابك واشتراكك</h1><p>يمكنك استخدام السكة كراكب في أي وقت. الاشتراك مطلوب فقط لممارسة نشاط القيادة.</p></section>
+      ${firstTripOffer}
+      ${showFirstTripOffer?requestsSection:''}
+      ${postTrialNotice}
+      ${showPostTrialSubscription?subscription:''}
       ${docs}
-      ${trialNotice}
-      ${subscription}
+      ${!showPostTrialSubscription&&!showFirstTripOffer?subscription:''}
       <section class="panel">
         <div class="fixed-trip-section-head"><div><h2>رحلاتك الحالية</h2><p class="muted">تابع الرحلات المقبولة وابدأها أو أنهها من شاشة الرحلة.</p></div></div>
         <div class="fixed-trip-list">${activeTripError?'<p class="message">تعذر تحميل رحلاتك الحالية.</p>':activeTripCards}</div>
       </section>
-      <section class="panel">
-        <div class="fixed-trip-section-head"><div><h2>طلبات المشاوير المتاحة</h2><p class="muted">اقبل الطلب المناسب لمركبتك. السعر محدد مسبقًا ولا يوجد تفاوض.</p></div><button type="button" class="btn outline" id="refreshFixedTrips">تحديث</button></div>
-        <div class="fixed-trip-list">${requestCards}</div>
-        ${vehicleError?'<p class="message">تعذر تحميل مركباتك المعتمدة.</p>':''}
-      </section>
+      ${showFirstTripOffer?'':requestsSection}
     </main>`);
   if(retainedSubscriptionPanel){const freshPanel=document.getElementById('captainSubscriptionPanel');if(freshPanel)freshPanel.replaceWith(retainedSubscriptionPanel);}
   document.getElementById('captainHome')?.addEventListener('click',()=>{page='home';render();});
