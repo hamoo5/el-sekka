@@ -433,3 +433,13 @@ html.trip-day .discount-explainer{background:#edf8ed;color:#236b36}
 .subscription-transfer-box p{margin:5px 0;color:var(--muted,#777)}
 .subscription-transfer-box strong{display:block;font-size:1.25rem;letter-spacing:1px}
 .subscription-transfer-box small{flex-basis:100%;color:var(--muted,#777)}
+
+
+/* Keep selected subscription proof visible and easy to verify. */
+.subscription-proof-preview{display:flex;align-items:center;gap:12px;padding:12px;margin:8px 0 14px;border:1px solid var(--line,#d9e1e8);border-radius:14px;background:var(--surface,#f8fafc);direction:rtl;}
+.subscription-proof-preview[hidden]{display:none;}
+.subscription-proof-preview img{width:76px;height:76px;object-fit:cover;border-radius:10px;border:1px solid var(--line,#d9e1e8);}
+.subscription-proof-preview>div{display:flex;flex-direction:column;gap:5px;min-width:0;}
+.subscription-proof-preview b{overflow-wrap:anywhere;font-size:.92rem;}
+.subscription-proof-preview small{color:var(--muted,#64748b);font-size:.78rem;}
+.subscription-proof-preview .proof-file-icon{display:grid;place-items:center;width:76px;height:76px;border-radius:10px;background:#fee2e2;color:#991b1b;font-weight:800;}
