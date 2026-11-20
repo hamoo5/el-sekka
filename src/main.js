@@ -1148,12 +1148,12 @@ function applicationError(error){
 }
 
 async function adminApplicationsPage(){
-  layout(\`
+  layout(`
     <main class="wrap narrow">
       <button class="back" id="back">→ الرئيسية</button>
       <section class="hero compact"><span class="tag">إدارة المنصة</span><h1>طلبات الكباتن</h1><p>راجع بيانات الكابتن والمركبة والصور قبل اتخاذ القرار.</p></section>
       <section class="panel" id="captainApplicationsList">جارٍ تحميل الطلبات...</section>
-    </main>\`);
+    </main>`);
   document.getElementById('back').addEventListener('click',()=>{page='home';render();});
   const host=document.getElementById('captainApplicationsList');
   const {data,error}=await supabase.from('captain_applications')
