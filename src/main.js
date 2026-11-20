@@ -1273,11 +1273,12 @@ async function captainSubscriptionPanel() {
   const active=rows.find(x=>x.payment_status==='approved'&&x.starts_at&&x.expires_at&&new Date(x.starts_at).getTime()<=now&&new Date(x.expires_at).getTime()>now);
   const pending=rows.find(x=>x.payment_status==='submitted');
   const latest=rows[0];
-  const status=active
+  const status=(active
     ? '<div class="notice">اشتراكك نشط حتى '+esc(new Date(active.expires_at).toLocaleString('ar-EG'))+'.</div>'
-    : pending ? '<div class="notice">طلب الاشتراك قيد مراجعة الإدارة. لا ترسل طلباً آخر قبل انتهاء المراجعة.</div>'
-    : latest?.payment_status==='rejected' ? '<div class="notice">تم رفض آخر طلب اشتراك. راجع بيانات التحويل والإثبات ثم أرسل طلباً جديداً.</div>'
-    : '<div class="notice">لا يوجد اشتراك نشط حالياً. يمكنك تقديم طلب اشتراك جديد.</div>';
+    : '<div class="notice">لا يوجد اشتراك نشط حالياً.</div>')
+    +(pending ? '<div class="notice">لديك طلب اشتراك قيد مراجعة الإدارة. لا ترسل طلباً آخر قبل انتهاء المراجعة.</div>'
+      : latest?.payment_status==='rejected' ? '<div class="notice">تم رفض آخر طلب اشتراك. راجع بيانات التحويل والإثبات ثم أرسل طلباً جديداً.</div>'
+      : !active ? '<p class="muted">يمكنك تقديم طلب اشتراك جديد.</p>' : '');
   const history=rows.length?'<h3>سجل الاشتراكات</h3><ul>'+rows.map(x=>'<li>'+esc(x.plan_days)+' يوم · '+esc(x.amount_egp)+' جنيه · '+(x.payment_status==='approved'?'معتمد':x.payment_status==='submitted'?'قيد المراجعة':'مرفوض')+(x.expires_at?' · ينتهي '+esc(new Date(x.expires_at).toLocaleDateString('ar-EG')):'')+'</li>').join('')+'</ul>':'';
   const form=pending?'':`
     <form class="form" id="subscriptionForm">
@@ -1305,6 +1306,7 @@ async function captainDashboardPage() {
       ${subscription}
     </main>`);
   document.getElementById('captainHome')?.addEventListener('click',()=>{page='home';render();});
+  document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>{page=b.dataset.page;render();}));
   document.getElementById('subscriptionForm')?.addEventListener('submit',async e=>{
     e.preventDefault();
     const form=e.currentTarget, d=new FormData(form), msg=document.getElementById('subscriptionMessage'), btn=form.querySelector('button[type="submit"]');
