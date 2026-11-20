@@ -563,6 +563,27 @@ function shareHome() {
         <p class="muted">تظهر هنا طلبات الركاب والكباتن الذين يستخدمون الخدمة كطالبي مقاعد.</p>
         <div id="shareOpenRequests" class="share-list">جارٍ تحميل الطلبات...</div>
       </section>` : `
+      ${isCaptain ? `
+      <section class="panel">
+        <h2>انشر كراسي متاحة بمركبتك</h2>
+        <p class="muted">هذا العرض ينشره الكابتن فقط بمركبة معتمدة ونشطة، ويحدد سعر الكرسي.</p>
+        <form id="captainSeatOfferForm" class="form">
+          <label>المركبة<select id="seatOfferVehicle" required><option value="">جارٍ تحميل المركبات...</option></select></label>
+          <label>نوع العرض<select id="seatOfferMode"><option value="live_share">فوري</option><option value="scheduled_share">مجدول</option></select></label>
+          <label>من<input id="seatOfferOrigin" required maxlength="180"></label>
+          <label>إلى<input id="seatOfferDestination" required maxlength="180"></label>
+          <label id="seatOfferDateField" hidden>موعد التحرك<input id="seatOfferDeparture" type="datetime-local"></label>
+          <label>عدد الكراسي المتاحة<input id="seatOfferSeats" type="number" min="1" max="13" value="1" required></label>
+          <label>سعر الكرسي (جنيه)<input id="seatOfferPrice" type="number" min="0" step="0.5" required></label>
+          <button class="btn primary" type="submit">نشر عرض الكراسي</button>
+          <p id="seatOfferMessage" class="message" aria-live="polite"></p>
+        </form>
+      </section>` : ''}
+      <section class="panel">
+        <h2>عروض الكراسي المتاحة</h2>
+        <p class="muted">تقدر تطلب كرسياً من عرض كابتن آخر، حتى لو حسابك كابتن.</p>
+        <div id="shareAvailableRides" class="share-list">جارٍ تحميل العروض...</div>
+      </section>
       <section class="panel">
         <h2>الردود على طلبات المشاركة</h2>
         <p class="muted">عندما يرد كابتن معتمد على طلبك سيظهر عرضه هنا.</p>
@@ -698,6 +719,77 @@ function shareHome() {
     }));
   }
 
+  async function loadCaptainSeatVehicles(){
+    const select=$('seatOfferVehicle'); if(!select)return;
+    const {data,error}=await supabase.from('vehicles')
+      .select('id,vehicle_type,make,model,passenger_capacity')
+      .eq('captain_id',profile.id).eq('approval_status','approved').eq('is_active',true);
+    if(error||!data?.length){select.innerHTML='<option value="">لا توجد مركبات معتمدة ونشطة</option>';return;}
+    select.innerHTML=data.map(v=>`<option value="${v.id}">${esc([v.make,v.model].filter(Boolean).join(' ')||v.vehicle_type)} · ${v.passenger_capacity} مقعد</option>`).join('');
+    $('seatOfferSeats').max=String(Math.max(...data.map(v=>v.passenger_capacity)));
+  }
+  $('seatOfferMode')?.addEventListener('change',()=>{
+    const scheduled=$('seatOfferMode').value==='scheduled_share';
+    $('seatOfferDateField').hidden=!scheduled; $('seatOfferDeparture').required=scheduled;
+  });
+  $('captainSeatOfferForm')?.addEventListener('submit',async e=>{
+    e.preventDefault();
+    const msg=$('seatOfferMessage'),btn=e.currentTarget.querySelector('button[type="submit"]');
+    const mode=$('seatOfferMode').value;
+    const departure=mode==='scheduled_share'?new Date($('seatOfferDeparture').value):new Date(Date.now()+60000);
+    if(mode==='scheduled_share'&&(! $('seatOfferDeparture').value||Number.isNaN(departure.getTime())||departure<=new Date())){
+      msg.textContent='اختار موعداً مستقبلياً صحيحاً.';return;
+    }
+    btn.disabled=true;msg.textContent='جارٍ نشر عرض الكراسي...';
+    const {error}=await supabase.rpc('create_share_ride',{
+      p_vehicle_id:$('seatOfferVehicle').value,p_ride_mode:mode,
+      p_origin_name:$('seatOfferOrigin').value.trim(),p_origin_lat:null,p_origin_lng:null,
+      p_destination_name:$('seatOfferDestination').value.trim(),p_destination_lat:null,p_destination_lng:null,
+      p_route_description:null,p_departure_at:departure.toISOString(),
+      p_seats:Number($('seatOfferSeats').value),p_seat_price:Number($('seatOfferPrice').value)
+    });
+    btn.disabled=false;
+    if(error){msg.textContent=shareError(error);return;}
+    msg.textContent='تم نشر عرض الكراسي.';e.currentTarget.reset();
+    $('seatOfferMode').value='live_share';$('seatOfferDateField').hidden=true;
+    await loadAvailableRides();
+  });
+
+  async function loadAvailableRides(){
+    const host=$('shareAvailableRides');if(!host)return;
+    let q=supabase.from('rides').select('id,captain_id,ride_mode,origin_name,destination_name,departure_at,available_seats,seat_price_egp')
+      .eq('ride_status','open').order('departure_at',{ascending:true}).limit(40);
+    const {data,error}=await q;
+    if(error){host.textContent='تعذر تحميل عروض الكراسي.';return;}
+    const rides=(data||[]).filter(r=>r.captain_id!==profile.id);
+    if(!rides.length){host.innerHTML='<p class="muted">لا توجد عروض كراسي متاحة حالياً.</p>';return;}
+    host.innerHTML=rides.map(r=>`<article class="share-item">
+      <b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b>
+      <small>${r.ride_mode==='live_share'?'فوري':'مجدول'} · ${new Date(r.departure_at).toLocaleString('ar-EG')}</small>
+      <p>المتاح: ${r.available_seats} · السعر المطلوب: ${Number(r.seat_price_egp).toLocaleString('ar-EG')} جنيه للكرسي</p>
+      <div class="share-actions"><input type="number" min="1" max="${r.available_seats}" value="1" id="ride-seats-${r.id}" aria-label="عدد الكراسي">
+      <input type="number" min="0" step="0.5" value="${Number(r.seat_price_egp)}" id="ride-offer-${r.id}" aria-label="عرضك للكرسي"></div>
+      <div class="share-actions"><input id="ride-pickup-${r.id}" placeholder="مكان صعودك" value="${esc(r.origin_name)}">
+      <input id="ride-dropoff-${r.id}" placeholder="مكان نزولك" value="${esc(r.destination_name)}"></div>
+      <button class="btn primary" data-book-share-ride="${r.id}">طلب الكراسي والتفاوض</button>
+    </article>`).join('');
+    host.querySelectorAll('[data-book-share-ride]').forEach(b=>b.addEventListener('click',async()=>{
+      const id=b.dataset.bookShareRide;
+      const seats=Number($('ride-seats-'+id).value),offer=Number($('ride-offer-'+id).value);
+      if(!Number.isInteger(seats)||seats<1||!Number.isFinite(offer)||offer<0){alert('راجع عدد الكراسي والسعر.');return;}
+      b.disabled=true;
+      const {error}=await supabase.rpc('request_seats',{
+        p_ride_id:id,p_pickup_name:$('ride-pickup-'+id).value.trim(),
+        p_dropoff_name:$('ride-dropoff-'+id).value.trim(),
+        p_pickup_order:0,p_dropoff_order:1,p_seats:seats,p_offer:offer
+      });
+      if(error){alert(shareError(error));b.disabled=false;return;}
+      b.textContent='تم إرسال طلبك';b.disabled=true;
+    }));
+  }
+
+  if(isCaptain) loadCaptainSeatVehicles();
+  loadAvailableRides();
   loadMyShareRequests();
   if(isCaptain) loadCaptainRequests();
 }
