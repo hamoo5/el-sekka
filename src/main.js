@@ -772,6 +772,266 @@ function tripForm() {
   });
 }
 
+
+function tripStatusLabel(status){
+  return ({searching:'جارٍ البحث عن كابتن',accepted:'تم قبول الرحلة',in_progress:'الرحلة جارية',completed:'اكتملت الرحلة',cancelled:'تم إلغاء الرحلة'})[status]||'حالة الرحلة';
+}
+
+async function setupTripChat(tripId,partnerName){
+  const root=document.getElementById('tripChatPanel');
+  if(!root)return;
+  const {data:conversation,error:conversationError}=await supabase.from('trip_conversations')
+    .select('trip_id,closed_at').eq('trip_id',tripId).maybeSingle();
+  if(conversationError||!conversation){
+    root.innerHTML='<div class="notice">المحادثة هتظهر هنا بعد قبول الرحلة.</div>';
+    return;
+  }
+  const closed=Boolean(conversation.closed_at);
+  root.innerHTML=`
+    <div class="trip-chat-head"><div><h3>محادثة الرحلة</h3><small>التواصل داخل السكة فقط · لا تظهر أرقام الهواتف</small></div></div>
+    <div id="tripChatMessages" class="trip-chat-messages">جارٍ تحميل المحادثة...</div>
+    ${closed?'<div class="notice">انتهت المحادثة بعد انتهاء الرحلة. يمكنك مراجعة الرسائل السابقة.</div>':`
+      <div class="chat-quick-replies">
+        <button type="button" data-chat-quick="أنا وصلت">أنا وصلت</button>
+        <button type="button" data-chat-quick="${profile.role==='captain'?'في طريقي إليك':'فين مكانك؟'}">${profile.role==='captain'?'في طريقي إليك':'فين مكانك؟'}</button>
+        <button type="button" data-chat-quick="دقيقة وهنزل">دقيقة وهنزل</button>
+      </div>
+      <form id="tripChatForm" class="trip-chat-form">
+        <textarea id="tripChatInput" rows="2" maxlength="1200" placeholder="اكتب رسالة للكابتن..." required></textarea>
+        <div class="chat-compose-actions">
+          <button class="btn primary" type="submit">إرسال</button>
+          <button class="btn outline" type="button" id="recordTripAudio">🎙️ تسجيل صوت (10 ثوانٍ)</button>
+        </div>
+        <small id="tripChatMessage" class="muted"></small>
+      </form>`}
+  `;
+  const messagesBox=document.getElementById('tripChatMessages');
+  const refreshMessages=async()=>{
+    const {data:messages,error}=await supabase.from('trip_messages')
+      .select('id,sender_id,message_type,body,storage_path,created_at')
+      .eq('trip_id',tripId).order('created_at',{ascending:true}).limit(100);
+    if(error){messagesBox.innerHTML='<p class="muted">تعذر تحميل الرسائل.</p>';return;}
+    if(!messages?.length){messagesBox.innerHTML='<p class="muted">ابدأ المحادثة برسالة قصيرة.</p>';return;}
+    const html=[];
+    for(const message of messages){
+      const mine=message.sender_id===profile.id;
+      const time=new Date(message.created_at).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});
+      let content=message.message_type==='text'?esc(message.body||''):'رسالة صوتية';
+      if(message.message_type==='audio'&&message.storage_path){
+        const {data:signed}=await supabase.storage.from('trip-audio').createSignedUrl(message.storage_path,120);
+        content=signed?.signedUrl?'<audio controls preload="none" src="'+esc(signed.signedUrl)+'"></audio>':'<small>الرسالة الصوتية غير متاحة.</small>';
+      }
+      html.push('<div class="chat-message '+(mine?'mine':'theirs')+'"><b>'+(mine?'أنت':esc(partnerName||'الطرف الآخر'))+'</b><div>'+content+'</div><small>'+esc(time)+'</small></div>');
+    }
+    messagesBox.innerHTML=html.join('');
+    messagesBox.scrollTop=messagesBox.scrollHeight;
+  };
+  await refreshMessages();
+  const channel=supabase.channel('trip-chat-'+tripId+'-'+profile.id)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'trip_messages',filter:'trip_id=eq.'+tripId},()=>refreshMessages())
+    .subscribe();
+  activeChatChannels.push(channel);
+  if(closed)return;
+  document.querySelectorAll('[data-chat-quick]').forEach(button=>button.addEventListener('click',()=>{
+    const input=document.getElementById('tripChatInput');input.value=button.dataset.chatQuick;input.focus();
+  }));
+  document.getElementById('tripChatForm')?.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const input=document.getElementById('tripChatInput'),message=input.value.trim(),status=document.getElementById('tripChatMessage');
+    if(!message)return;
+    const submit=event.currentTarget.querySelector('button[type="submit"]');submit.disabled=true;status.textContent='جارٍ الإرسال...';
+    const {error}=await supabase.from('trip_messages').insert({trip_id:tripId,sender_id:profile.id,message_type:'text',body:message});
+    submit.disabled=false;
+    if(error){status.textContent=error.message?.includes('phone_numbers_not_allowed')?'ممنوع مشاركة أرقام الهواتف داخل محادثة السكة.':'تعذر إرسال الرسالة.';return;}
+    input.value='';status.textContent='تم إرسال الرسالة.';await refreshMessages();
+  });
+  const recordButton=document.getElementById('recordTripAudio');
+  recordButton?.addEventListener('click',async()=>{
+    const status=document.getElementById('tripChatMessage');
+    if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){status.textContent='تسجيل الصوت غير مدعوم على هذا الجهاز.';return;}
+    recordButton.disabled=true;status.textContent='اسمح باستخدام الميكروفون...';
+    let stream;
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      const preferred=['audio/webm;codecs=opus','audio/webm','audio/ogg','audio/mp4'];
+      const mime=preferred.find(type=>MediaRecorder.isTypeSupported(type));
+      const recorder=mime?new MediaRecorder(stream,{mimeType:mime}):new MediaRecorder(stream);
+      const chunks=[];
+      recorder.ondataavailable=event=>{if(event.data?.size)chunks.push(event.data);};
+      recorder.onstop=async()=>{
+        stream.getTracks().forEach(track=>track.stop());
+        const blob=new Blob(chunks,{type:recorder.mimeType||'audio/webm'});
+        if(blob.size>1024*1024){status.textContent='الرسالة الصوتية أكبر من الحد المسموح.';recordButton.disabled=false;return;}
+        status.textContent='جارٍ رفع الرسالة الصوتية...';
+        const type=(blob.type||'audio/webm').split(';')[0];
+        const ext=type==='audio/ogg'?'ogg':type==='audio/mp4'?'mp4':'webm';
+        const path=tripId+'/'+profile.id+'/'+crypto.randomUUID()+'.'+ext;
+        const {error:uploadError}=await supabase.storage.from('trip-audio').upload(path,blob,{contentType:type,upsert:false});
+        if(uploadError){status.textContent='تعذر رفع الرسالة الصوتية.';recordButton.disabled=false;return;}
+        const {error:messageError}=await supabase.from('trip_messages').insert({trip_id:tripId,sender_id:profile.id,message_type:'audio',storage_path:path});
+        if(messageError){await supabase.storage.from('trip-audio').remove([path]);status.textContent='تعذر إرسال الرسالة الصوتية.';}
+        else{status.textContent='تم إرسال الرسالة الصوتية.';await refreshMessages();}
+        recordButton.disabled=false;recordButton.textContent='🎙️ تسجيل صوت (10 ثوانٍ)';
+      };
+      recorder.start();recordButton.textContent='إيقاف التسجيل';status.textContent='جارٍ التسجيل... الحد الأقصى 10 ثوانٍ.';
+      const stopTimer=window.setTimeout(()=>{if(recorder.state==='recording')recorder.stop();},10000);
+      recordButton.onclick=()=>{if(recorder.state==='recording'){clearTimeout(stopTimer);recorder.stop();}};
+    }catch(error){
+      stream?.getTracks().forEach(track=>track.stop());status.textContent='تعذر تشغيل الميكروفون. راجع إذن المتصفح.';
+      recordButton.disabled=false;recordButton.textContent='🎙️ تسجيل صوت (10 ثوانٍ)';
+    }
+  });
+}
+
+async function startCaptainLocationShare(tripId,button){
+  if(!navigator.geolocation){alert('تحديد الموقع غير مدعوم على هذا الجهاز.');return;}
+  if(captainLocationWatchId!==null)navigator.geolocation.clearWatch(captainLocationWatchId);
+  button.disabled=true;button.textContent='جارٍ تفعيل مشاركة الموقع...';
+  captainLocationWatchId=navigator.geolocation.watchPosition(async position=>{
+    const {latitude,longitude,accuracy}=position.coords;
+    const {error}=await supabase.rpc('captain_update_fixed_trip_location',{
+      p_request_id:tripId,p_latitude:latitude,p_longitude:longitude,p_accuracy_meters:accuracy
+    });
+    if(error){button.textContent='تعذر تحديث الموقع';button.disabled=false;return;}
+    button.textContent='مشاركة الموقع مفعّلة ✓';button.disabled=false;
+  },error=>{
+    button.disabled=false;button.textContent='تفعيل مشاركة الموقع';
+    alert(error.code===1?'اسمح بمشاركة موقعك أثناء الرحلة.':'تعذر تحديد الموقع. حاول مرة أخرى.');
+  },{enableHighAccuracy:true,maximumAge:5000,timeout:15000});
+}
+
+async function tripStatusPage(tripId){
+  if(!tripId){page='home';return home();}
+  const {data:trip,error}=await supabase.from('trip_requests')
+    .select('id,passenger_id,accepted_captain_id,accepted_vehicle_id,vehicle_type,origin_name,origin_lat,origin_lng,destination_name,destination_lat,destination_lng,passenger_count,fixed_fare_egp,request_status,is_scheduled,scheduled_at,pickup_note,ride_preferences,created_at')
+    .eq('id',tripId).maybeSingle();
+  if(error||!trip){layout('<main class="wrap narrow"><section class="panel"><h2>مش لاقيين الرحلة</h2><p class="muted">قد تكون غير متاحة أو لا تملك صلاحية عرضها.</p><button class="btn primary" id="tripStatusHome">الرئيسية</button></section></main>');document.getElementById('tripStatusHome')?.addEventListener('click',()=>{page='home';render();});return;}
+  const isCaptain=trip.accepted_captain_id===profile.id;
+  const isPassenger=trip.passenger_id===profile.id;
+  const active=['accepted','in_progress'].includes(trip.request_status);
+  const [{data:captain},{data:passenger},{data:vehicle},{data:location}]=await Promise.all([
+    trip.accepted_captain_id?supabase.from('profiles').select('display_name').eq('id',trip.accepted_captain_id).maybeSingle():Promise.resolve({data:null}),
+    supabase.from('profiles').select('display_name').eq('id',trip.passenger_id).maybeSingle(),
+    trip.accepted_vehicle_id?supabase.from('vehicles').select('make,model,color,plate_number').eq('id',trip.accepted_vehicle_id).maybeSingle():Promise.resolve({data:null}),
+    active&&trip.accepted_captain_id?supabase.from('driver_locations').select('latitude,longitude,accuracy_meters,updated_at').eq('captain_id',trip.accepted_captain_id).eq('trip_id',trip.id).maybeSingle():Promise.resolve({data:null})
+  ]);
+  const partnerName=isCaptain?(passenger?.display_name||'الراكب'):(captain?.display_name||'الكابتن');
+  const preferences=trip.ride_preferences||{};
+  const preferenceLabels=[preferences.quiet?'🤫 رحلة هادية':null,preferences.ac?'❄️ تكييف':null,preferences.luggage?'🧳 شنط':null].filter(Boolean);
+  const statusText=tripStatusLabel(trip.request_status);
+  layout(`
+    <main class="wrap narrow">
+      <button type="button" class="back" id="tripStatusBack">→ الرئيسية</button>
+      <section class="hero compact"><span class="tag">متابعة الرحلة</span><h1>${statusText}</h1><p>كل التعامل والتواصل داخل السكة. أرقام الهواتف غير ظاهرة.</p></section>
+      <section class="panel active-trip-panel">
+        <div class="trip-route-line"><b>من</b><span>${esc(trip.origin_name)}</span></div>
+        <div class="trip-route-line"><b>إلى</b><span>${esc(trip.destination_name)}</span></div>
+        <div class="fare-line"><span>السعر الثابت</span><strong>${Number(trip.fixed_fare_egp||0).toLocaleString('ar-EG')} جنيه</strong></div>
+        <p class="muted">عدد الركاب: ${esc(trip.passenger_count)} · المركبة: ${esc(trip.vehicle_type)}</p>
+        ${trip.pickup_note?'<p><b>ملاحظة الركوب:</b> '+esc(trip.pickup_note)+'</p>':''}
+        ${preferenceLabels.length?'<div class="fixed-trip-preferences">'+preferenceLabels.map(x=>'<span>'+x+'</span>').join('')+'</div>':''}
+        ${active?'<div class="driver-summary"><b>الكابتن: '+esc(captain?.display_name||'بانتظار بيانات الكابتن')+'</b><small>المركبة: '+esc([vehicle?.make,vehicle?.model,vehicle?.color].filter(Boolean).join(' ')||'—')+' · اللوحة: '+esc(vehicle?.plate_number||'—')+'</small></div>':''}
+        ${trip.request_status==='searching'?'<div class="notice">طلبك ظاهر للكباتن المعتمدين. هنحدث الحالة هنا عند قبول كابتن.</div>':''}
+        ${trip.request_status==='completed'?'<div class="notice">وصلت بالسلامة. انتهت مشاركة الموقع والمحادثة.</div>':''}
+        ${trip.request_status==='cancelled'?'<div class="notice">تم إلغاء الرحلة.</div>':''}
+        ${active?'<div id="activeTripMap" class="trip-map" aria-label="موقع الكابتن على الخريطة"></div>':''}
+        ${active?'<div class="trip-status-actions"><button type="button" class="btn outline" id="copyTripTracking">نسخ رابط متابعة الرحلة</button>'+(isCaptain?'<button type="button" class="btn outline" id="enableCaptainLocation">تفعيل مشاركة موقعي</button>':'')+'</div>':''}
+        ${isCaptain&&trip.request_status==='accepted'?'<button type="button" class="btn primary" id="startFixedTrip">بدء الرحلة</button>':''}
+        ${isCaptain&&trip.request_status==='in_progress'?'<button type="button" class="btn primary" id="completeFixedTrip">إنهاء الرحلة</button>':''}
+        ${isPassenger&&['searching','accepted'].includes(trip.request_status)?'<button type="button" class="btn outline" id="cancelFixedTrip">إلغاء الرحلة</button>':''}
+        <p id="tripStatusMessage" class="message" aria-live="polite"></p>
+      </section>
+      <section class="panel" id="tripChatPanel"><h3>محادثة الرحلة</h3><p class="muted">تظهر المحادثة بعد قبول الكابتن.</p></section>
+    </main>`);
+  document.getElementById('tripStatusBack')?.addEventListener('click',()=>{page='home';render();});
+  document.getElementById('cancelFixedTrip')?.addEventListener('click',async()=>{
+    const button=document.getElementById('cancelFixedTrip');button.disabled=true;
+    const {error}=await supabase.rpc('passenger_cancel_fixed_trip',{p_request_id:trip.id});
+    if(error){button.disabled=false;document.getElementById('tripStatusMessage').textContent='تعذر إلغاء الرحلة. ربما بدأت بالفعل.';return;}
+    await tripStatusPage(trip.id);
+  });
+  document.getElementById('startFixedTrip')?.addEventListener('click',async()=>{
+    const button=document.getElementById('startFixedTrip');button.disabled=true;
+    const {error}=await supabase.rpc('captain_start_fixed_trip',{p_request_id:trip.id});
+    if(error){button.disabled=false;document.getElementById('tripStatusMessage').textContent='تعذر بدء الرحلة.';return;}
+    await tripStatusPage(trip.id);
+  });
+  document.getElementById('completeFixedTrip')?.addEventListener('click',async()=>{
+    const button=document.getElementById('completeFixedTrip');button.disabled=true;
+    const {error}=await supabase.rpc('captain_complete_fixed_trip',{p_request_id:trip.id});
+    if(error){button.disabled=false;document.getElementById('tripStatusMessage').textContent='تعذر إنهاء الرحلة.';return;}
+    await tripStatusPage(trip.id);
+  });
+  document.getElementById('enableCaptainLocation')?.addEventListener('click',event=>startCaptainLocationShare(trip.id,event.currentTarget));
+  document.getElementById('copyTripTracking')?.addEventListener('click',async()=>{
+    const button=document.getElementById('copyTripTracking');button.disabled=true;button.textContent='جارٍ إنشاء الرابط...';
+    const {data,error}=await supabase.functions.invoke('create-trip-tracking-link',{body:{trip_id:trip.id}});
+    button.disabled=false;
+    if(error||!data?.token){button.textContent='تعذر إنشاء الرابط';document.getElementById('tripStatusMessage').textContent='تأكد أن الرحلة مقبولة ولم تنتهِ.';return;}
+    const link=window.location.origin+'/track?token='+encodeURIComponent(data.token);
+    try{await navigator.clipboard.writeText(link);button.textContent='تم نسخ رابط المتابعة ✓';}
+    catch(_){window.prompt('انسخ رابط المتابعة الآمن:',link);button.textContent='رابط المتابعة جاهز';}
+  });
+  if(active&&window.L&&document.getElementById('activeTripMap')){
+    publicTrackingMap=window.L.map('activeTripMap').setView(location?[location.latitude,location.longitude]:[trip.origin_lat,trip.origin_lng],location?15:12);
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(publicTrackingMap);
+    if(location)publicTrackingMarker=window.L.marker([location.latitude,location.longitude]).addTo(publicTrackingMap).bindPopup('موقع الكابتن');
+    window.setTimeout(()=>publicTrackingMap?.invalidateSize(),200);
+    const locationChannel=supabase.channel('trip-location-'+trip.id+'-'+profile.id)
+      .on('postgres_changes',{event:'*',schema:'public',table:'driver_locations',filter:'trip_id=eq.'+trip.id},payload=>{
+        const row=payload.new;if(!row?.latitude||!row?.longitude||!publicTrackingMap)return;
+        if(publicTrackingMarker)publicTrackingMarker.setLatLng([row.latitude,row.longitude]);
+        else publicTrackingMarker=window.L.marker([row.latitude,row.longitude]).addTo(publicTrackingMap).bindPopup('موقع الكابتن');
+        publicTrackingMap.panTo([row.latitude,row.longitude]);
+      }).subscribe();
+    activeTripChannels.push(locationChannel);
+  }
+  if(trip.request_status==='accepted'||trip.request_status==='in_progress'||trip.request_status==='completed')await setupTripChat(trip.id,partnerName);
+  const statusChannel=supabase.channel('trip-status-'+trip.id+'-'+profile.id)
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'trip_requests',filter:'id=eq.'+trip.id},()=>tripStatusPage(trip.id))
+    .subscribe();
+  activeTripChannels.push(statusChannel);
+}
+
+async function publicTrackingPage(token){
+  layout(`
+    <main class="wrap narrow">
+      <section class="hero compact"><span class="tag">رابط متابعة آمن · السكة</span><h1>متابعة الرحلة</h1><p>يعرض هذا الرابط معلومات الرحلة وموقع المركبة أثناء الرحلة فقط.</p></section>
+      <section class="panel">
+        <div id="publicTrackStatus" class="notice">جارٍ تحميل بيانات الرحلة...</div>
+        <div id="publicTrackDetails" hidden></div>
+        <div id="publicTrackMap" class="trip-map" hidden></div>
+      </section>
+    </main>`);
+  const status=document.getElementById('publicTrackStatus'),details=document.getElementById('publicTrackDetails'),mapBox=document.getElementById('publicTrackMap');
+  const refresh=async()=>{
+    const {data,error}=await supabase.functions.invoke('get-trip-tracking',{body:{token}});
+    if(error||!data?.active){
+      status.textContent='انتهت صلاحية رابط المتابعة أو انتهت الرحلة.';
+      details.hidden=true;mapBox.hidden=true;
+      if(publicTrackingTimer){clearInterval(publicTrackingTimer);publicTrackingTimer=null;}
+      return;
+    }
+    status.textContent=data.status==='in_progress'?'الرحلة جارية الآن':'تم قبول الرحلة والكابتن في الطريق';
+    details.hidden=false;
+    const vehicle=data.vehicle||{};
+    details.innerHTML='<div class="driver-summary"><b>الكابتن: '+esc(data.captain_name)+'</b><small>المركبة: '+esc([vehicle.make,vehicle.model,vehicle.color].filter(Boolean).join(' ')||'—')+' · اللوحة: '+esc(vehicle.plate_number||'—')+'</small></div><p><b>من:</b> '+esc(data.origin)+'</p><p><b>إلى:</b> '+esc(data.destination)+'</p><small class="muted">آخر تحديث: '+esc(new Date(data.checked_at).toLocaleTimeString('ar-EG'))+'</small>';
+    if(data.location&&window.L){
+      mapBox.hidden=false;
+      if(!publicTrackingMap){
+        publicTrackingMap=window.L.map('publicTrackMap').setView([data.location.latitude,data.location.longitude],15);
+        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(publicTrackingMap);
+      }
+      if(publicTrackingMarker)publicTrackingMarker.setLatLng([data.location.latitude,data.location.longitude]);
+      else publicTrackingMarker=window.L.marker([data.location.latitude,data.location.longitude]).addTo(publicTrackingMap).bindPopup('موقع المركبة');
+      publicTrackingMap.panTo([data.location.latitude,data.location.longitude]);
+      window.setTimeout(()=>publicTrackingMap?.invalidateSize(),100);
+    }
+  };
+  await refresh();
+  publicTrackingTimer=window.setInterval(refresh,10000);
+}
+
 function shareHome() {
   const isCaptain = profile?.role === 'captain';
   const types = [
