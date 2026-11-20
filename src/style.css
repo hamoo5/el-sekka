@@ -247,3 +247,7 @@ html.trip-day .share-negotiation{background:#f2f6f8}
 .repeat-trip-card b{font-size:13px}
 .repeat-trip-card small{font-size:10px;color:#b9c9b2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .passenger-shortcuts .muted{font-size:11px;line-height:1.7}
+
+.vehicle-price{font-size:10px;color:#a9b9ca;font-weight:800}
+.vehicle-price[data-cheapest="true"]{color:#b7f36b}
+.vehicle-card.selected .vehicle-price{color:#d7f5b2}
