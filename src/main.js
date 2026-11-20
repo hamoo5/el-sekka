@@ -1057,8 +1057,43 @@ async function captainApplicationStatus() {
   const labels = {pending:'طلبك قيد المراجعة',approved:'تمت الموافقة على طلبك',rejected:'تم رفض الطلب',suspended:'تم إيقاف اعتماد الكابتن'};
   return '<section class="panel"><h2>طلب الكابتن</h2><p><b>'+labels[data.application_status]+'</b></p>'+
     (data.admin_notes ? '<p class="muted">ملاحظات الإدارة: '+esc(data.admin_notes)+'</p>' : '')+
-    (data.application_status === 'rejected' ? '<button class="btn outline" data-page="apply-captain">تعديل البيانات وإعادة التقديم</button>' : '')+
+    '<button class="btn outline" data-page="apply-captain">عرض تفاصيل حالة الطلب</button>'+
     '</section>';
+}
+
+async function captainApplicationStatusPage(knownApplicationId = null) {
+  const {data,error} = await supabase.from('captain_applications')
+    .select('id,application_status,admin_notes,created_at,reviewed_at')
+    .eq('user_id',profile.id).maybeSingle();
+  const application = data;
+  const status = application?.application_status || (knownApplicationId ? 'pending' : null);
+  const labels = {
+    pending:['قيد المراجعة','استلمنا طلبك بنجاح، وهو الآن لدى الإدارة للمراجعة.'],
+    approved:['تمت الموافقة','تم اعتماد طلبك. يمكنك متابعة الخطوات التالية من مساحة الكابتن.'],
+    rejected:['لم تتم الموافقة','يمكنك مراجعة ملاحظات الإدارة وتعديل البيانات ثم إعادة التقديم.'],
+    suspended:['موقوف','اعتماد الكابتن موقوف حالياً. يرجى مراجعة الإدارة.']
+  };
+  const details = labels[status];
+  layout(`
+    <main class="wrap narrow">
+      <section class="hero compact"><span class="tag">الانضمام للكباتن</span><h1>حالة طلبك</h1><p>تابع نتيجة مراجعة بياناتك ومركبتك من هنا.</p></section>
+      <section class="panel">
+        ${details ? '<h2>'+details[0]+'</h2><p>'+details[1]+'</p>' : '<h2>تعذر تحديد حالة الطلب</h2><p>لم نتمكن من قراءة الحالة الحالية. اضغط تحديث الحالة بعد قليل.</p>'}
+        ${application?.id || knownApplicationId ? '<p class="muted">رقم الطلب: <b>'+esc(application?.id || knownApplicationId)+'</b></p>' : ''}
+        ${application?.created_at ? '<p class="muted">تاريخ الإرسال: '+new Date(application.created_at).toLocaleString('ar-EG')+'</p>' : ''}
+        ${application?.reviewed_at ? '<p class="muted">تاريخ المراجعة: '+new Date(application.reviewed_at).toLocaleString('ar-EG')+'</p>' : ''}
+        ${application?.admin_notes ? '<div class="notice">ملاحظات الإدارة: '+esc(application.admin_notes)+'</div>' : ''}
+        ${error ? '<p class="message">تعذر تحديث الحالة من قاعدة البيانات حالياً. طلبك أُرسل بنجاح إذا ظهرت رسالة التأكيد السابقة.</p>' : ''}
+        <div class="share-actions">
+          <button type="button" class="btn primary" id="refreshApplicationStatus">تحديث الحالة</button>
+          ${status === 'rejected' ? '<button type="button" class="btn outline" id="reapplyCaptain">تعديل البيانات وإعادة التقديم</button>' : ''}
+          <button type="button" class="btn outline" id="statusHome">العودة للرئيسية</button>
+        </div>
+      </section>
+    </main>`);
+  document.getElementById('refreshApplicationStatus')?.addEventListener('click',()=>captainApplicationStatusPage(knownApplicationId));
+  document.getElementById('reapplyCaptain')?.addEventListener('click',()=>{page='apply-captain';render();});
+  document.getElementById('statusHome')?.addEventListener('click',()=>{page='home';render();});
 }
 
 async function applyCaptainPage() {
@@ -1078,18 +1113,7 @@ async function applyCaptainPage() {
     return;
   }
   if (existing?.application_status === 'pending' || existing?.application_status === 'approved' || existing?.application_status === 'suspended') {
-    const statusText = {pending:'طلبك قيد المراجعة لدى الإدارة.',approved:'تمت الموافقة على طلبك بالفعل.',suspended:'تم إيقاف اعتماد الكابتن لحسابك حالياً.'}[existing.application_status];
-    layout(`
-      <main class="wrap narrow">
-        <section class="hero compact"><span class="tag">طلب الانضمام للكباتن</span><h1>حالة طلبك</h1></section>
-        <section class="panel">
-          <h2>${statusText}</h2>
-          <p class="muted">لن تحتاج إلى إرسال الطلب مرة أخرى. يمكنك العودة للرئيسية ومتابعة استخدام السكة.</p>
-          <button type="button" class="btn primary" id="back">العودة للرئيسية</button>
-        </section>
-      </main>`);
-    document.getElementById('back')?.addEventListener('click',(e)=>{e.preventDefault();page='home';render();});
-    return;
+    return captainApplicationStatusPage();
   }
   layout(`
     <main class="wrap narrow">
@@ -1172,7 +1196,7 @@ async function applyCaptainPage() {
       };
       const paths={profile:await upload('profile',files.profile),front:await upload('vehicle-front',files.front),side:await upload('vehicle-side',files.side),rear:await upload('vehicle-rear',files.rear)};
       msg.textContent='تم رفع الصور. جارٍ إرسال طلب المراجعة...';
-      const {error}=await supabase.rpc('submit_captain_application_v2',{
+      const {data:applicationId,error}=await supabase.rpc('submit_captain_application_v2',{
         p_national_id_last4:last4,p_license_number:license,p_license_expiry:expiry,
         p_vehicle_type:type,p_make:String(d.get('make')||'').trim(),p_model:String(d.get('model')||'').trim(),
         p_model_year:Number(d.get('model_year')),p_color:String(d.get('color')||'').trim(),p_plate_number:String(d.get('plate_number')||'').trim(),
@@ -1181,8 +1205,9 @@ async function applyCaptainPage() {
         p_profile_photo_path:paths.profile,p_vehicle_front_path:paths.front,p_vehicle_side_path:paths.side,p_vehicle_rear_path:paths.rear
       });
       if(error) throw error;
-      msg.textContent='تم إرسال طلبك وبيانات المركبة بنجاح. ستظل حساباً كراكب حتى اعتماد الإدارة.';
-      setTimeout(()=>{page='home';render();},1300);
+      msg.textContent='تم إرسال طلبك بنجاح. سيتم الآن عرض حالة الطلب ورقمه.';
+      page='apply-captain';
+      await captainApplicationStatusPage(applicationId);
     }catch(error){msg.textContent=applicationError(error);}
     finally{btn.disabled=false;}
   });
