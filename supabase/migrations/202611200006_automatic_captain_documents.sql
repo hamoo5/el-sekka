@@ -256,6 +256,7 @@ begin
   if not found or v_request.request_status <> 'open' then
     raise exception 'share_request_not_available';
   end if;
+  perform public.require_captain_ready_for(v_id, v_request.departure_at);
   if v_request.requester_id = v_id then raise exception 'cannot_reply_to_own_request'; end if;
 
   select * into v_vehicle
