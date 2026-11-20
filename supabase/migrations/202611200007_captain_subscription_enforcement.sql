@@ -286,7 +286,7 @@ begin
 
   perform public.sync_captain_subscription_status_for(v_sub.captain_id);
 end;
-$;
+$$;
 
 revoke all on function public.admin_approve_subscription(uuid) from public, anon;
 grant execute on function public.admin_approve_subscription(uuid) to authenticated;
@@ -297,7 +297,7 @@ returns void
 language plpgsql
 security definer
 set search_path = pg_catalog, public
-as $
+as $$
 declare
   v_sub public.captain_subscriptions%rowtype;
 begin
@@ -314,7 +314,7 @@ begin
   insert into public.audit_logs(actor_id,action,entity_type,entity_id)
   values(auth.uid(),'subscription_rejected','subscription',p_subscription_id::text);
 end;
-$;
+$$;
 
 revoke all on function public.admin_reject_subscription(uuid) from public,anon;
 grant execute on function public.admin_reject_subscription(uuid) to authenticated;
