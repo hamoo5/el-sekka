@@ -69,6 +69,12 @@ Deno.serve(async (req: Request) => {
     const { data: authData, error: authError } = await authClient.auth.getUser(token);
     if (authError || !authData.user) return json(401, { error: "invalid_or_expired_session" }, origin);
 
+    // Use the caller's JWT for row-scoped reads protected by RLS.
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
     let body: Record<string, unknown>;
     try {
       body = await req.json();
@@ -133,8 +139,8 @@ Deno.serve(async (req: Request) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // The service-role client bypasses RLS, so enforce passenger eligibility here.
-    const { data: profile, error: profileError } = await adminClient
+    // Read only the signed-in user's profile through its self-read RLS policy.
+    const { data: profile, error: profileError } = await userClient
       .from("profiles")
       .select("role,is_blocked")
       .eq("id", authData.user.id)
@@ -171,7 +177,9 @@ Deno.serve(async (req: Request) => {
       return json(400, { error: "trip_request_rejected" }, origin);
     }
 
-    const { data: savedRequest, error: readError } = await adminClient
+    // Read the created request as its owner; do not grant the service role
+    // broad SELECT access to application tables.
+    const { data: savedRequest, error: readError } = await userClient
       .from("trip_requests")
       .select("id,fixed_fare_egp,request_status")
       .eq("id", requestId)
