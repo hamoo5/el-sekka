@@ -1587,13 +1587,9 @@ function shareHome() {
       .eq('ride_status','open').order('departure_at',{ascending:true}).limit(40);
     const {data,error}=await q;
     if(error){host.textContent='تعذر تحميل عروض الكراسي.';return;}
-    const vehicleIds=[...new Set((data||[]).map(r=>r.vehicle_id).filter(Boolean))];
-    const {data:eligibleVehicles,error:vehicleError}=vehicleIds.length
-      ?await supabase.from('vehicles').select('id').in('id',vehicleIds).in('vehicle_type',sharedVehicleTypes).eq('approval_status','approved').eq('is_active',true)
-      :{data:[],error:null};
-    if(vehicleError){host.textContent='تعذر التحقق من أنواع المركبات المتاحة.';return;}
-    const eligibleVehicleIds=new Set((eligibleVehicles||[]).map(v=>v.id));
-    const rides=(data||[]).filter(r=>r.captain_id!==profile.id&&eligibleVehicleIds.has(r.vehicle_id));
+    // The database trigger guarantees that every newly published ride uses a shared-service vehicle.
+    // Do not query vehicles here: rider RLS intentionally limits direct vehicle reads to owners/admins.
+    const rides=(data||[]).filter(r=>r.captain_id!==profile.id);
     if(!rides.length){host.innerHTML='<p class="muted">لا توجد عروض كراسي متاحة حالياً.</p>';return;}
     host.innerHTML=rides.map(r=>`<article class="share-item">
       <b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b>
