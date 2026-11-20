@@ -939,3 +939,57 @@ body[data-page="trip-options"] .trip-options-heading b{color:#fff!important}
 @media(min-width:600px){
   body[data-page="trip-options"] .passenger-map-first{max-width:48rem;margin-inline:auto}
 }
+
+
+/* Final responsive pass for rider and captain workspaces */
+#app{box-sizing:border-box}
+#app :where(main,section,article,form,.panel,.service,.fixed-trip-card,.trip-history-card,.profile-action,.role-choice-card){
+  min-width:0;max-width:100%;
+}
+#app :where(h1,h2,h3,p,small,b,strong,label){
+  overflow-wrap:anywhere;
+}
+#app :where(img,video,canvas,iframe){height:auto}
+.app-bottom-nav button small{
+  font-size:clamp(.58rem,2.4vw,.68rem);
+  line-height:1.25;
+  white-space:normal;
+  text-align:center;
+}
+.page-workspace,.captain-workspace,.profile-page,.trip-history-page{
+  width:100%;max-width:100%;min-width:0;
+}
+.profile-actions-grid{
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,9.5rem),1fr));
+  gap:clamp(.5rem,2.5vw,.9rem);
+}
+#app :where(.trip-history-card,.fixed-trip-card,.service,.profile-action){
+  padding:clamp(.7rem,3vw,1.1rem);
+}
+@media(max-width:380px){
+  .app-bottom-nav{gap:0;padding-inline:4px}
+  .app-bottom-nav button{padding-inline:1px}
+  .app-bottom-nav button span{font-size:clamp(1rem,5vw,1.25rem)}
+  .app-bottom-nav button small{font-size:.58rem}
+  .profile-hero{gap:clamp(.5rem,2.5vw,.9rem);align-items:flex-start}
+  .profile-avatar{flex-basis:3.25rem;width:3.25rem;height:3.25rem}
+  .profile-actions-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(min-width:430px){
+  .rider-start-screen,.rider-search-screen{padding-inline:clamp(1rem,3vw,1.5rem)}
+}
+@media(min-width:600px){
+  .page-workspace,.captain-workspace,.profile-page,.trip-history-page{
+    width:min(100% - 2rem,48rem);margin-inline:auto;
+  }
+}
+/* The vehicle chooser owns its viewport; only its list scrolls */
+body[data-page="trip-options"] .passenger-map-first{box-sizing:border-box}
+body[data-page="trip-options"] .passenger-map-stage{flex:1 1 0;min-height:clamp(9rem,27dvh,18rem)}
+body[data-page="trip-options"] .passenger-bottom-sheet{flex:1 1 0;min-height:0}
+body[data-page="trip-options"] .trip-options-scroll{min-height:0;max-width:100%}
+body[data-page="trip-options"] .trip-options-action-bar{flex-shrink:0}
+body[data-page="trip-options"] #tripMessage,
+body[data-page="trip-options"] #tripResult{
+  flex:0 0 auto;max-width:100%;overflow-wrap:anywhere;
+}
