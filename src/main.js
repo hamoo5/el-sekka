@@ -26,6 +26,7 @@ let publicTrackingTimer = null;
 let publicTrackingMap = null;
 let publicTrackingMarker = null;
 let captainLocationWatchId = null;
+let preserveCaptainSubscriptionPanel = true;
 let page = (() => {
   try {
     const saved = sessionStorage.getItem(PAGE_STORAGE_KEY);
@@ -1833,12 +1834,13 @@ async function captainSubscriptionPanel() {
         <small>حوّل قيمة الباقة المختارة: 150 جنيه لـ30 يومًا أو 400 جنيه لـ90 يومًا.</small>
       </div>
       <label>رقم مرجع التحويل<input name="payment_reference" required maxlength="120" placeholder="رقم العملية أو مرجع التحويل"></label>
-      <label>إثبات الدفع (صورة أو PDF)<input name="payment_proof" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
+      <label>إثبات الدفع (صورة أو PDF)<input name="payment_proof" id="subscriptionProofInput" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
+      <div id="subscriptionProofPreview" class="subscription-proof-preview" hidden aria-live="polite"></div>
       <p class="muted">ارفع إثبات التحويل بعد الدفع خارج التطبيق. لا توجد مدفوعات إلكترونية داخل السكة.</p>
       <button class="btn primary" type="submit">إرسال طلب الاشتراك</button>
       <p class="message" id="subscriptionMessage" aria-live="polite"></p>
     </form>`;
-  return '<section class="panel"><h2>اشتراك الكابتن</h2>'+status+history+form+'</section>';
+  return '<section class="panel" id="captainSubscriptionPanel"><h2>اشتراك الكابتن</h2>'+status+history+form+'</section>';
 }
 
 async function captainDashboardPage() {
@@ -1907,6 +1909,7 @@ async function captainDashboardPage() {
           </article>`;
         }).join('')
       : '<div class="notice">مفيش طلبات مشاوير مفتوحة حاليًا. هنظهر هنا الطلبات المناسبة لمركباتك المعتمدة.</div>';
+  const retainedSubscriptionPanel=preserveCaptainSubscriptionPanel?document.getElementById('captainSubscriptionPanel'):null;
   layout(`
     <main class="wrap narrow">
       <button type="button" class="back" id="captainHome">→ الرئيسية</button>
@@ -1924,6 +1927,7 @@ async function captainDashboardPage() {
         ${vehicleError?'<p class="message">تعذر تحميل مركباتك المعتمدة.</p>':''}
       </section>
     </main>`);
+  if(retainedSubscriptionPanel){const freshPanel=document.getElementById('captainSubscriptionPanel');if(freshPanel)freshPanel.replaceWith(retainedSubscriptionPanel);}
   document.getElementById('captainHome')?.addEventListener('click',()=>{page='home';render();});
   document.getElementById('refreshFixedTrips')?.addEventListener('click',()=>captainDashboardPage());
   document.querySelectorAll('[data-captain-open-trip]').forEach(button=>button.addEventListener('click',()=>{currentTripId=button.dataset.captainOpenTrip;page='trip-status';render();}));
@@ -1950,6 +1954,16 @@ async function captainDashboardPage() {
     try{await navigator.clipboard.writeText(number);button.textContent='تم النسخ ✓';}
     catch(_){window.prompt('انسخ رقم التحويل:',number);}
   });
+  const proofInput=document.getElementById('subscriptionProofInput');
+  proofInput?.addEventListener('change',()=>{
+    const file=proofInput.files?.[0],preview=document.getElementById('subscriptionProofPreview');
+    if(!preview)return;
+    if(!file){preview.hidden=true;preview.innerHTML='';return;}
+    const isImage=file.type.startsWith('image/');
+    const imageUrl=isImage?URL.createObjectURL(file):'';
+    preview.hidden=false;
+    preview.innerHTML=(isImage?'<img src="'+esc(imageUrl)+'" alt="معاينة إثبات الدفع">':'<span class="proof-file-icon">PDF</span>')+'<div><b>'+esc(file.name)+'</b><small>'+ (file.size/1024/1024).toFixed(2)+' ميجابايت · محفوظ حتى إرسال الطلب</small></div>';
+  });
   document.getElementById('subscriptionForm')?.addEventListener('submit',async e=>{
     e.preventDefault();
     const form=e.currentTarget,d=new FormData(form),msg=document.getElementById('subscriptionMessage'),btn=form.querySelector('button[type="submit"]');
@@ -1967,7 +1981,9 @@ async function captainDashboardPage() {
       if(uploadError)throw uploadError;
       const {error:rpcError}=await supabase.rpc('submit_subscription',{p_plan_days:Number(d.get('plan_days')),p_payment_reference:reference,p_proof_path:uploadedPath});
       if(rpcError)throw rpcError;
+      preserveCaptainSubscriptionPanel=false;
       await captainDashboardPage();
+      preserveCaptainSubscriptionPanel=true;
     }catch(error){
       if(uploadedPath)await supabase.storage.from('captain-payment-proofs').remove([uploadedPath]);
       const m=error?.message||'';
