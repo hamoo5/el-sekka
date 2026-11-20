@@ -329,3 +329,52 @@ html.trip-day .fixed-trip-card{background:#f8fafb;border-color:#dce4eb;color:#26
 html.trip-day .fixed-trip-card-head strong{color:#176b38}
 html.trip-day .fixed-trip-preferences span{background:#eaf6ed;color:#176b38;border-color:#b7d9bd}
 @media(max-width:390px){.fixed-trip-section-head{align-items:center}.fixed-trip-card{padding:12px}}
+
+
+/* Active trips, private in-app chat and tracking */
+.active-trip-home{border-color:#b7d9bd;background:#edf8ef;color:#176b38}
+.active-trip-home p{margin:4px 0 12px}
+.trip-route-line{display:grid;grid-template-columns:42px 1fr;gap:8px;padding:9px 0;border-bottom:1px solid #ffffff18;font-size:13px}
+.trip-route-line b{color:#b7f36b}
+.trip-route-line span{overflow-wrap:anywhere}
+.active-trip-panel{display:grid;gap:10px}
+.driver-summary{display:grid;gap:5px;padding:12px;border:1px solid #b7d9bd;border-radius:13px;background:#eaf6ed;color:#176b38}
+.driver-summary small{font-size:11px;color:#55705c;overflow-wrap:anywhere}
+.trip-status-actions{display:flex;gap:9px;flex-wrap:wrap}
+.trip-status-actions .btn{flex:1 1 180px}
+#activeTripMap,#publicTrackMap{height:280px;margin:8px 0}
+.trip-chat-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.trip-chat-head h3{margin:0 0 3px}
+.trip-chat-head small{font-size:10px;color:#9aabc0}
+.trip-chat-messages{display:flex;flex-direction:column;gap:9px;max-height:340px;overflow:auto;padding:10px;border:1px solid #34465d;border-radius:14px;background:#0d1726}
+.chat-message{max-width:88%;padding:9px 11px;border-radius:13px;display:grid;gap:5px;line-height:1.6;font-size:12px;overflow-wrap:anywhere}
+.chat-message.mine{align-self:flex-start;background:#23452e;color:#efffee;border-bottom-right-radius:4px}
+.chat-message.theirs{align-self:flex-end;background:#26364a;color:#edf2f7;border-bottom-left-radius:4px}
+.chat-message b{font-size:10px;color:#b7f36b}
+.chat-message small{font-size:9px;opacity:.75;text-align:left}
+.chat-message audio{width:min(230px,100%);height:34px}
+.chat-quick-replies{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}
+.chat-quick-replies button{border:1px solid #b7d9bd;border-radius:999px;background:#eaf6ed;color:#176b38;padding:7px 10px;font-size:10px;font-weight:800}
+.trip-chat-form{display:grid;gap:8px}
+.trip-chat-form textarea{width:100%;resize:vertical;border:1px solid #40536b;border-radius:12px;background:#0d1726;color:#fff;padding:11px;font:inherit;font-size:12px}
+.chat-compose-actions{display:flex;gap:8px;flex-wrap:wrap}
+.chat-compose-actions button{flex:1 1 130px;font-size:11px}
+#publicTrackDetails{line-height:1.9;font-size:13px}
+#publicTrackDetails .driver-summary{margin-bottom:10px}
+html.trip-day .active-trip-home{background:#edf8ef;border-color:#b7d9bd;color:#176b38}
+html.trip-day .trip-route-line{border-color:#e2e8ef}
+html.trip-day .trip-route-line b{color:#176b38}
+html.trip-day .driver-summary{background:#eaf6ed;color:#176b38}
+html.trip-day .driver-summary small{color:#55705c}
+html.trip-day .trip-chat-messages{background:#f6f8fa;border-color:#dce4eb}
+html.trip-day .chat-message.mine{background:#dff2e3;color:#17452a}
+html.trip-day .chat-message.theirs{background:#e9eff4;color:#263445}
+html.trip-day .chat-message b{color:#176b38}
+html.trip-day .trip-chat-form textarea{background:#fff;color:#172536;border-color:#cbd5df}
+html.trip-day .trip-chat-head small{color:#64748b}
+html:not(.trip-day) .chat-quick-replies button{background:#eaf6ed;color:#176b38;border-color:#b7d9bd}
+@media(max-width:420px){
+  .trip-status-actions{display:grid;grid-template-columns:1fr}
+  .trip-chat-messages{max-height:300px}
+  #activeTripMap,#publicTrackMap{height:250px}
+}
