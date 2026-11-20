@@ -502,3 +502,28 @@ body{padding-bottom:82px}
 .trip-history-route>span{font-size:19px;color:var(--primary,#176b48)}.trip-history-meta{padding:10px 0;border-top:1px solid var(--line,#e5eaf0);margin-bottom:10px}
 .empty-state{text-align:center;padding:30px 18px}.empty-state>div{font-size:38px}.empty-state h3{margin:8px 0}
 @media(min-width:760px){.app-bottom-nav{left:50%;right:auto;transform:translateX(-50%);width:min(620px,100%);border:1px solid var(--line,#dce3e8);border-bottom:0;border-radius:18px 18px 0 0}.profile-actions-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+
+/* Strict independent rider/captain account experiences */
+.role-choice-grid{display:grid;gap:14px;margin:18px 0}
+.role-choice-card{display:flex;flex-direction:column;align-items:flex-start;gap:9px;width:100%;padding:22px 18px;border:1px solid var(--line,#dce5df);border-radius:18px;background:#fff;color:#111827;text-align:right;cursor:pointer;box-shadow:0 8px 24px #0000000a}
+.role-choice-card>span{font-size:34px}.role-choice-card>b{font-size:18px;color:#111827}.role-choice-card>small{font-size:13px;line-height:1.7;color:#4b5563}
+.role-choice-card:focus-visible{outline:3px solid #4b9b71;outline-offset:3px}
+.role-choice-card.rider-choice{border-inline-start:5px solid #25865b}.role-choice-card.captain-choice{border-inline-start:5px solid #3976b8}
+#changeAuthRole{margin:8px 0 12px}
+.app-bottom-nav{grid-template-columns:repeat(3,minmax(0,1fr))}
+.app-bottom-nav button{min-height:52px}
+.app-bottom-nav button small{font-size:10px;white-space:nowrap}
+.captain-workspace .hero{margin-bottom:14px}
+.captain-nav button span,.rider-nav button span{font-size:20px}
+@media(min-width:620px){.role-choice-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.role-choice-card{min-height:170px;justify-content:center;padding:24px}}
+/* Strong contrast for headings and text inside white cards */
+.panel,.service,.fixed-trip-card,.trip-history-card,.profile-action,.role-choice-card,.reward-invite,.active-trip-home{
+  background-color:#fff;color:#111827;
+}
+.panel :is(h1,h2,h3,h4,b,strong,label),.service :is(b,strong),.fixed-trip-card :is(h1,h2,h3,h4,b,strong,label),
+.trip-history-card :is(h1,h2,h3,h4,b,strong,label),.profile-action :is(b,strong),.reward-invite :is(b,strong){
+  color:#111827;
+}
+.panel p:not(.muted):not(.message),.fixed-trip-card p:not(.muted),.trip-history-card p:not(.muted){color:#1f2937}
+.panel .muted,.fixed-trip-card .muted,.trip-history-card .muted{color:#4b5563}
