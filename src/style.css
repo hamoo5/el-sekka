@@ -1283,3 +1283,38 @@ html.trip-night .rider-saved-place span{background:#233a53}
 html.trip-night .rider-saved-place.saved{background:#12382f;border-color:#10b98166}
 html.trip-night .rider-recent-place{background:#12382f;color:#f8fafc}
 @media(max-width:380px){.rider-start-screen{gap:13px;padding-inline:12px}.rider-search-hero{padding:13px 13px 12px}.sekka-hero-copy h1{font-size:26px}.sekka-city-art{transform:scale(.88);transform-origin:top left}.sekka-mode-card{padding:9px;grid-template-columns:30px 1fr;gap:4px 7px}.sekka-mode-icon{width:30px;height:30px}.sekka-mode-card b{font-size:10px}}
+
+/* El Sekka address selection — compact, guided and mobile-first */
+body[data-page="trip-search"]{background:var(--surface-2)!important}
+body[data-page="trip-search"] .rider-search-screen{min-height:100dvh;display:flex;flex-direction:column;gap:15px;padding:14px 15px 28px}
+body[data-page="trip-search"] .rider-search-header{display:flex;align-items:center;gap:12px;padding:4px 0 8px}
+body[data-page="trip-search"] .rider-search-header button{width:38px;height:38px;display:grid;place-items:center;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--text);font-size:20px}
+body[data-page="trip-search"] .rider-search-header h1{margin:0;color:var(--text);font-size:17px;font-weight:950}
+body[data-page="trip-search"] .rider-search-fields{position:relative;display:flex;flex-direction:column;gap:0;padding:18px 14px;border:1px solid var(--line);border-radius:20px;background:var(--surface)!important;box-shadow:0 8px 24px #0f172a0b}
+body[data-page="trip-search"] .rider-search-fields>label{position:relative;display:flex;flex-direction:column;gap:7px;padding:0 0 17px;color:var(--text);font-size:11px;font-weight:900}
+body[data-page="trip-search"] .rider-search-fields>label+label{padding-top:14px;padding-bottom:0;border-top:1px dashed var(--line)}
+body[data-page="trip-search"] .rider-pickup-input-row{display:flex;align-items:center;gap:7px}
+body[data-page="trip-search"] .rider-search-fields input{width:100%;min-width:0;min-height:47px;padding:0 12px;border:1px solid var(--line)!important;border-radius:12px;background:var(--surface-2)!important;color:var(--text)!important;font-size:12px}
+body[data-page="trip-search"] .rider-search-fields input::placeholder{color:var(--muted)}
+body[data-page="trip-search"] .rider-pickup-input-row input{flex:1}
+body[data-page="trip-search"] .rider-use-location{flex:0 0 auto;min-height:43px;padding:0 10px;border:0;border-radius:11px;background:#2563eb!important;color:#fff!important;font-size:10px;font-weight:900;white-space:nowrap}
+body[data-page="trip-search"] .pickup-dot,body[data-page="trip-search"] .destination-dot{width:8px;height:8px;display:inline-block;margin-left:5px;border-radius:50%;background:#10b981}
+body[data-page="trip-search"] .destination-dot{background:#ef4444}
+body[data-page="trip-search"] .rider-search-suggestions{position:relative;z-index:8;max-height:190px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:0 8px 20px #0f172a12}
+body[data-page="trip-search"] .rider-search-suggestions button{width:100%;padding:11px 12px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--text);text-align:right;font-size:11px}
+body[data-page="trip-search"] .rider-search-suggestions button:last-child{border-bottom:0}
+body[data-page="trip-search"] .rider-search-saved{padding:13px 14px;border:1px solid var(--line);border-radius:17px;background:var(--surface)}
+body[data-page="trip-search"] .rider-search-saved h2{margin:0 0 10px;color:var(--text);font-size:12px;font-weight:950}
+body[data-page="trip-search"] .rider-search-saved>div{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+body[data-page="trip-search"] .rider-search-saved button{min-height:42px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);color:var(--text);font-size:10px;font-weight:850}
+body[data-page="trip-search"] .rider-save-current{display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding:12px;border:1px solid #10b98155;border-radius:15px;background:#effcf6}
+body[data-page="trip-search"] .rider-save-current small{width:100%;color:#047857;font-size:10px;font-weight:850}
+body[data-page="trip-search"] .rider-save-current button{padding:7px 10px;border:0;border-radius:9px;background:#d1fae5;color:#065f46;font-size:10px;font-weight:850}
+body[data-page="trip-search"] #riderSearchMessage{margin:0;color:var(--muted);font-size:10px}
+html.trip-night body[data-page="trip-search"]{background:#0b1627!important}
+html.trip-night body[data-page="trip-search"] .rider-search-fields,html.trip-night body[data-page="trip-search"] .rider-search-saved{background:#172538!important;border-color:#334155}
+html.trip-night body[data-page="trip-search"] .rider-search-fields input{background:#0f172a!important;border-color:#334155!important;color:#f8fafc!important}
+html.trip-night body[data-page="trip-search"] .rider-search-saved button{background:#0f172a;color:#f8fafc;border-color:#334155}
+html.trip-night body[data-page="trip-search"] .rider-save-current{background:#12382f;border-color:#10b98155}
+html.trip-night body[data-page="trip-search"] .rider-save-current small{color:#a7f3d0}
+html.trip-night body[data-page="trip-search"] .rider-save-current button{background:#145344;color:#d1fae5}
