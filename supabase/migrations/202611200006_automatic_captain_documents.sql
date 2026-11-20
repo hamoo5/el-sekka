@@ -1,6 +1,6 @@
 -- El Sekka: automatic captain document validity, private uploads and in-app notices.
--- Captains are auto-activated only when all six document images are supplied and all three expiry dates are future dates.
--- This validates completeness and dates, NOT authenticity or legal validity of the uploaded images.
+-- Submission records document completeness and future expiry dates; it does NOT activate a captain.
+-- An administrator must review the documents and approve the captain and vehicle.
 
 alter table public.captain_applications
   add column if not exists national_id_expiry date,
@@ -222,7 +222,7 @@ returns void
 language plpgsql
 security definer
 set search_path = pg_catalog, public
-as $
+as $$
 declare
   v_uid uuid := auth.uid();
   v_app public.captain_applications%rowtype;
@@ -245,10 +245,11 @@ begin
     if not exists(
       select 1 from storage.objects o
       where o.bucket_id='captain-documents'
+        and (storage.foldername(o.name))[1]=v_app.user_id::text
         and o.name in (v_app.national_id_front_path,v_app.national_id_back_path,
           v_app.driver_license_front_path,v_app.driver_license_back_path,
           v_app.vehicle_license_front_path,v_app.vehicle_license_back_path)
-      group by o.bucket_id having count(*)=6
+      group by o.bucket_id having count(distinct o.name)=6
     ) then raise exception 'captain_document_upload_missing'; end if;
   end if;
 
@@ -261,7 +262,7 @@ begin
     is_active=false
   where id=v_app.vehicle_id and captain_id=v_app.user_id;
 end;
-$;
+$$;
 
 revoke all on function public.review_captain_application_v2(uuid,text,text) from public,anon;
 grant execute on function public.review_captain_application_v2(uuid,text,text) to authenticated;
@@ -463,7 +464,7 @@ begin
   if auth.uid() is null then raise exception 'login_required'; end if;
   perform public.process_captain_document_expiry_for(auth.uid());
 end;
-$;
+$$;
 
 revoke all on function public.process_captain_document_expiry() from public,anon,authenticated;
 revoke all on function public.process_captain_document_expiry_for(uuid) from public,anon,authenticated;
