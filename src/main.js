@@ -184,7 +184,7 @@ function tripForm() {
   ];
   layout(`
     <main class="wrap narrow trip-page">
-      <button class="back" id="back">→ الرئيسية</button>
+      <button type="button" class="back" id="back">→ الرئيسية</button>
       <section class="hero compact"><span class="tag">مشوار عادي · سعر ثابت</span><h1>اطلب مشوارك</h1><p>حدد مكان الركوب والوجهة، وشوف المسار قبل إرسال الطلب.</p></section>
       <form class="panel form trip-panel" id="tripForm">
         <section class="location-card">
@@ -539,7 +539,7 @@ function shareHome() {
   ];
   layout(`
     <main class="wrap narrow">
-      <button class="back" id="back">→ الرئيسية</button>
+      <button type="button" class="back" id="back">→ الرئيسية</button>
       <section class="hero compact">
         <span class="tag">مشاركة السكة · سعر الكرسي بالتفاوض</span>
         <h1>شارك الطريق</h1>
@@ -733,7 +733,7 @@ function shareHome() {
   $('shareSeats').addEventListener('input', updateShareVehicleOptions);
   $('shareSeats').addEventListener('change', updateShareVehicleOptions);
   updateShareVehicleOptions();
-  $('back').addEventListener('click',()=>{page='home';render();});
+  $('back').addEventListener('click',(e)=>{e.preventDefault();page='home';render();});
   $('shareMode').addEventListener('change',()=>{
     const scheduled=$('shareMode').value==='scheduled_share';
     $('shareDateField').hidden=!scheduled;
@@ -1071,10 +1071,10 @@ async function applyCaptainPage() {
         <section class="panel">
           <h2>تعذر التحقق من حالة طلبك</h2>
           <p class="muted">لم نتمكن من تحميل بيانات طلب الكابتن. لم يتم إرسال طلب جديد من هذه الصفحة.</p>
-          <button class="btn primary" id="back">العودة للرئيسية</button>
+          <button type="button" class="btn primary" id="back">العودة للرئيسية</button>
         </section>
       </main>`);
-    $('back')?.addEventListener('click',()=>{page='home';render();});
+    $('back')?.addEventListener('click',(e)=>{e.preventDefault();page='home';render();});
     return;
   }
   if (existing?.application_status === 'pending' || existing?.application_status === 'approved' || existing?.application_status === 'suspended') {
@@ -1085,15 +1085,15 @@ async function applyCaptainPage() {
         <section class="panel">
           <h2>${statusText}</h2>
           <p class="muted">لن تحتاج إلى إرسال الطلب مرة أخرى. يمكنك العودة للرئيسية ومتابعة استخدام السكة.</p>
-          <button class="btn primary" id="back">العودة للرئيسية</button>
+          <button type="button" class="btn primary" id="back">العودة للرئيسية</button>
         </section>
       </main>`);
-    $('back')?.addEventListener('click',()=>{page='home';render();});
+    $('back')?.addEventListener('click',(e)=>{e.preventDefault();page='home';render();});
     return;
   }
   layout(`
     <main class="wrap narrow">
-      <button class="back" id="back">→ الرئيسية</button>
+      <button type="button" class="back" id="back">→ الرئيسية</button>
       <section class="hero compact"><span class="tag">الانضمام للكباتن</span><h1>بيانات الكابتن والمركبة</h1><p>املأ بياناتك وارفع الصور المطلوبة. الصور الشخصية وصور المركبة ستظهر للراكب بعد اعتماد الإدارة، أما بيانات الرخصة فتظل خاصة.</p></section>
       <form class="panel form" id="captainApplyForm">
         <h3>أولاً: بيانات الكابتن</h3>
@@ -1129,7 +1129,7 @@ async function applyCaptainPage() {
         <p class="message" id="applyMessage" aria-live="polite"></p>
       </form>
     </main>`);
-  $('back')?.addEventListener('click',()=>{page='home';render();});
+  $('back')?.addEventListener('click',(e)=>{e.preventDefault();page='home';render();});
   const form=document.getElementById('captainApplyForm');
   const capacityByType={private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
   const typeField=form.elements.vehicle_type, capacityField=form.elements.passenger_capacity;
@@ -1182,7 +1182,7 @@ async function applyCaptainPage() {
       });
       if(error) throw error;
       msg.textContent='تم إرسال طلبك وبيانات المركبة بنجاح. ستظل حساباً كراكب حتى اعتماد الإدارة.';
-      setTimeout(()=>{page='home';render();},1300);
+      setTimeout((e)=>{e.preventDefault();page='home';render();},1300);
     }catch(error){msg.textContent=applicationError(error);}
     finally{btn.disabled=false;}
   });
@@ -1199,11 +1199,11 @@ function applicationError(error){
 async function adminApplicationsPage(){
   layout(`
     <main class="wrap narrow">
-      <button class="back" id="back">→ الرئيسية</button>
+      <button type="button" class="back" id="back">→ الرئيسية</button>
       <section class="hero compact"><span class="tag">إدارة المنصة</span><h1>طلبات الكباتن</h1><p>راجع بيانات الكابتن والمركبة والصور قبل اتخاذ القرار.</p></section>
       <section class="panel" id="captainApplicationsList">جارٍ تحميل الطلبات...</section>
     </main>`);
-  document.getElementById('back').addEventListener('click',()=>{page='home';render();});
+  document.getElementById('back').addEventListener('click',(e)=>{e.preventDefault();page='home';render();});
   const host=document.getElementById('captainApplicationsList');
   const {data,error}=await supabase.from('captain_applications')
     .select('id,user_id,national_id_last4,license_number,license_expiry,application_status,admin_notes,created_at,vehicle_id,profile:profiles!captain_applications_user_id_fkey(display_name,avatar_path),vehicle:vehicles(id,vehicle_type,make,model,model_year,color,plate_number,passenger_capacity,has_ac,has_large_trunk,no_smoking,pets_allowed,photo_front_path,photo_side_path,photo_rear_path)')
@@ -1240,7 +1240,7 @@ async function adminApplicationsPage(){
 function placeholder(title, desc) {
   layout(`
     <main class="wrap narrow">
-      <button class="back" id="back">→ الرئيسية</button>
+      <button type="button" class="back" id="back">→ الرئيسية</button>
       <section class="hero compact"><span class="tag">السكة · المرحلة التالية</span><h1>${title}</h1><p>${desc}</p></section>
       <section class="panel"><div class="notice">سيتم توصيل هذه الوظائف بعد استكمال اختبارات الأمان وقاعدة البيانات.</div></section>
     </main>`);
