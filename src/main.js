@@ -1074,7 +1074,7 @@ async function applyCaptainPage() {
           <button type="button" class="btn primary" id="back">العودة للرئيسية</button>
         </section>
       </main>`);
-    $('back')?.addEventListener('click',(e)=>{e.preventDefault();page='home';render();});
+    document.getElementById('back')?.addEventListener('click',(e)=>{e.preventDefault();page='home';render();});
     return;
   }
   if (existing?.application_status === 'pending' || existing?.application_status === 'approved' || existing?.application_status === 'suspended') {
@@ -1088,7 +1088,7 @@ async function applyCaptainPage() {
           <button type="button" class="btn primary" id="back">العودة للرئيسية</button>
         </section>
       </main>`);
-    $('back')?.addEventListener('click',(e)=>{e.preventDefault();page='home';render();});
+    document.getElementById('back')?.addEventListener('click',(e)=>{e.preventDefault();page='home';render();});
     return;
   }
   layout(`
@@ -1129,7 +1129,7 @@ async function applyCaptainPage() {
         <p class="message" id="applyMessage" aria-live="polite"></p>
       </form>
     </main>`);
-  $('back')?.addEventListener('click',(e)=>{e.preventDefault();page='home';render();});
+  document.getElementById('back')?.addEventListener('click',(e)=>{e.preventDefault();page='home';render();});
   const form=document.getElementById('captainApplyForm');
   const capacityByType={private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
   const typeField=form.elements.vehicle_type, capacityField=form.elements.passenger_capacity;
@@ -1182,7 +1182,7 @@ async function applyCaptainPage() {
       });
       if(error) throw error;
       msg.textContent='تم إرسال طلبك وبيانات المركبة بنجاح. ستظل حساباً كراكب حتى اعتماد الإدارة.';
-      setTimeout((e)=>{e.preventDefault();page='home';render();},1300);
+      setTimeout(()=>{page='home';render();},1300);
     }catch(error){msg.textContent=applicationError(error);}
     finally{btn.disabled=false;}
   });
