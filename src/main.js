@@ -749,6 +749,7 @@ function tripForm() {
           ...commonBody,
           pickup_note:$('pickupNote').value.trim()||null,
           ride_preferences:{quiet:selectedPreferences.has('quiet'),ac:selectedPreferences.has('ac'),luggage:selectedPreferences.has('luggage')},
+          use_points:$('usePoints')?.checked===true,
           is_scheduled:scheduled,
           scheduled_at:scheduledAt
         }
@@ -765,6 +766,10 @@ function tripForm() {
       const distanceRaw=data.distance_km??data.distanceKm??routeDistanceKm;
       const fare=Number(fareRaw), distance=Number(distanceRaw);
       const fareLabel=Number.isFinite(fare)?`${fare.toLocaleString('ar-EG')} جنيه`:'—';
+      const beforeFare=Number(data.fare_before_discount_egp??fare);
+      const discount=Number(data.discount_amount_egp||0);
+      const discountSource=data.discount_source==='points'?'خصم النقاط':data.discount_source==='referral'?'خصم الدعوة':'';
+      const savingsHtml=discount>0?`<div class="fare-line"><span>السعر قبل الخصم</span><strong>${beforeFare.toLocaleString('ar-EG')} جنيه</strong></div><div class="fare-line discount"><span>${discountSource} (15%)</span><strong>−${discount.toLocaleString('ar-EG')} جنيه</strong></div><p class="discount-explainer">وفّرت 15% تلقائيًا لأن السكة بدون عمولة على الكباتن. قيمة الخصم تُخصم من المبلغ النقدي الذي تدفعه للكابتن.</p>`:'';
       const distanceLabel=Number.isFinite(distance)?`${distance.toFixed(1)} كم`:'غير متاحة';
       writePassengerStore('last-trip',{
         origin:{lat:origin.lat,lng:origin.lng,name:origin.name},
@@ -774,7 +779,7 @@ function tripForm() {
       });
       const nextStep=scheduled?'تم تسجيل حجزك بالموعد المحدد.':'بنبحث لك عن كابتن قريب منك الآن.';
       currentTripId=requestId;
-      $('tripResult').innerHTML=`<div class="trip-success-icon">✓</div><h3>طلبك وصل بنجاح</h3><div class="fare-line"><span>السعر النهائي</span><strong>${fareLabel}</strong></div><p>${nextStep}</p><button type="button" class="btn primary" id="openCreatedTrip">متابعة الطلب</button>`;
+      $('tripResult').innerHTML=`<div class="trip-success-icon">✓</div><h3>طلبك وصل بنجاح</h3>${savingsHtml}<div class="fare-line"><span>المبلغ النقدي للكابتن</span><strong>${fareLabel}</strong></div><p>${nextStep}</p><button type="button" class="btn primary" id="openCreatedTrip">متابعة الطلب</button>`;
       $('tripResult').hidden=false;
       $('openCreatedTrip').addEventListener('click',()=>{page='trip-status';render();});
       msg.textContent='تم إنشاء الطلب بنجاح.';$('sendTripLabel').textContent='تم إرسال الطلب';
@@ -2013,7 +2018,7 @@ function disposeLiveUi(){
 
 async function rewardsPage() {
   const [{data:profileRow,error:profileError},{data:invites,error:invitesError},{data:myReferral,error:myReferralError},{data:pointsRows},{data:rewardRows}] = await Promise.all([
-    supabase.from('profiles').select('referral_code,points,captain_reward_days_balance,captain_referral_progress,role').eq('id',profile.id).single(),
+    supabase.from('profiles').select('referral_code,points,captain_reward_days_balance,captain_referral_progress,discounted_trips_count,role').eq('id',profile.id).single(),
     supabase.from('referrals').select('id,referred_id,referred_role,status,captain_progress,created_at').eq('referrer_id',profile.id).order('created_at',{ascending:false}).limit(50),
     supabase.from('referrals').select('id,referrer_id,referrer_role,referred_role,status,captain_progress,created_at').eq('referred_id',profile.id).maybeSingle(),
     supabase.from('points_ledger').select('points_delta,reason,created_at').eq('user_id',profile.id).order('created_at',{ascending:false}).limit(20),
@@ -2041,12 +2046,12 @@ async function rewardsPage() {
       </section>
       <section class="reward-stats">
         <article class="panel"><small>نقاطك</small><strong>${Number(row.points||0)}</strong></article>
-        <article class="panel"><small>أيام مجانية معلّقة</small><strong>${Number(row.captain_reward_days_balance||0)}</strong></article>
+        <article class="panel"><small>أيام مجانية معلّقة</small><strong>${Number(row.captain_reward_days_balance||0)}</strong></article><article class="panel"><small>الرحلات المخفضة للمكافأة</small><strong>${Number(row.discounted_trips_count||0)}/3</strong></article>
         ${row.role==='captain'?'<article class="panel"><small>تقدم دعوة الكابتن</small><strong>'+Number(row.captain_referral_progress||0)+'/5</strong></article>':''}
       </section>
       <section class="panel"><h2>الأشخاص الذين دعوتهم</h2>${inviteList||'<p class="muted">لم تسجل دعوات حتى الآن. شارك كودك مع أصدقائك.</p>'}</section>
       <section class="panel"><h2>سجل المكافآت</h2><ul class="reward-history">${rewardHistory||'<li class="muted">لا توجد مكافآت مسجلة حتى الآن.</li>'}</ul></section>
-      <section class="panel"><h2>حركة النقاط</h2><ul class="reward-history">${pointsHistory||'<li class="muted">لا توجد حركة نقاط حتى الآن.</li>'}</ul><p class="muted">كل 100 نقطة تمنح خصمًا على رحلة واحدة وفق قواعد الخصم المعتمدة.</p></section>
+      <section class="panel"><h2>حركة النقاط</h2><ul class="reward-history">${pointsHistory||'<li class="muted">لا توجد حركة نقاط حتى الآن.</li>'}</ul><p class="muted">كل 100 نقطة تمنح خصمًا 15% بحد أقصى 15 جنيهًا. خصم الدعوة والنقاط لا يجتمعان، ويُطبّق الأفضل تلقائيًا. يحصل الكابتن على يوم مجاني كل 3 رحلات مخفضة، وبحد أقصى 10 أيام مجانية في الشهر.</p></section>
     </main>`);
   document.getElementById('backRewards')?.addEventListener('click',()=>{page='home';render();});
   document.getElementById('copyReferralCode')?.addEventListener('click',async()=>{
