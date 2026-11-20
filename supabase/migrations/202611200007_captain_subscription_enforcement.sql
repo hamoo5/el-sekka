@@ -336,13 +336,21 @@ declare
   v_departure_at timestamptz;
   v_vehicle_id uuid;
 begin
-  select b, r.departure_at, r.vehicle_id
-  into v_booking, v_departure_at, v_vehicle_id
+  select b.*
+  into v_booking
   from public.bookings b
   join public.rides r on r.id = b.ride_id
   where b.id = p_booking_id
     and r.captain_id = v_id
   for update of b;
+
+  if not found then raise exception 'booking_not_found'; end if;
+
+  select r.departure_at, r.vehicle_id
+  into v_departure_at, v_vehicle_id
+  from public.rides r
+  where r.id = v_booking.ride_id
+    and r.captain_id = v_id;
 
   if not found then raise exception 'booking_not_found'; end if;
   if v_booking.booking_status not in ('pending','counter_offer') then
