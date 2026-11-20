@@ -10,7 +10,15 @@ let session = null;
 let profile = null;
 const PAGE_STORAGE_KEY = 'el-sekka-current-page';
 const VALID_PAGES = new Set(['home','trip','share','apply-captain','captain','admin','trip-status','track']);
-const publicTrackingToken = new URLSearchParams(window.location.search).get('token') || '';
+const urlTrackingToken = new URLSearchParams(window.location.search).get('token') || '';
+let publicTrackingToken = urlTrackingToken;
+try {
+  if (urlTrackingToken) sessionStorage.setItem('el-sekka-public-track-token',urlTrackingToken);
+  else publicTrackingToken = sessionStorage.getItem('el-sekka-public-track-token') || '';
+} catch (_) {}
+if (urlTrackingToken && window.location.pathname === '/track') {
+  window.history.replaceState({},'', '/track');
+}
 let currentTripId = null;
 let activeChatChannels = [];
 let activeTripChannels = [];
