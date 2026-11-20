@@ -1647,7 +1647,7 @@ async function captainDocumentsPanel() {
   const alerts=(notices||[]).map(n=>'<div class="notice">'+esc(n.message)+'</div>').join('');
   const status=data?.application_status==='suspended'
     ? '<p class="notice">نشاط القيادة موقوف لحين تحديث المستندات ومراجعتها.</p>'
-    : data?.application_status==='pending' ? '<p class="notice">مستنداتك قيد مراجعة الإدارة. يمكنك استخدام التطبيق كراكب كالمعتاد.</p>'
+    : data?.application_status==='pending' ? '<p class="notice">مستنداتك قيد مراجعة الإدارة. لن يتم تفعيل استقبال الرحلات قبل اعتماد الطلب.</p>'
     : data?.application_status==='approved' ? '<p class="muted">مستنداتك معتمدة. سيصلك تنبيه قبل انتهاء أي مستند بـ30 يوماً.</p>' : '<p class="muted">تعذر قراءة حالة المستندات حالياً.</p>';
   return '<section class="panel"><h2>صلاحية مستندات الكابتن</h2>'+status+(error?'':dates)+alerts+'<button class="btn outline" data-page="apply-captain">تحديث المستندات</button></section>';
 }
@@ -2117,20 +2117,18 @@ function disposeLiveUi(){
 
 
 async function tripsPage(){
-  const [{data:asPassenger,error:passengerError},{data:asCaptain,error:captainError}]=await Promise.all([
-    supabase.from('trip_requests').select('id,origin_name,destination_name,request_status,fixed_fare_egp,created_at,is_scheduled,scheduled_at').eq('passenger_id',profile.id).order('created_at',{ascending:false}).limit(30),
-    supabase.from('trip_requests').select('id,origin_name,destination_name,request_status,fixed_fare_egp,created_at,is_scheduled,scheduled_at').eq('accepted_captain_id',profile.id).order('created_at',{ascending:false}).limit(30)
-  ]);
-  const rows=[...(asPassenger||[]).map(x=>({...x,tripRole:'راكب'})),...(asCaptain||[]).map(x=>({...x,tripRole:'كابتن'}))].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-  const cards=rows.map(trip=>`<article class="trip-history-card">
-    <div class="trip-history-top"><span class="trip-role-pill">${trip.tripRole}</span><b>${esc(tripStatusLabel(trip.request_status))}</b></div>
+  const {data:rows,error}=await supabase.from('trip_requests')
+    .select('id,origin_name,destination_name,request_status,fixed_fare_egp,created_at,is_scheduled,scheduled_at')
+    .eq('passenger_id',profile.id).order('created_at',{ascending:false}).limit(40);
+  const cards=(rows||[]).map(trip=>`<article class="trip-history-card">
+    <div class="trip-history-top"><span class="trip-role-pill">راكب</span><b>${esc(tripStatusLabel(trip.request_status))}</b></div>
     <div class="trip-history-route"><p><small>من</small><strong>${esc(trip.origin_name||'—')}</strong></p><span>←</span><p><small>إلى</small><strong>${esc(trip.destination_name||'—')}</strong></p></div>
     <div class="trip-history-meta"><span>${Number(trip.fixed_fare_egp||0).toLocaleString('ar-EG')} جنيه</span><span>${new Date(trip.created_at).toLocaleDateString('ar-EG')}</span><span>${trip.is_scheduled?'مجدول':'فوري'}</span></div>
     <button type="button" class="btn outline" data-history-trip="${esc(trip.id)}">تفاصيل الرحلة</button>
   </article>`).join('');
-  layout(`<main class="wrap narrow page-workspace"><section class="hero compact"><span class="tag">سجلّك على السكة</span><h1>رحلاتي</h1><p>كل مشاويرك، سواء كنت راكب أو كابتن، في مكان واحد.</p></section>
-    ${passengerError||captainError?'<section class="panel"><p class="message">تعذر تحميل بعض الرحلات. حاول تحديث الصفحة.</p></section>':''}
-    <section class="trip-history-list">${cards||'<section class="panel empty-state"><div>🧭</div><h3>لسه مفيش رحلات</h3><p class="muted">أول مشوار ليك هيظهر هنا وتقدر ترجع لتفاصيله في أي وقت.</p><button class="btn primary" id="startFirstRide">اطلب مشوار</button></section>'}</section></main>`);
+  layout(`<main class="wrap narrow page-workspace"><section class="hero compact"><span class="tag">سجلّك على السكة</span><h1>مشاويري</h1><p>كل المشاوير التي طلبتها من حساب الراكب في مكان واحد.</p></section>
+    ${error?'<section class="panel"><p class="message">تعذر تحميل الرحلات. حاول تحديث الصفحة.</p></section>':''}
+    <section class="trip-history-list">${cards||'<section class="panel empty-state"><div>🧭</div><h3>لسه مفيش مشاوير</h3><p class="muted">أول مشوار تطلبه هيظهر هنا وتقدر ترجع لتفاصيله في أي وقت.</p><button class="btn primary" id="startFirstRide">اطلب مشوار</button></section>'}</section></main>`);
   document.querySelectorAll('[data-history-trip]').forEach(button=>button.addEventListener('click',()=>{currentTripId=button.dataset.historyTrip;page='trip-status';render();}));
   document.getElementById('startFirstRide')?.addEventListener('click',()=>{page='trip';render();});
 }
@@ -2223,8 +2221,8 @@ function render() {
   if (!session) return auth();
   if(profile&&profile.role!=='admin'){
     const captain=profile.account_type==='captain';
-    const captainOnly=['captain','captain-account'];
-    const riderOnly=['home','trip','share','trips','apply-captain'];
+    const captainOnly=['captain','captain-account','apply-captain'];
+    const riderOnly=['home','trip','share','trips'];
     if(captain&&riderOnly.includes(page))page='captain';
     if(!captain&&captainOnly.includes(page))page='home';
   }
