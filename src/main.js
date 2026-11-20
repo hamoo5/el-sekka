@@ -274,7 +274,14 @@ async function searchPlaces(query) {
   try {
     await waitForNominatimSlot();
     const url = new globalThis.URL('https://nominatim.openstreetmap.org/search');
-    url.search = new URLSearchParams({ q: query, format: 'jsonv2', limit: '5', countrycodes: 'eg', 'accept-language': 'ar', addressdetails: '1' });
+    const params={ q: query, format: 'jsonv2', limit: '5', countrycodes: 'eg', 'accept-language': 'ar', addressdetails: '1' };
+    const selectedPickup=readRiderDraft()?.origin;
+    const center=selectedPickup&&Number.isFinite(Number(selectedPickup.lat))&&Number.isFinite(Number(selectedPickup.lng))?selectedPickup:null;
+    if(center){
+      const lat=Number(center.lat),lng=Number(center.lng),deltaLat=0.18,deltaLng=0.2;
+      params.viewbox=[lng-deltaLng,lat+deltaLat,lng+deltaLng,lat-deltaLat].join(',');
+    }
+    url.search = new URLSearchParams(params);
     const response = await fetch(url, { headers: { 'Accept-Language': 'ar' } });
     if (!response.ok) throw new Error(`خدمة البحث غير متاحة الآن (HTTP ${response.status}).`);
     const rows = await response.json();
@@ -404,10 +411,6 @@ function tripForm() {
   const riderDraft = readRiderDraft();
   const rememberedTrip = pendingTrip || riderDraft || readPassengerStore('last-trip');
   const routeNames=document.getElementById('selectedRouteNames');if(routeNames)routeNames.textContent=[riderDraft.origin?.name,riderDraft.destination?.name].filter(Boolean).join(' ← ');
-  if (pendingTrip?.origin) setTimeout(() => setPoint('origin',pendingTrip.origin.lat,pendingTrip.origin.lng,pendingTrip.origin.name,true),250);
-  if (pendingTrip?.destination) setTimeout(() => setPoint('destination',pendingTrip.destination.lat,pendingTrip.destination.lng,pendingTrip.destination.name,true),450);
-  if (!pendingTrip?.origin && riderDraft.origin) setTimeout(() => setPoint('origin',riderDraft.origin.lat,riderDraft.origin.lng,riderDraft.origin.name,true),300);
-  if (!pendingTrip?.destination && riderDraft.destination) setTimeout(() => setPoint('destination',riderDraft.destination.lat,riderDraft.destination.lng,riderDraft.destination.name,true),550);
 
   const destinationLabels = {home:'البيت',work:'الشغل',metro:'أقرب مترو'};
   const renderDestinationShortcuts = () => {
@@ -458,8 +461,6 @@ function tripForm() {
     note.value=parts.join('، ').slice(0,160);button.classList.add('selected');
   }));
   $('back')?.addEventListener('click', () => { page = 'home'; render(); });
-  $('sharedRideMode').addEventListener('click',()=>{page='share';render();});
-  $('normalRideMode').addEventListener('click',()=>{$('normalRideMode').classList.add('active');$('sharedRideMode').classList.remove('active');});
 
   const updateFarePreview = async () => {
     const seq = ++summarySequence;
@@ -642,24 +643,23 @@ function tripForm() {
         attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>',
         crossOrigin:true
       });
-      const darkTiles=window.L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-        subdomains:'abcd',maxZoom:20,
-        attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>',
-        crossOrigin:true
-      });
-      let activeTiles=null;
+      lightTiles.addTo(map);
+      let activeTiles=lightTiles;
       const syncBaseTiles=()=>{
-        const desired=document.documentElement.classList.contains('trip-night')?darkTiles:lightTiles;
-        if(activeTiles===desired)return;
-        if(activeTiles&&map.hasLayer(activeTiles))map.removeLayer(activeTiles);
-        activeTiles=desired;
-        activeTiles.addTo(map);
+        const night=document.documentElement.classList.contains('trip-night');
+        mapElement.classList.toggle('trip-map-night',night);
+        mapElement.classList.toggle('trip-map-day',!night);
       };
       syncBaseTiles();
-      // Restore any addresses selected while Leaflet was loading.
-      if (origin) setPoint('origin',origin.lat,origin.lng,origin.name,true).catch(error => statusHint(error.message || 'تعذر إظهار مكان الركوب.'));
-      if (destination) setPoint('destination',destination.lat,destination.lng,destination.name,true).catch(error => statusHint(error.message || 'تعذر إظهار الوجهة.'));
-      const applyMapTheme=()=>{applyAppTheme();const day=document.documentElement.classList.contains('trip-day');mapElement.classList.toggle('trip-map-day',day);mapElement.classList.toggle('trip-map-night',!day);syncBaseTiles();};
+      // Restore both selected coordinates in order, then calculate route and fares.
+      (async()=>{
+        const saved=readRiderDraft();
+        if(saved.origin&&Number.isFinite(Number(saved.origin.lat))&&Number.isFinite(Number(saved.origin.lng))) await setPoint('origin',saved.origin.lat,saved.origin.lng,saved.origin.name||null,true);
+        if(saved.destination&&Number.isFinite(Number(saved.destination.lat))&&Number.isFinite(Number(saved.destination.lng))) await setPoint('destination',saved.destination.lat,saved.destination.lng,saved.destination.name||null,true);
+        if(origin&&destination) await drawRoute();
+      })().catch(error=>statusHint(error.message||'تعذر استعادة إحداثيات المشوار.'));
+
+      const applyMapTheme=()=>{applyAppTheme();syncBaseTiles();};
       applyMapTheme();
       if(appThemeTimer)clearInterval(appThemeTimer);appThemeTimer=window.setInterval(applyMapTheme,60_000);
       if(!origin&&navigator.geolocation){navigator.geolocation.getCurrentPosition(pos=>{if(!origin)setPoint('origin',pos.coords.latitude,pos.coords.longitude,null,true).catch(()=>{});},()=>{}, {enableHighAccuracy:false,timeout:8000,maximumAge:120000});}
