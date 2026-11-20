@@ -2229,12 +2229,12 @@ function render() {
       ?['admin','profile']
       :type==='captain'
         ?['captain','captain-account','apply-captain','profile','rewards','trip-status']
-        :['home','trip','share','trips','profile','rewards','trip-status'];
+        :['home','trip','trip-search','trip-options','share','trips','profile','rewards','trip-status'];
     if(!allowed.includes(page))page=type==='admin'?'admin':type==='captain'?'captain':'trip';
   }
   if (page === 'trip-status') return tripStatusPage(currentTripId);
   if (page === 'captain-account') return captainDashboardPage();
-  if (page === 'home') return profile?.account_type==='captain'?(page='captain',captainDashboardPage()):(page='trip',tripForm());
+  if (page === 'home') return profile?.account_type==='captain'?(page='captain',captainDashboardPage()):(page='trip',riderStartPage());
   if (page === 'rewards') return rewardsPage();
   if (page === 'trips') return tripsPage();
   if (page === 'profile') return profilePage();
