@@ -667,3 +667,27 @@ html.trip-day .passenger-bottom-sheet .trip-extra-options summary{color:#166534!
 html.trip-day .passenger-bottom-sheet .trip-summary{background:#f5f8f6!important;color:#111827!important}
 html.trip-day .passenger-bottom-sheet .trip-summary b{color:#111827!important}
 @media(max-width:480px){.passenger-bottom-sheet .vehicle-card{min-height:54px;padding:7px 11px}.passenger-bottom-sheet .vehicle-card .vehicle-price{min-width:70px;font-size:12px}}
+
+/* Night readability and address autocomplete layering */
+html.trip-night .passenger-bottom-sheet .trip-summary b,
+html.trip-night .passenger-bottom-sheet #summaryDistance,
+html.trip-night .passenger-bottom-sheet #summaryDuration,
+html.trip-night .passenger-bottom-sheet #summaryFare{color:#fff!important}
+html.trip-night .passenger-bottom-sheet .map-first-saving-note{color:#b7f36b!important}
+html.trip-night .passenger-bottom-sheet .schedule-toggle,
+html.trip-night .passenger-bottom-sheet label.schedule-toggle{color:#fff!important}
+html.trip-night .passenger-bottom-sheet .schedule-toggle input{accent-color:#22c55e}
+.passenger-bottom-sheet .location-card{position:relative;z-index:30000!important;overflow:visible!important}
+.passenger-bottom-sheet .location-card label{position:relative;z-index:30001}
+.passenger-bottom-sheet .location-card label:focus-within{z-index:30010!important}
+.passenger-bottom-sheet .location-card .suggestions{position:absolute!important;top:calc(100% + 3px)!important;right:0;left:0;z-index:30020!important;max-height:240px;overflow-y:auto;overscroll-behavior:contain;background:#101e2d;color:#fff;border:1px solid #61758b;box-shadow:0 16px 36px #000b}
+.passenger-bottom-sheet .location-card .suggestion-item{position:relative;z-index:auto!important;color:#f8fafc!important;background:transparent}
+.passenger-bottom-sheet .location-card .suggestion-item:hover,
+.passenger-bottom-sheet .location-card .suggestion-item:focus{background:#244432!important;color:#fff!important}
+html.trip-day .passenger-bottom-sheet .location-card .suggestions{background:#fff;color:#111827;border-color:#cbd5df;box-shadow:0 16px 36px #172b3d30}
+html.trip-day .passenger-bottom-sheet .location-card .suggestion-item{color:#111827!important;border-bottom-color:#e5eaf0}
+html.trip-day .passenger-bottom-sheet .location-card .suggestion-item:hover,
+html.trip-day .passenger-bottom-sheet .location-card .suggestion-item:focus{background:#eaf6ed!important;color:#14532d!important}
+html.trip-night .passenger-map-stage .trip-map-night .leaflet-tile-pane,
+html.trip-night .passenger-map-stage .leaflet-tile-pane{filter:none!important}
+html.trip-night .passenger-map-stage .leaflet-tile{filter:none!important}
