@@ -102,6 +102,7 @@ Deno.serve(async (req: Request) => {
       }
       ridePreferences[key] = value;
     }
+    const usePoints = body.use_points === true;
     const isScheduled = body.is_scheduled === true;
     const scheduledAt = body.scheduled_at == null ? null : String(body.scheduled_at);
 
@@ -186,6 +187,7 @@ Deno.serve(async (req: Request) => {
         p_distance_km: distanceKm,
         p_pickup_note: pickupNote,
         p_ride_preferences: ridePreferences,
+        p_use_points: usePoints,
       },
     );
 
@@ -198,7 +200,7 @@ Deno.serve(async (req: Request) => {
     // broad SELECT access to application tables.
     const { data: savedRequest, error: readError } = await userClient
       .from("trip_requests")
-      .select("id,fixed_fare_egp,request_status")
+      .select("id,fixed_fare_egp,request_status,fare_before_discount,discount_amount_egp,discount_source,points_used,points_discount_amount_egp")
       .eq("id", requestId)
       .eq("passenger_id", authData.user.id)
       .maybeSingle();
@@ -218,6 +220,11 @@ Deno.serve(async (req: Request) => {
       request_id: savedRequest.id,
       distance_km: Number(distanceKm.toFixed(2)),
       fare_egp: savedRequest.fixed_fare_egp,
+      fare_before_discount_egp: savedRequest.fare_before_discount ?? savedRequest.fixed_fare_egp,
+      discount_amount_egp: savedRequest.discount_amount_egp ?? 0,
+      discount_source: savedRequest.discount_source ?? null,
+      points_used: savedRequest.points_used ?? 0,
+      points_discount_amount_egp: savedRequest.points_discount_amount_egp ?? 0,
       status: savedRequest.request_status,
     }, origin);
   } catch (error) {
