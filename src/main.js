@@ -63,6 +63,7 @@ function savedPassengerDestinations() {
 
 const APP_THEME_KEY='el-sekka-theme-mode';
 function applyAppTheme(){let mode='auto';try{mode=localStorage.getItem(APP_THEME_KEY)||'auto';}catch(_){}const day=mode==='day'||(mode==='auto'&&new Date().getHours()>=6&&new Date().getHours()<18);document.documentElement.classList.toggle('trip-day',day);document.documentElement.classList.toggle('trip-night',!day);document.body.classList.toggle('trip-day',day);document.body.classList.toggle('trip-night',!day);}
+window.setInterval(applyAppTheme,60_000);
 function layout(body) {
   applyAppTheme();
   const captain=profile?.account_type==='captain'||profile?.role==='captain';
@@ -374,7 +375,7 @@ function tripForm() {
           <span id="sendTripLabel">اطلب السكة الآن</span>
           <small id="trafficBadge" class="traffic-badge"></small>
         </button>
-        <p class="traffic-disclaimer">مؤشر الذروة تقديري حسب توقيت الطلب، وليس بيانات مرور مباشرة.</p>
+        <p class="map-first-saving-note">وفّرت 15% تلقائياً بدون عمولة</p>
         <p class="message" id="tripMessage" aria-live="polite"></p>
         <section id="tripResult" class="trip-result" hidden></section>
       </form>
@@ -634,6 +635,7 @@ function tripForm() {
       const applyMapTheme=()=>{applyAppTheme();const day=document.documentElement.classList.contains('trip-day');mapElement.classList.toggle('trip-map-day',day);mapElement.classList.toggle('trip-map-night',!day);};
       applyMapTheme();
       if(appThemeTimer)clearInterval(appThemeTimer);appThemeTimer=window.setInterval(applyMapTheme,60_000);
+      if(!origin&&navigator.geolocation){navigator.geolocation.getCurrentPosition(pos=>{if(!origin)setPoint('origin',pos.coords.latitude,pos.coords.longitude,null,true).catch(()=>{});},()=>{}, {enableHighAccuracy:false,timeout:8000,maximumAge:120000});}
       map.on('click',event => {
         try { setPoint(activePoint,event.latlng.lat,event.latlng.lng).catch(error => statusHint(error.message || 'تعذر تحديد النقطة.')); }
         catch(error) { statusHint(error.message || 'تعذر تحديد النقطة.'); }
