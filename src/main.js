@@ -179,17 +179,17 @@ async function reversePlace(lat, lng) {
 
 function tripForm() {
   const types = [
-    ['private_car','🚘','ملاكي','حتى 3 ركاب'],
-    ['taxi','🚕','تاكسي','حتى 4 ركاب'],
-    ['suzuki','🚐','سوزوكي','حتى 6 ركاب'],
-    ['microbus','🚌','ميكروباص','حتى 13 راكب'],
-    ['scooter','🛵','اسكوتر','راكب واحد'],
-    ['motorcycle','🏍️','موتوسيكل','راكب واحد']
+    ['private_car','🚘','ملاكي',''],
+    ['taxi','🚕','تاكسي',''],
+    ['suzuki','🚐','سوزوكي',''],
+    ['microbus','🚌','ميكروباص',''],
+    ['scooter','🛵','اسكوتر',''],
+    ['motorcycle','🏍️','موتوسيكل','']
   ];
   layout(`
     <main class="wrap narrow trip-page">
       <button type="button" class="back" id="back">→ الرئيسية</button>
-      <section class="hero compact"><span class="tag">مشوار عادي · سعر ثابت</span><h1>اطلب مشوارك</h1><p>حدد مكان الركوب والوجهة، وشوف المسار قبل إرسال الطلب.</p></section>
+      <section class="hero compact"><h1>رايح فين؟</h1><p>حدد مكان الركوب والوجهة، والسكة هتوصلك.</p></section>
       <form class="panel form trip-panel" id="tripForm">
         <section class="location-card">
           <label>مكان الركوب
@@ -203,21 +203,24 @@ function tripForm() {
           </label>
          </section>
 
-        <div class="map-heading"><b>مسارك على الخريطة</b><small>اختار الحقل ثم اضغط على الخريطة أو حرّك الدبوس.</small></div>
-        <div id="tripMap" class="trip-map" role="application" aria-label="خريطة تحديد مكان الركوب والوجهة"></div>
-        <div class="map-legend"><span>🟢 الركوب</span><span>🔴 الوجهة</span><span id="mapHint">حدد النقطتين لعرض المسار.</span></div>
+        <details class="trip-map-details" id="tripMapDetails">
+          <summary>عرض الخريطة وتعديل المواقع</summary>
+          <p class="map-helper">اضغط على الخريطة لتعديل مكان الركوب أو الوجهة.</p>
+          <div id="tripMap" class="trip-map" role="application" aria-label="خريطة تحديد مكان الركوب والوجهة"></div>
+          <div class="map-legend"><span>🟢 الركوب</span><span>🔴 الوجهة</span><span id="mapHint" hidden></span></div>
+        </details>
 
         <fieldset class="vehicle-field">
           <legend>اختار نوع المركبة</legend>
           <div class="vehicle-grid">
             ${types.map(([value,icon,name,desc]) => `
               <button class="vehicle-card" type="button" data-vehicle="${value}">
-                <span class="vehicle-icon">${icon}</span><b>${name}</b><small>${desc}</small>
+                <span class="vehicle-icon">${icon}</span><b>${name}</b>
               </button>`).join('')}
           </div>
           <input type="hidden" name="vehicle_type" id="vehicleType" value="private_car">
         </fieldset>
-        <label>عدد الركاب
+        <label id="passengerCountField">عدد الركاب
           <select name="passenger_count" id="passengerCount"></select>
         </label>
         <label class="schedule-toggle"><input type="checkbox" id="scheduleToggle"> حجز المشوار في موعد لاحق</label>
@@ -225,7 +228,7 @@ function tripForm() {
           <input type="datetime-local" id="scheduledAt">
         </label>
         <section class="trip-summary" id="tripSummary"><div><small>المسافة</small><b id="summaryDistance">—</b></div><div><small>الوقت المتوقع</small><b id="summaryDuration">—</b></div><div><small>السعر النهائي</small><b id="summaryFare">—</b></div></section>
-        <div class="notice" id="pricingNotice">المشوار الفوري: السعر يحسبه النظام تلقائياً. لا توجد عمولة على الرحلة، والدفع للكابتن نقداً.</div>
+        <div class="notice" id="pricingNotice" hidden></div>
         <button class="btn primary" type="submit" id="sendTrip">تأكيد وطلب المشوار</button>
         <p class="message" id="tripMessage" aria-live="polite"></p>
         <section id="tripResult" class="trip-result" hidden></section>
@@ -248,6 +251,14 @@ function tripForm() {
   const searchSequence = {origin:0,destination:0};
   const statusHint = message => { $('mapHint').textContent = message; };
   $('back').addEventListener('click', () => { page = 'home'; render(); });
+  $('tripMapDetails').addEventListener('toggle', () => {
+    if ($('tripMapDetails').open && map) {
+      window.setTimeout(() => {
+        map.invalidateSize({pan:false,animate:false});
+        if (origin && destination) drawRoute();
+      }, 120);
+    }
+  });
 
   const updateFarePreview = async () => {
     const seq = ++summarySequence;
@@ -274,6 +285,7 @@ function tripForm() {
     document.querySelectorAll('.vehicle-card').forEach(card => card.classList.toggle('selected', card.dataset.vehicle === value));
     const caps = {private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
     const max = caps[value] || 1;
+    $('passengerCountField').hidden = max === 1;
     $('passengerCount').innerHTML = Array.from({length:max},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
     updateFarePreview();
   };
@@ -523,10 +535,8 @@ function tripForm() {
       const fare=Number(fareRaw), distance=Number(distanceRaw);
       const fareLabel=Number.isFinite(fare)?`${fare.toLocaleString('ar-EG')} جنيه`:'—';
       const distanceLabel=Number.isFinite(distance)?`${distance.toFixed(1)} كم`:'غير متاحة';
-      const requestStatus=data.request_status||data.requestStatus||data.status||'searching';
-      const priceTitle='السعر الثابت المحسوب بواسطة النظام';
-      const nextStep=scheduled?'سيظهر الحجز للكباتن مع موعده المحدد، والسعر ثابت دون تفاوض.':'سيظهر الطلب للكباتن ليقبل أحدهم المشوار بالسعر المحدد.';
-      $('tripResult').innerHTML=`<h3>تم إرسال طلب المشوار${scheduled?' المجدول':''}</h3><div class="fare-line"><span>${priceTitle}</span><strong>${fareLabel}</strong></div><p>المسافة التقريبية: ${distanceLabel}</p><p>${nextStep}</p><p>رقم الطلب: <small dir="ltr">${esc(requestId)}</small></p><p class="muted">حالة الطلب: ${esc(requestStatus)}</p>`;
+      const nextStep=scheduled?'تم تسجيل حجزك بالموعد المحدد.':'بنبحث لك عن كابتن قريب منك الآن.';
+      $('tripResult').innerHTML=`<div class="trip-success-icon">✓</div><h3>طلبك وصل بنجاح</h3><div class="fare-line"><span>السعر النهائي</span><strong>${fareLabel}</strong></div><p>${nextStep}</p>`;
       $('tripResult').hidden=false;msg.textContent='تم إنشاء الطلب بنجاح.';button.textContent='تم إرسال الطلب';
     }catch(error){
       msg.textContent=error.message||'حصل خطأ غير متوقع. حاول مرة أخرى.';
