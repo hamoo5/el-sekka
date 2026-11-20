@@ -256,7 +256,7 @@ function tripForm() {
           <div class="vehicle-grid">
             ${types.map(([value,icon,name,desc]) => `
               <button class="vehicle-card" type="button" data-vehicle="${value}">
-                <span class="vehicle-icon">${icon}</span><b>${name}</b>
+                <span class="vehicle-icon">${icon}</span><b>${name}</b><small class="vehicle-price" data-vehicle-price="${value}">السعر —</small>
               </button>`).join('')}
           </div>
           <input type="hidden" name="vehicle_type" id="vehicleType" value="private_car">
@@ -281,7 +281,7 @@ function tripForm() {
   let pendingTrip = null;
   try { pendingTrip=JSON.parse(sessionStorage.getItem('el-sekka-pending-trip') || 'null'); sessionStorage.removeItem('el-sekka-pending-trip'); } catch (_) {}
 
-  let routeDistanceKm = null, routeDurationMinutes = null, summarySequence = 0;
+  let routeDistanceKm = null, routeDurationMinutes = null, summarySequence = 0, vehiclePriceSequence = 0;
   const hour = new Date().getHours();
   const isDay = hour >= 6 && hour < 18;
   document.documentElement.classList.toggle('trip-day', isDay);
@@ -347,6 +347,31 @@ function tripForm() {
     }
   };
 
+  const updateVehiclePrices = async () => {
+    const seq = ++vehiclePriceSequence;
+    const labels = [...document.querySelectorAll('[data-vehicle-price]')];
+    if (!routeDistanceKm) {
+      labels.forEach(label => { label.textContent='السعر —'; label.removeAttribute('data-cheapest'); });
+      return;
+    }
+    labels.forEach(label => { label.textContent='جارٍ الحساب'; label.removeAttribute('data-cheapest'); });
+    const types = labels.map(label => label.dataset.vehiclePrice);
+    const results = await Promise.all(types.map(async type => {
+      const {data,error}=await supabase.rpc('calculate_fixed_trip_fare',{p_vehicle_type:type,p_distance_km:routeDistanceKm});
+      const fare=Number(data);
+      return {type,fare:Number.isFinite(fare)&&!error?fare:null};
+    }));
+    if (seq!==vehiclePriceSequence) return;
+    const valid=results.filter(item=>item.fare!==null);
+    const cheapest=valid.length?Math.min(...valid.map(item=>item.fare)):null;
+    results.forEach(item=>{
+      const label=document.querySelector(`[data-vehicle-price="${item.type}"]`);
+      if(!label)return;
+      label.textContent=item.fare===null?'السعر غير متاح':`${item.fare.toLocaleString('ar-EG')} ج`;
+      if(cheapest!==null&&item.fare===cheapest)label.dataset.cheapest='true';
+    });
+  };
+
   const setVehicle = value => {
     $('vehicleType').value = value;
     document.querySelectorAll('.vehicle-card').forEach(card => card.classList.toggle('selected', card.dataset.vehicle === value));
@@ -387,10 +412,12 @@ function tripForm() {
       map.fitBounds(routeLine.getBounds(),{padding:[35,35]});
       statusHint('تم تحديد المسار على الخريطة.');
       await updateFarePreview();
+      await updateVehiclePrices();
     } catch (error) {
       if (seq !== routeSequence) return;
       routeDistanceKm=null; routeDurationMinutes=null;
       await updateFarePreview();
+      await updateVehiclePrices();
       statusHint(error.name === 'TimeoutError' ? 'خدمة المسارات تأخرت. حاول مرة أخرى بعد لحظات.' : (error.message || 'تعذر رسم المسار حالياً.'));
     }
   };
