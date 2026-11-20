@@ -8,7 +8,16 @@ const app = document.querySelector('#app');
 
 let session = null;
 let profile = null;
-let page = 'home';
+const PAGE_STORAGE_KEY = 'el-sekka-current-page';
+const VALID_PAGES = new Set(['home','trip','share','apply-captain','captain','admin']);
+let page = (() => {
+  try {
+    const saved = sessionStorage.getItem(PAGE_STORAGE_KEY);
+    return VALID_PAGES.has(saved) ? saved : 'home';
+  } catch (_) {
+    return 'home';
+  }
+})();
 
 const esc = (v = '') => String(v).replace(/[&<>"']/g, c => ({
   '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -26,7 +35,9 @@ function layout(body) {
     <footer>السكة © 2026 · منصة تنقل ومشاركة طريق</footer>`;
   document.querySelector('#logout')?.addEventListener('click', async () => {
     await supabase.auth.signOut();
-    session = null; profile = null; page = 'home'; render();
+    session = null; profile = null; page = 'home';
+    try { sessionStorage.removeItem(PAGE_STORAGE_KEY); } catch (_) {}
+    render();
   });
 }
 
@@ -1237,6 +1248,10 @@ function placeholder(title, desc) {
 }
 
 function render() {
+  try {
+    if (session && VALID_PAGES.has(page)) sessionStorage.setItem(PAGE_STORAGE_KEY, page);
+    else if (!session) sessionStorage.removeItem(PAGE_STORAGE_KEY);
+  } catch (_) {}
   if (!supabase) return setup();
   if (!session) return auth();
   if (page === 'home') return home();
@@ -1257,7 +1272,11 @@ async function init() {
   supabase.auth.onAuthStateChange((_event, next) => {
     session = next;
     if (next) loadProfile();
-    else { profile = null; page = 'home'; render(); }
+    else {
+      profile = null; page = 'home';
+      try { sessionStorage.removeItem(PAGE_STORAGE_KEY); } catch (_) {}
+      render();
+    }
   });
 }
 init();
