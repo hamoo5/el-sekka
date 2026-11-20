@@ -543,6 +543,7 @@ function shareHome() {
           <label>نوع المشاركة
             <select id="shareMode"><option value="live_share">فوري</option><option value="scheduled_share">مجدول</option></select>
           </label>
+          <label id="shareDateField" hidden>موعد التحرك<input id="shareDeparture" type="datetime-local"></label>
           <section class="location-card">
             <label>مكان البداية
               <input id="shareOrigin" required maxlength="180" placeholder="اكتب اسم الشارع أو المنطقة" autocomplete="off">
@@ -557,7 +558,6 @@ function shareHome() {
           <div class="map-heading"><b>حدد الطريق على الخريطة</b><small>اختار الحقل ثم اضغط على الخريطة أو حرّك الدبوس.</small></div>
           <div id="shareMap" class="trip-map" role="application" aria-label="خريطة تحديد بداية ونهاية المشاركة"></div>
           <div class="map-legend"><span>🟢 البداية</span><span>🔴 الوجهة</span><span id="shareMapHint">حدد النقطتين لعرض المسار.</span></div>
-          <label id="shareDateField" hidden>موعد التحرك<input id="shareDeparture" type="datetime-local"></label>
           <label>عدد الكراسي المطلوبة<input id="shareSeats" type="number" min="1" max="13" value="1" required></label>
           <label>السعر المبدئي للكرسي (جنيه)<input id="sharePrice" type="number" min="0" step="0.5" required placeholder="اكتب السعر الذي تقترحه"></label>
           <label>نوع المركبة المفضل (اختياري)
