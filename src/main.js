@@ -1057,35 +1057,85 @@ async function applyCaptainPage() {
   if (existing?.application_status === 'pending' || existing?.application_status === 'approved' || existing?.application_status === 'suspended') {
     page='home'; return render();
   }
-  layout(`
+  layout(\`
     <main class="wrap narrow">
       <button class="back" id="back">→ الرئيسية</button>
-      <section class="hero compact"><span class="tag">الانضمام للكباتن</span><h1>قدّم طلب كابتن</h1><p>أدخل البيانات المطلوبة للمراجعة. لا ترسل صورة البطاقة أو بيانات حساسة هنا.</p></section>
+      <section class="hero compact"><span class="tag">الانضمام للكباتن</span><h1>بيانات الكابتن والمركبة</h1><p>املأ بياناتك وارفع الصور المطلوبة. الصور الشخصية وصور المركبة ستظهر للراكب بعد اعتماد الإدارة، أما بيانات الرخصة فتظل خاصة.</p></section>
       <form class="panel form" id="captainApplyForm">
-        <label>آخر 4 أرقام من الرقم القومي<input name="national_id_last4" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" minlength="4" required value="${esc(existing?.national_id_last4||'')}" placeholder="1234"></label>
-        <label>رقم رخصة القيادة<input name="license_number" maxlength="80" required value="${esc(existing?.license_number||'')}" placeholder="رقم الرخصة"></label>
-        <label>تاريخ انتهاء الرخصة<input name="license_expiry" type="date" required value="${esc(existing?.license_expiry||'')}"></label>
-        <div class="notice">إرسال الطلب لا يفعّل حساب الكابتن تلقائياً. التفعيل بعد مراجعة الإدارة فقط.</div>
-        <button class="btn primary" type="submit">إرسال طلب التقديم</button>
+        <h3>أولاً: بيانات الكابتن</h3>
+        <label>آخر 4 أرقام من الرقم القومي<input name="national_id_last4" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" minlength="4" required value="\${esc(existing?.national_id_last4||'')}" placeholder="1234"></label>
+        <label>رقم رخصة القيادة<input name="license_number" maxlength="80" required value="\${esc(existing?.license_number||'')}" placeholder="رقم الرخصة"></label>
+        <label>تاريخ انتهاء الرخصة<input name="license_expiry" type="date" required value="\${esc(existing?.license_expiry||'')}"></label>
+        <label>الصورة الشخصية<input name="profile_photo" type="file" accept="image/*" capture="user" required></label>
+        <div class="notice">اختر صورة واضحة لوجهك، بدون مستندات أو بيانات شخصية ظاهرة في الخلفية.</div>
+        <hr>
+        <h3>ثانياً: بيانات المركبة</h3>
+        <label>نوع المركبة
+          <select name="vehicle_type" required>
+            <option value="private_car">ملاكي</option><option value="taxi">تاكسي</option><option value="suzuki">سوزوكي</option><option value="microbus">ميكروباص</option><option value="scooter">اسكوتر</option><option value="motorcycle">موتوسيكل</option>
+          </select>
+        </label>
+        <label>الماركة<input name="make" maxlength="60" required placeholder="مثال: هيونداي"></label>
+        <label>الموديل<input name="model" maxlength="60" required placeholder="مثال: إلنترا"></label>
+        <label>سنة الصنع<input name="model_year" type="number" min="1980" max="2027" required></label>
+        <label>لون المركبة<input name="color" maxlength="40" required placeholder="مثال: أبيض"></label>
+        <label>رقم اللوحة<input name="plate_number" maxlength="30" required placeholder="رقم اللوحة"></label>
+        <label>عدد الركاب (بدون السائق)<input name="passenger_capacity" type="number" min="1" max="13" value="3" required></label>
+        <label class="checkline"><input name="has_ac" type="checkbox"> يوجد تكييف</label>
+        <label class="checkline"><input name="has_large_trunk" type="checkbox"> شنطة واسعة</label>
+        <label class="checkline"><input name="no_smoking" type="checkbox" checked> ممنوع التدخين داخل المركبة</label>
+        <label class="checkline"><input name="pets_allowed" type="checkbox"> يسمح باصطحاب الحيوانات الأليفة</label>
+        <h3>ثالثاً: صور المركبة</h3>
+        <label>صورة أمامية واضحة<input name="vehicle_front" type="file" accept="image/*" capture="environment" required></label>
+        <label>صورة جانبية واضحة<input name="vehicle_side" type="file" accept="image/*" capture="environment" required></label>
+        <label>صورة خلفية واضحة<input name="vehicle_rear" type="file" accept="image/*" capture="environment" required></label>
+        <div class="notice">ارفع صور المركبة فقط. صور الرخص والمستندات الرسمية ستُطلب في خطوة تحقق منفصلة وآمنة، ولا تظهر للراكب.</div>
+        <div class="notice">لا يتم تفعيل حساب الكابتن أو المركبة إلا بعد مراجعة الإدارة واعتمادهما.</div>
+        <button class="btn primary" type="submit">إرسال طلب الانضمام</button>
         <p class="message" id="applyMessage" aria-live="polite"></p>
       </form>
-    </main>`);
+    </main>\`);
   $('back')?.addEventListener('click',()=>{page='home';render();});
   const form=document.getElementById('captainApplyForm');
+  const capacityByType={private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
+  const typeField=form.elements.vehicle_type, capacityField=form.elements.passenger_capacity;
+  typeField.addEventListener('change',()=>{capacityField.max=capacityByType[typeField.value];capacityField.value=Math.min(Number(capacityField.value)||1,capacityByType[typeField.value]);});
   form.addEventListener('submit',async e=>{
     e.preventDefault();
     const d=new FormData(form), msg=document.getElementById('applyMessage'), btn=form.querySelector('button[type="submit"]');
-    const last4=String(d.get('national_id_last4')||'').trim();
-    const license=String(d.get('license_number')||'').trim();
-    const expiry=String(d.get('license_expiry')||'');
-    if(!/^\\d{4}$/.test(last4)||!license||!expiry){msg.textContent='راجع البيانات المطلوبة.';return;}
+    const last4=String(d.get('national_id_last4')||'').trim(), license=String(d.get('license_number')||'').trim(), expiry=String(d.get('license_expiry')||'');
+    const files={profile:d.get('profile_photo'),front:d.get('vehicle_front'),side:d.get('vehicle_side'),rear:d.get('vehicle_rear')};
+    const type=String(d.get('vehicle_type')||''), capacity=Number(d.get('passenger_capacity'));
+    if(!/^\d{4}$/.test(last4)||!license||!expiry){msg.textContent='راجع بيانات الرخصة المطلوبة.';return;}
     if(new Date(expiry+'T23:59:59')<new Date()){msg.textContent='تاريخ انتهاء الرخصة يجب أن يكون في المستقبل.';return;}
-    btn.disabled=true;msg.textContent='جارٍ إرسال الطلب...';
-    const {error}=await supabase.rpc('submit_captain_application',{p_national_id_last4:last4,p_license_number:license,p_license_expiry:expiry});
-    btn.disabled=false;
-    if(error){msg.textContent=applicationError(error);return;}
-    msg.textContent='تم إرسال طلبك بنجاح. ستظل حساباً كراكب حتى مراجعة الإدارة.';
-    setTimeout(()=>{page='home';render();},900);
+    if(Object.values(files).some(f=>!(f instanceof File)||!f.size)){msg.textContent='ارفع الصورة الشخصية والصور الثلاث للمركبة.';return;}
+    if(Object.values(files).some(f=>!f.type.startsWith('image/')||f.size>5*1024*1024)){msg.textContent='كل صورة يجب أن تكون بصيغة صورة وحجمها لا يتجاوز 5 ميجابايت.';return;}
+    if(!capacityByType[type]||capacity<1||capacity>capacityByType[type]){msg.textContent='عدد الركاب أكبر من سعة نوع المركبة.';return;}
+    btn.disabled=true;
+    try{
+      msg.textContent='جارٍ رفع الصور بشكل آمن...';
+      const upload=async(key,file)=>{
+        const ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
+        const path=profile.id+'/'+key+'/'+crypto.randomUUID()+'.'+ext;
+        const {error}=await supabase.storage.from('captain-media').upload(path,file,{contentType:file.type,upsert:false});
+        if(error) throw error;
+        return path;
+      };
+      const paths={profile:await upload('profile',files.profile),front:await upload('vehicle-front',files.front),side:await upload('vehicle-side',files.side),rear:await upload('vehicle-rear',files.rear)};
+      msg.textContent='تم رفع الصور. جارٍ إرسال طلب المراجعة...';
+      const {error}=await supabase.rpc('submit_captain_application_v2',{
+        p_national_id_last4:last4,p_license_number:license,p_license_expiry:expiry,
+        p_vehicle_type:type,p_make:String(d.get('make')||'').trim(),p_model:String(d.get('model')||'').trim(),
+        p_model_year:Number(d.get('model_year')),p_color:String(d.get('color')||'').trim(),p_plate_number:String(d.get('plate_number')||'').trim(),
+        p_passenger_capacity:capacity,p_has_ac:d.has('has_ac'),p_has_large_trunk:d.has('has_large_trunk'),
+        p_no_smoking:d.has('no_smoking'),p_pets_allowed:d.has('pets_allowed'),
+        p_profile_photo_path:paths.profile,p_vehicle_front_path:paths.front,p_vehicle_side_path:paths.side,p_vehicle_rear_path:paths.rear
+      });
+      if(error) throw error;
+      msg.textContent='تم إرسال طلبك وبيانات المركبة بنجاح. ستظل حساباً كراكب حتى اعتماد الإدارة.';
+      setTimeout(()=>{page='home';render();},1300);
+    }catch(error){msg.textContent=applicationError(error);}
+    finally{btn.disabled=false;}
   });
 }
 
@@ -1098,33 +1148,40 @@ function applicationError(error){
 }
 
 async function adminApplicationsPage(){
-  layout(`
+  layout(\`
     <main class="wrap narrow">
       <button class="back" id="back">→ الرئيسية</button>
-      <section class="hero compact"><span class="tag">إدارة المنصة</span><h1>طلبات الكباتن</h1><p>راجع البيانات ثم وافق أو ارفض الطلب.</p></section>
+      <section class="hero compact"><span class="tag">إدارة المنصة</span><h1>طلبات الكباتن</h1><p>راجع بيانات الكابتن والمركبة والصور قبل اتخاذ القرار.</p></section>
       <section class="panel" id="captainApplicationsList">جارٍ تحميل الطلبات...</section>
-    </main>`);
+    </main>\`);
   document.getElementById('back').addEventListener('click',()=>{page='home';render();});
   const host=document.getElementById('captainApplicationsList');
   const {data,error}=await supabase.from('captain_applications')
-    .select('id,user_id,national_id_last4,license_number,license_expiry,application_status,admin_notes,created_at')
-    .order('created_at',{ascending:false}).limit(100);
+    .select('id,user_id,national_id_last4,license_number,license_expiry,application_status,admin_notes,created_at,vehicle_id,vehicle:vehicles(id,vehicle_type,make,model,model_year,color,plate_number,passenger_capacity,has_ac,has_large_trunk,no_smoking,pets_allowed,photo_front_path,photo_side_path,photo_rear_path)')
+    .eq('application_status','pending').order('created_at',{ascending:false}).limit(100);
   if(error){host.textContent='تعذر تحميل الطلبات. تأكد من صلاحيات الإدارة.';return;}
-  const rows=(data||[]).filter(x=>x.application_status==='pending');
+  const rows=data||[];
   if(!rows.length){host.innerHTML='<p class="muted">لا توجد طلبات جديدة للمراجعة.</p>';return;}
-  host.innerHTML=rows.map(a=>'<article class="share-item"><b>طلب كابتن</b>'+
-    '<p>آخر 4 أرقام من الرقم القومي: '+esc(a.national_id_last4||'—')+'</p>'+
-    '<p>رقم الرخصة: '+esc(a.license_number||'—')+'</p>'+
-    '<p>انتهاء الرخصة: '+esc(a.license_expiry||'—')+'</p>'+
-    '<small>تاريخ التقديم: '+new Date(a.created_at).toLocaleString('ar-EG')+'</small>'+
-    '<label>ملاحظات الإدارة<textarea id="admin-note-'+a.id+'" rows="2" maxlength="1000" placeholder="اختياري"></textarea></label>'+
-    '<div class="share-actions"><button class="btn primary" data-app-review="approved" data-app-id="'+a.id+'">موافقة وتفعيل كابتن</button>'+
-    '<button class="btn outline" data-app-review="rejected" data-app-id="'+a.id+'">رفض الطلب</button></div></article>').join('');
+  const photo=(path,label)=>path?'<figure><img class="review-photo" src="'+esc(supabase.storage.from('captain-media').getPublicUrl(path).data.publicUrl)+'" alt="'+label+'"><figcaption>'+label+'</figcaption></figure>':'';
+  host.innerHTML=rows.map(a=>{
+    const v=a.vehicle||{};
+    return '<article class="share-item"><b>طلب كابتن</b>'+
+      '<p>آخر 4 أرقام من الرقم القومي: '+esc(a.national_id_last4||'—')+'</p>'+
+      '<p>رقم الرخصة: '+esc(a.license_number||'—')+'</p>'+
+      '<p>انتهاء الرخصة: '+esc(a.license_expiry||'—')+'</p>'+
+      '<h3>المركبة</h3><p>'+esc(v.vehicle_type||'—')+' · '+esc(v.make||'')+' '+esc(v.model||'')+' · '+esc(v.model_year||'')+'</p>'+
+      '<p>اللون: '+esc(v.color||'—')+' · اللوحة: '+esc(v.plate_number||'—')+' · السعة: '+esc(v.passenger_capacity||'—')+'</p>'+
+      '<div class="review-photos">'+photo(v.photo_front_path,'أمام')+photo(v.photo_side_path,'جانب')+photo(v.photo_rear_path,'خلف')+'</div>'+
+      '<small>تاريخ التقديم: '+new Date(a.created_at).toLocaleString('ar-EG')+'</small>'+
+      '<label>ملاحظات الإدارة<textarea id="admin-note-'+a.id+'" rows="2" maxlength="1000" placeholder="اختياري"></textarea></label>'+
+      '<div class="share-actions"><button class="btn primary" data-app-review="approved" data-app-id="'+a.id+'">موافقة واعتماد الكابتن والمركبة</button>'+
+      '<button class="btn outline" data-app-review="rejected" data-app-id="'+a.id+'">رفض الطلب</button></div></article>';
+  }).join('');
   host.querySelectorAll('[data-app-review]').forEach(btn=>btn.addEventListener('click',async()=>{
     const id=btn.dataset.appId, decision=btn.dataset.appReview;
     const note=document.getElementById('admin-note-'+id)?.value.trim()||null;
     btn.disabled=true;
-    const {error}=await supabase.rpc('review_captain_application',{p_application_id:id,p_decision:decision,p_admin_notes:note});
+    const {error}=await supabase.rpc('review_captain_application_v2',{p_application_id:id,p_decision:decision,p_admin_notes:note});
     if(error){alert(applicationError(error));btn.disabled=false;return;}
     await adminApplicationsPage();
   }));
