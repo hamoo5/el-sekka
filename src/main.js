@@ -296,9 +296,9 @@ function tripForm() {
   const statusHint = message => { $('mapHint').textContent = message; };
   const savedPlaces = savedPassengerPlaces();
   const quickPlaceRow = $('quickPlaceRow');
+  const rememberedTrip = pendingTrip || readPassengerStore('last-trip');
   if (pendingTrip?.origin) setTimeout(() => setPoint('origin',pendingTrip.origin.lat,pendingTrip.origin.lng,pendingTrip.origin.name,true),250);
   if (pendingTrip?.destination) setTimeout(() => setPoint('destination',pendingTrip.destination.lat,pendingTrip.destination.lng,pendingTrip.destination.name,true),450);
-  if (pendingTrip?.vehicle_type) setTimeout(() => setVehicle(pendingTrip.vehicle_type),500);
 
   const savedEntries = Object.entries(savedPlaces).filter(([key,p]) => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)));
   quickPlaceRow.innerHTML = savedEntries.map(([key,p]) => `<button type="button" class="quick-place-chip" data-fill-place="${esc(key)}">${key==='home'?'⌂':'▣'} ${key==='home'?'البيت':key==='work'?'الشغل':esc(p.label || 'مكان محفوظ')}</button>`).join('');
@@ -357,7 +357,8 @@ function tripForm() {
     updateFarePreview();
   };
   document.querySelectorAll('.vehicle-card').forEach(card => card.addEventListener('click', () => setVehicle(card.dataset.vehicle)));
-  setVehicle('private_car');
+  setVehicle(rememberedTrip?.vehicle_type || 'private_car');
+  if (rememberedTrip?.passenger_count) $('passengerCount').value = String(rememberedTrip.passenger_count);
 
   const fitPoints = () => {
     if (!map) return;
