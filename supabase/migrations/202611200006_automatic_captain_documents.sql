@@ -140,7 +140,7 @@ begin
     p_vehicle_license_front_path,p_vehicle_license_back_path
   ] loop
     if nullif(v_path,'') is null
-       or (storage.foldername(v_path))[1]<>v_uid::text
+       or coalesce((storage.foldername(v_path))[1],'')<>v_uid::text
        or not exists(select 1 from storage.objects o where o.bucket_id='captain-documents' and o.name=v_path) then
       raise exception 'captain_document_upload_missing';
     end if;
@@ -148,7 +148,7 @@ begin
 
   foreach v_path in array array[p_profile_photo_path,p_vehicle_front_path,p_vehicle_side_path,p_vehicle_rear_path] loop
     if nullif(v_path,'') is null
-       or (storage.foldername(v_path))[1]<>v_uid::text
+       or coalesce((storage.foldername(v_path))[1],'')<>v_uid::text
        or not exists(select 1 from storage.objects o where o.bucket_id='captain-media' and o.name=v_path) then
       raise exception 'captain_media_upload_missing';
     end if;
