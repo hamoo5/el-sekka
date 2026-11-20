@@ -846,38 +846,41 @@ async function setupTripChat(tripId,partnerName){
     input.value='';status.textContent='تم إرسال الرسالة.';await refreshMessages();
   });
   const recordButton=document.getElementById('recordTripAudio');
+  let activeRecorder=null,activeStream=null,recordStopTimer=null;
   recordButton?.addEventListener('click',async()=>{
     const status=document.getElementById('tripChatMessage');
+    if(activeRecorder?.state==='recording'){
+      if(recordStopTimer)clearTimeout(recordStopTimer);
+      activeRecorder.stop();recordButton.disabled=true;recordButton.textContent='جارٍ تجهيز التسجيل...';return;
+    }
     if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){status.textContent='تسجيل الصوت غير مدعوم على هذا الجهاز.';return;}
     recordButton.disabled=true;status.textContent='اسمح باستخدام الميكروفون...';
-    let stream;
     try{
-      stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      activeStream=await navigator.mediaDevices.getUserMedia({audio:true});
       const preferred=['audio/webm;codecs=opus','audio/webm','audio/ogg','audio/mp4'];
       const mime=preferred.find(type=>MediaRecorder.isTypeSupported(type));
-      const recorder=mime?new MediaRecorder(stream,{mimeType:mime}):new MediaRecorder(stream);
+      activeRecorder=mime?new MediaRecorder(activeStream,{mimeType:mime}):new MediaRecorder(activeStream);
       const chunks=[];
-      recorder.ondataavailable=event=>{if(event.data?.size)chunks.push(event.data);};
-      recorder.onstop=async()=>{
-        stream.getTracks().forEach(track=>track.stop());
-        const blob=new Blob(chunks,{type:recorder.mimeType||'audio/webm'});
-        if(blob.size>1024*1024){status.textContent='الرسالة الصوتية أكبر من الحد المسموح.';recordButton.disabled=false;return;}
+      activeRecorder.ondataavailable=event=>{if(event.data?.size)chunks.push(event.data);};
+      activeRecorder.onstop=async()=>{
+        activeStream?.getTracks().forEach(track=>track.stop());activeStream=null;
+        const blob=new Blob(chunks,{type:activeRecorder?.mimeType||'audio/webm'});
+        if(blob.size>1024*1024){status.textContent='الرسالة الصوتية أكبر من الحد المسموح.';recordButton.disabled=false;recordButton.textContent='🎙️ تسجيل صوت (10 ثوانٍ)';activeRecorder=null;return;}
         status.textContent='جارٍ رفع الرسالة الصوتية...';
-        const type=(blob.type||'audio/webm').split(';')[0];
-        const ext=type==='audio/ogg'?'ogg':type==='audio/mp4'?'mp4':'webm';
+        const type=(blob.type||'audio/webm').split(';')[0],ext=type==='audio/ogg'?'ogg':type==='audio/mp4'?'mp4':'webm';
         const path=tripId+'/'+profile.id+'/'+crypto.randomUUID()+'.'+ext;
         const {error:uploadError}=await supabase.storage.from('trip-audio').upload(path,blob,{contentType:type,upsert:false});
-        if(uploadError){status.textContent='تعذر رفع الرسالة الصوتية.';recordButton.disabled=false;return;}
+        if(uploadError){status.textContent='تعذر رفع الرسالة الصوتية.';recordButton.disabled=false;recordButton.textContent='🎙️ تسجيل صوت (10 ثوانٍ)';activeRecorder=null;return;}
         const {error:messageError}=await supabase.from('trip_messages').insert({trip_id:tripId,sender_id:profile.id,message_type:'audio',storage_path:path});
         if(messageError){await supabase.storage.from('trip-audio').remove([path]);status.textContent='تعذر إرسال الرسالة الصوتية.';}
         else{status.textContent='تم إرسال الرسالة الصوتية.';await refreshMessages();}
-        recordButton.disabled=false;recordButton.textContent='🎙️ تسجيل صوت (10 ثوانٍ)';
+        activeRecorder=null;recordButton.disabled=false;recordButton.textContent='🎙️ تسجيل صوت (10 ثوانٍ)';
       };
-      recorder.start();recordButton.textContent='إيقاف التسجيل';status.textContent='جارٍ التسجيل... الحد الأقصى 10 ثوانٍ.';
-      const stopTimer=window.setTimeout(()=>{if(recorder.state==='recording')recorder.stop();},10000);
-      recordButton.onclick=()=>{if(recorder.state==='recording'){clearTimeout(stopTimer);recorder.stop();}};
+      activeRecorder.start();recordButton.disabled=false;recordButton.textContent='إيقاف التسجيل';status.textContent='جارٍ التسجيل... الحد الأقصى 10 ثوانٍ.';
+      recordStopTimer=window.setTimeout(()=>{if(activeRecorder?.state==='recording'){status.textContent='اكتملت 10 ثوانٍ، جارٍ إرسال التسجيل.';activeRecorder.stop();recordButton.disabled=true;}},10000);
     }catch(error){
-      stream?.getTracks().forEach(track=>track.stop());status.textContent='تعذر تشغيل الميكروفون. راجع إذن المتصفح.';
+      activeStream?.getTracks().forEach(track=>track.stop());activeStream=null;activeRecorder=null;
+      status.textContent='تعذر تشغيل الميكروفون. راجع إذن المتصفح.';
       recordButton.disabled=false;recordButton.textContent='🎙️ تسجيل صوت (10 ثوانٍ)';
     }
   });
@@ -901,6 +904,7 @@ async function startCaptainLocationShare(tripId,button){
 }
 
 async function tripStatusPage(tripId){
+  disposeLiveUi();
   if(!tripId){page='home';return home();}
   const {data:trip,error}=await supabase.from('trip_requests')
     .select('id,passenger_id,accepted_captain_id,accepted_vehicle_id,vehicle_type,origin_name,origin_lat,origin_lng,destination_name,destination_lat,destination_lng,passenger_count,fixed_fare_egp,request_status,is_scheduled,scheduled_at,pickup_note,ride_preferences,created_at')
@@ -1803,16 +1807,25 @@ async function captainSubscriptionPanel() {
 async function captainDashboardPage() {
   const docs=await captainDocumentsPanel();
   const subscription=await captainSubscriptionPanel();
-  const [{data:vehicles, error:vehicleError},{data:requests,error:requestError}]=await Promise.all([
+  const [{data:vehicles, error:vehicleError},{data:requests,error:requestError},{data:activeTrips,error:activeTripError}]=await Promise.all([
     supabase.from('vehicles')
       .select('id,vehicle_type,make,model,color,plate_number,passenger_capacity')
       .eq('captain_id',profile.id).eq('approval_status','approved').eq('is_active',true),
     supabase.from('trip_requests')
       .select('id,vehicle_type,origin_name,destination_name,passenger_count,fixed_fare_egp,is_scheduled,scheduled_at,created_at,pickup_note,ride_preferences')
       .eq('request_status','searching').neq('passenger_id',profile.id)
-      .order('created_at',{ascending:true}).limit(30)
+      .order('created_at',{ascending:true}).limit(30),
+    supabase.from('trip_requests')
+      .select('id,origin_name,destination_name,request_status,fixed_fare_egp,created_at')
+      .eq('accepted_captain_id',profile.id).in('request_status',['accepted','in_progress'])
+      .order('created_at',{ascending:false}).limit(10)
   ]);
   const availableVehicles=vehicles||[];
+  const activeTripCards=(activeTrips||[]).map(trip=>`<article class="fixed-trip-card active-captain-trip">
+    <div class="fixed-trip-card-head"><b>${trip.request_status==='in_progress'?'رحلة جارية':'رحلة مقبولة'}</b><strong>${Number(trip.fixed_fare_egp||0).toLocaleString('ar-EG')} جنيه</strong></div>
+    <p><b>من:</b> ${esc(trip.origin_name)}</p><p><b>إلى:</b> ${esc(trip.destination_name)}</p>
+    <button type="button" class="btn primary" data-captain-open-trip="${esc(trip.id)}">فتح الرحلة والتواصل</button>
+  </article>`).join('')||'<div class="notice">لا توجد رحلات مقبولة أو جارية حاليًا.</div>';
   const requestCards=requestError
     ? '<p class="message">تعذر تحميل الطلبات المفتوحة. تأكد من اعتماد المستندات والاشتراك النشط.</p>'
     : (requests||[]).length
@@ -1848,6 +1861,10 @@ async function captainDashboardPage() {
       ${docs}
       ${subscription}
       <section class="panel">
+        <div class="fixed-trip-section-head"><div><h2>رحلاتك الحالية</h2><p class="muted">تابع الرحلات المقبولة وابدأها أو أنهها من شاشة الرحلة.</p></div></div>
+        <div class="fixed-trip-list">${activeTripError?'<p class="message">تعذر تحميل رحلاتك الحالية.</p>':activeTripCards}</div>
+      </section>
+      <section class="panel">
         <div class="fixed-trip-section-head"><div><h2>طلبات المشاوير المتاحة</h2><p class="muted">اقبل الطلب المناسب لمركبتك. السعر محدد مسبقًا ولا يوجد تفاوض.</p></div><button type="button" class="btn outline" id="refreshFixedTrips">تحديث</button></div>
         <div class="fixed-trip-list">${requestCards}</div>
         ${vehicleError?'<p class="message">تعذر تحميل مركباتك المعتمدة.</p>':''}
@@ -1855,6 +1872,7 @@ async function captainDashboardPage() {
     </main>`);
   document.getElementById('captainHome')?.addEventListener('click',()=>{page='home';render();});
   document.getElementById('refreshFixedTrips')?.addEventListener('click',()=>captainDashboardPage());
+  document.querySelectorAll('[data-captain-open-trip]').forEach(button=>button.addEventListener('click',()=>{currentTripId=button.dataset.captainOpenTrip;page='trip-status';render();}));
   document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>{page=b.dataset.page;render();}));
   document.querySelectorAll('[data-accept-fixed-trip]').forEach(button=>button.addEventListener('click',async()=>{
     const requestId=button.dataset.acceptFixedTrip;
