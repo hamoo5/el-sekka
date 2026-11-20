@@ -591,6 +591,23 @@ function shareHome() {
       </section>
     </main>`);
   const $ = id => document.getElementById(id);
+  const shareVehicleCapacity = {private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
+  const updateShareVehicleOptions = () => {
+    const select = $('shareVehicle');
+    const seats = Math.max(1, Number.parseInt($('shareSeats').value, 10) || 1);
+    const previous = select.value;
+    const eligible = types.filter(([value]) => shareVehicleCapacity[value] >= seats);
+    select.innerHTML = '<option value="">أي مركبة مناسبة</option>' +
+      eligible.map(([value,name]) => `<option value="${value}">${name}</option>`).join('');
+    select.value = eligible.some(([value]) => value === previous) ? previous : '';
+    select.disabled = eligible.length === 0;
+    if (!eligible.length) {
+      select.innerHTML = '<option value="">لا توجد مركبة تستوعب هذا العدد</option>';
+    }
+  };
+  $('shareSeats').addEventListener('input', updateShareVehicleOptions);
+  $('shareSeats').addEventListener('change', updateShareVehicleOptions);
+  updateShareVehicleOptions();
   $('back').addEventListener('click',()=>{page='home';render();});
   $('shareMode').addEventListener('change',()=>{
     const scheduled=$('shareMode').value==='scheduled_share';
@@ -602,6 +619,13 @@ function shareHome() {
     const msg=$('shareCreateMessage');
     const btn=e.currentTarget.querySelector('button[type="submit"]');
     msg.textContent='جارٍ نشر الطلب...'; btn.disabled=true;
+    const seats = Number($('shareSeats').value);
+    const selectedVehicle = $('shareVehicle').value;
+    if (!Number.isInteger(seats) || seats < 1 || seats > 13 ||
+        (selectedVehicle && (shareVehicleCapacity[selectedVehicle] || 0) < seats)) {
+      msg.textContent='نوع المركبة المختار لا يستوعب عدد الكراسي. عدّل العدد أو اختر مركبة مناسبة.';
+      btn.disabled=false; updateShareVehicleOptions(); return;
+    }
     const mode=$('shareMode').value;
     const departure=mode==='scheduled_share'
       ? new Date($('shareDeparture').value)
@@ -625,6 +649,7 @@ function shareHome() {
     if(error){msg.textContent=shareError(error);return;}
     msg.textContent='تم نشر طلب المشاركة بنجاح. سيظهر للكباتن المعتمدين.';
     e.currentTarget.reset(); $('shareMode').value='live_share'; $('shareDateField').hidden=true;
+    updateShareVehicleOptions();
     await loadMyShareRequests();
   });
 
