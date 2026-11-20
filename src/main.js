@@ -332,7 +332,7 @@ function tripForm() {
         <label id="scheduleField" hidden>موعد المشوار
           <input type="datetime-local" id="scheduledAt">
         </label>
-        <section class="points-use-panel"><label><input type="checkbox" id="usePoints" ${Number(profile.points||0)>=100?'':'disabled'}> اسمح باستخدام 100 نقطة إذا لم يتوفر خصم الدعوة <small>رصيدك الحالي: ${Number(profile.points||0)} نقطة · الخصم لا يجتمع مع خصم الدعوة، والنظام يختار الأفضل تلقائيًا.</small></label></section><div class="notice">خصم الدعوة متاح تلقائيًا لأول 3 رحلات مؤهلة، بخصم 15% وبحد أقصى 15 جنيهًا.</div>
+        <section class="points-use-panel"><label><input type="checkbox" id="usePoints" ${Number(profile.points||0)>=100?'':'disabled'}> اسمح باستخدام 100 نقطة إذا لم يتوفر خصم الدعوة <small>رصيدك الحالي: ${Number(profile.points||0)} نقطة · الخصم لا يجتمع مع خصم الدعوة، والنظام يختار الأفضل تلقائيًا.</small></label></section><div class="notice">إذا كان حسابك مدعوًا، يُطبّق خصم الدعوة تلقائيًا لأول 3 رحلات مؤهلة (15% بحد أقصى 15 جنيهًا).</div>
         <section class="trip-summary" id="tripSummary"><div><small>المسافة</small><b id="summaryDistance">—</b></div><div><small>الوقت المتوقع</small><b id="summaryDuration">—</b></div><div><small>السعر النهائي</small><b id="summaryFare">—</b></div></section>
         <div class="notice" id="pricingNotice" hidden></div>
         <button class="btn primary trip-submit-button" type="submit" id="sendTrip">
@@ -439,11 +439,17 @@ function tripForm() {
       if(error) throw error;
       if(seq!==summarySequence) return;
       const fare = typeof data === 'number' ? data : Number(data);
-      $('summaryFare').textContent = Number.isFinite(fare) ? `${fare.toLocaleString('ar-EG')} جنيه` : 'يظهر عند الطلب';
+      const referralAvailable=(Number(profile.referral_discount_trips_used||0)+Number(profile.referral_discount_trips_reserved||0))<3 && Boolean(profile.referred_by);
+      const pointsAvailable=$('usePoints')?.checked===true && Number(profile.points||0)>=100;
+      const previewDiscount=(referralAvailable||pointsAvailable)?Math.min(Math.round(fare*0.15*100)/100,15):0;
+      const previewFinal=Math.max(0,fare-previewDiscount);
+      $('summaryFare').textContent = Number.isFinite(fare) ? `${previewFinal.toLocaleString('ar-EG')} جنيه${previewDiscount>0?' بعد الخصم':''}` : 'يظهر عند الطلب';
     } catch (_) {
       if(seq===summarySequence) $('summaryFare').textContent = 'يظهر عند الطلب';
     }
   };
+
+  $('usePoints')?.addEventListener('change',()=>updateFarePreview());
 
   const updateVehiclePrices = async () => {
     const seq = ++vehiclePriceSequence;
