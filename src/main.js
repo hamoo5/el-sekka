@@ -78,7 +78,7 @@ function layout(body) {
       <button type="button" data-nav-page="captain-account" class="${page==='captain-account'?'active':''}"><span>💳</span><small>اشتراكي ومستنداتي</small></button>
       <button type="button" data-nav-page="profile" class="${page==='profile'?'active':''}"><span>👤</span><small>حسابي</small></button>
     </nav>` : rider ? `<nav class="app-bottom-nav rider-nav" aria-label="تنقل الراكب">
-      <button type="button" data-nav-page="home" class="${page==='home'?'active':''}"><span>🚖</span><small>اطلب مشوار</small></button>
+      <button type="button" data-nav-page="trip" class="${page==='trip'?'active':''}"><span>🚖</span><small>اطلب مشوار</small></button>
       <button type="button" data-nav-page="trips" class="${page==='trips'||page==='trip-status'?'active':''}"><span>📋</span><small>مشاويري</small></button>
       <button type="button" data-nav-page="profile" class="${page==='profile'||page==='rewards'?'active':''}"><span>👤</span><small>حسابي</small></button>
     </nav>` : `<nav class="app-bottom-nav"><button type="button" data-nav-page="admin" class="${page==='admin'?'active':''}"><span>⚙️</span><small>الإدارة</small></button><button type="button" data-nav-page="profile"><span>👤</span><small>حسابي</small></button></nav>` : ''}
@@ -187,7 +187,7 @@ async function loadProfile() {
   const actualRole=profile.account_type||(profile.role==='captain'?'captain':profile.role==='admin'?'admin':'rider');
   if(selectedAuthRole&&actualRole!=='admin'&&actualRole!==selectedAuthRole){await supabase.auth.signOut();session=null;profile=null;document.getElementById('msg')?.replaceChildren(document.createTextNode(selectedAuthRole==='rider'?'هذا البريد الإلكتروني مسجل كحساب كابتن ولا يمكن استخدامه كراكب، يرجى التسجيل ببريد إلكتروني منفصل.':'هذا البريد الإلكتروني مسجل كحساب راكب ولا يمكن استخدامه ككابتن، يرجى التسجيل ببريد إلكتروني منفصل.'));return;}
   profile.account_type=actualRole;
-  page=actualRole==='captain'?'captain':actualRole==='admin'?'admin':'home';
+  page=actualRole==='captain'?'captain':actualRole==='admin'?'admin':'trip';
   if (profile?.role === 'captain') {
     const {error: statusError} = await supabase.rpc('process_my_captain_document_status');
     if (statusError) console.warn('Captain status refresh failed:',statusError.message);
@@ -945,11 +945,11 @@ async function startCaptainLocationShare(tripId,button){
 
 async function tripStatusPage(tripId){
   disposeLiveUi();
-  if(!tripId){page='home';return home();}
+  if(!tripId){page='trip';return tripForm();}
   const {data:trip,error}=await supabase.from('trip_requests')
     .select('id,passenger_id,accepted_captain_id,accepted_vehicle_id,vehicle_type,origin_name,origin_lat,origin_lng,destination_name,destination_lat,destination_lng,passenger_count,fixed_fare_egp,request_status,is_scheduled,scheduled_at,pickup_note,ride_preferences,created_at')
     .eq('id',tripId).maybeSingle();
-  if(error||!trip){layout('<main class="wrap narrow"><section class="panel"><h2>مش لاقيين الرحلة</h2><p class="muted">قد تكون غير متاحة أو لا تملك صلاحية عرضها.</p><button class="btn primary" id="tripStatusHome">الرئيسية</button></section></main>');document.getElementById('tripStatusHome')?.addEventListener('click',()=>{page='home';render();});return;}
+  if(error||!trip){layout('<main class="wrap narrow"><section class="panel"><h2>مش لاقيين الرحلة</h2><p class="muted">قد تكون غير متاحة أو لا تملك صلاحية عرضها.</p><button class="btn primary" id="tripStatusHome">الرئيسية</button></section></main>');document.getElementById('tripStatusHome')?.addEventListener('click',()=>{page='trip';render();});return;}
   const isCaptain=trip.accepted_captain_id===profile.id;
   const isPassenger=trip.passenger_id===profile.id;
   const active=['accepted','in_progress'].includes(trip.request_status);
@@ -1656,7 +1656,7 @@ async function captainApplicationStatusPage(knownApplicationId = null) {
     </main>`);
   document.getElementById('refreshApplicationStatus')?.addEventListener('click',()=>captainApplicationStatusPage(knownApplicationId));
   document.getElementById('renewCaptainDocuments')?.addEventListener('click',()=>{page='apply-captain';render();});
-  document.getElementById('statusHome')?.addEventListener('click',async()=>{page='home';await loadProfile();});
+  document.getElementById('statusHome')?.addEventListener('click',async()=>{page='trip';await loadProfile();});
 }
 
 async function applyCaptainPage() {
@@ -2203,11 +2203,11 @@ function render() {
       :type==='captain'
         ?['captain','captain-account','apply-captain','profile','rewards','trip-status']
         :['home','trip','share','trips','profile','rewards','trip-status'];
-    if(!allowed.includes(page))page=type==='admin'?'admin':type==='captain'?'captain':'home';
+    if(!allowed.includes(page))page=type==='admin'?'admin':type==='captain'?'captain':'trip';
   }
   if (page === 'trip-status') return tripStatusPage(currentTripId);
   if (page === 'captain-account') return captainDashboardPage();
-  if (page === 'home') return profile?.account_type==='captain'?(page='captain',captainDashboardPage()):home();
+  if (page === 'home') return profile?.account_type==='captain'?(page='captain',captainDashboardPage()):(page='trip',tripForm());
   if (page === 'rewards') return rewardsPage();
   if (page === 'trips') return tripsPage();
   if (page === 'profile') return profilePage();
