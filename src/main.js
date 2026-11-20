@@ -101,7 +101,10 @@ async function loadProfile() {
     .eq('id', session.user.id).maybeSingle();
   if (error) console.error(error);
   profile = data;
-  if (profile?.role === 'captain') await supabase.rpc('process_my_captain_document_status');
+  if (profile?.role === 'captain') {
+    const {error: statusError} = await supabase.rpc('process_my_captain_document_status');
+    if (statusError) console.warn('Captain status refresh failed:',statusError.message);
+  }
   render();
 }
 
@@ -1056,6 +1059,7 @@ async function captainApplicationStatus() {
   if (error) return '<section class="panel"><p class="muted">تعذر تحميل حالة مستندات الكابتن.</p></section>';
   if (!data) return '<section class="panel"><h2>انضم كابتن في السكة</h2><p class="muted">قدّم بياناتك ومستنداتك الستة، وسيتم التحقق تلقائياً من اكتمالها وتواريخ صلاحيتها.</p><button class="btn primary" data-page="apply-captain">التقديم ككابتن</button></section>';
   if (data.application_status === 'approved') return '';
+  if (data.application_status === 'pending') return '<section class="panel"><h2>طلب الكابتن قيد مراجعة الإدارة</h2><p class="muted">استلمنا مستنداتك. لن يتم تفعيل نشاط القيادة قبل مراجعة المستندات واعتماد الحساب والمركبة.</p><button class="btn outline" data-page="apply-captain">عرض / تحديث البيانات</button></section>';
   const message = data.application_status === 'suspended'
     ? 'تم إيقاف نشاط القيادة تلقائياً بسبب مستند منتهي. حدّث المستندات لاستعادة النشاط.'
     : 'طلبك السابق يحتاج استكمال المستندات المطلوبة بالنظام التلقائي الجديد.';
@@ -1073,8 +1077,9 @@ async function captainDocumentsPanel() {
   const dates=data?'<ul><li>بطاقة الرقم القومي: '+esc(data.national_id_expiry||'غير مسجل')+'</li><li>رخصة القيادة: '+esc(data.license_expiry||'غير مسجل')+'</li><li>رخصة السيارة: '+esc(data.vehicle_license_expiry||'غير مسجل')+'</li></ul>':'';
   const alerts=(notices||[]).map(n=>'<div class="notice">'+esc(n.message)+'</div>').join('');
   const status=data?.application_status==='suspended'
-    ? '<p class="notice">نشاط القيادة موقوف تلقائياً لحين تحديث المستندات المنتهية.</p>'
-    : data?.application_status==='approved' ? '<p class="muted">حالة مستنداتك مسجلة. سيصلك تنبيه قبل انتهاء أي مستند بـ30 يوماً.</p>' : '<p class="muted">تعذر قراءة حالة المستندات حالياً.</p>';
+    ? '<p class="notice">نشاط القيادة موقوف لحين تحديث المستندات ومراجعتها.</p>'
+    : data?.application_status==='pending' ? '<p class="notice">مستنداتك قيد مراجعة الإدارة. يمكنك استخدام التطبيق كراكب كالمعتاد.</p>'
+    : data?.application_status==='approved' ? '<p class="muted">مستنداتك معتمدة. سيصلك تنبيه قبل انتهاء أي مستند بـ30 يوماً.</p>' : '<p class="muted">تعذر قراءة حالة المستندات حالياً.</p>';
   return '<section class="panel"><h2>صلاحية مستندات الكابتن</h2>'+status+(error?'':dates)+alerts+'<button class="btn outline" data-page="apply-captain">تحديث المستندات</button></section>';
 }
 
@@ -1085,8 +1090,8 @@ async function captainApplicationStatusPage(knownApplicationId = null) {
   const application = data;
   const status = application?.application_status || (knownApplicationId ? 'approved' : null);
   const labels = {
-    pending:['مطلوب استكمال المستندات','يجب استكمال صور المستندات وتواريخ الصلاحية لتفعيل الحساب.'],
-    approved:['تم تفعيل حسابك تلقائياً','اكتملت المستندات وتواريخها المستقبلية، وأصبح حساب الكابتن مفعلاً.'],
+    pending:['طلبك قيد مراجعة الإدارة','اكتمل إرسال البيانات والمستندات. لن يتم تفعيل نشاط القيادة قبل مراجعة الإدارة واعتماد الطلب والمركبة.'],
+    approved:['تم اعتماد حساب الكابتن','اعتمدت الإدارة بياناتك ومستنداتك. يلزم وجود اشتراك ساري لممارسة نشاط القيادة.'],
     rejected:['تعذر تفعيل الطلب','يمكنك تحديث بياناتك ومستنداتك وإعادة الإرسال.'],
     suspended:['تم إيقاف نشاط القيادة تلقائياً','يوجد مستند منتهي الصلاحية. ارفع النسخة المجددة بوجهيها وتاريخها الجديد لاستعادة النشاط.']
   };
@@ -1128,7 +1133,7 @@ async function applyCaptainPage() {
   layout(`
     <main class="wrap narrow">
       <button type="button" class="back" id="back">→ الرئيسية</button>
-      <section class="hero compact"><span class="tag">الانضمام للكباتن</span><h1>بيانات ومستندات الكابتن</h1><p>أدخل تواريخ الصلاحية وارفع وجه وظهر كل مستند. التفعيل والإيقاف والتنبيهات تتم تلقائياً.</p></section>
+      <section class="hero compact"><span class="tag">الانضمام للكباتن</span><h1>بيانات ومستندات الكابتن</h1><p>أدخل تواريخ الصلاحية وارفع وجهي كل مستند. بعد الإرسال تراجع الإدارة المستندات وتعتمد الحساب والمركبة.</p></section>
       <form class="panel form" id="captainApplyForm">
         <h3>أولاً: بطاقة الرقم القومي</h3>
         <label>آخر 4 أرقام من الرقم القومي<input name="national_id_last4" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" minlength="4" required value="${val(existing?.national_id_last4)}" placeholder="1234"></label>
@@ -1168,7 +1173,7 @@ async function applyCaptainPage() {
         <label>صورة خلفية للمركبة<input name="vehicle_rear" type="file" accept="image/*"${v.photo_rear_path?'':' required'}></label><div class="captain-image-preview" data-preview="rear"></div>
         <div class="notice">صور المستندات الرسمية تحفظ في مساحة خاصة ولا تظهر للركاب. التحقق الآلي يراجع اكتمال الصور والتواريخ فقط، ولا يثبت أصالة المستند أو صحة بياناته.</div>
         <label class="checkline"><input name="attestation" type="checkbox" required> أقر أن المستندات والبيانات المرفوعة صحيحة وتخصني أو تخص المركبة المسجلة.</label>
-        <button class="btn primary" type="submit">حفظ المستندات وتفعيل / تحديث الحساب</button>
+        <button class="btn primary" type="submit">إرسال المستندات للمراجعة / تحديثها</button>
         <p class="message" id="applyMessage" aria-live="polite"></p>
       </form>
     </main>`);
@@ -1223,7 +1228,7 @@ async function applyCaptainPage() {
       for(const [key,file] of Object.entries(publicInputs)) media[key]=(file instanceof File&&file.size)?await upload('captain-media',key,file):existingPublic[key];
       const docs={};
       for(const [key,file] of Object.entries(docFiles)) docs[key]=await upload('captain-documents',key,file);
-      msg.textContent='تم رفع الصور. جارٍ تفعيل الحساب تلقائياً...';
+      msg.textContent='تم رفع الصور. جارٍ إرسال الطلب لمراجعة الإدارة...';
       const {data:applicationId,error}=await supabase.rpc('submit_captain_application_v3',{
         p_national_id_last4:last4,p_national_id_expiry:dates.national_id_expiry,
         p_license_number:license,p_license_expiry:dates.license_expiry,p_vehicle_license_expiry:dates.vehicle_license_expiry,
@@ -1252,19 +1257,141 @@ function applicationError(error){
   if(m.includes('invalid_application_data')) return 'راجع بيانات المستندات وتواريخ انتهائها وبيانات المركبة.';
   if(m.includes('captain_document_upload_missing')) return 'لم يكتمل رفع صور المستندات. أعد اختيار الصور وحاول مرة أخرى.';
   if(m.includes('captain_media_upload_missing')) return 'لم تكتمل الصور التعريفية. أعد اختيار الصور وحاول مرة أخرى.';
-  if(m.includes('captain_documents_expired_or_missing')) return 'لا يمكن قبول العروض قبل تحديث مستندات الكابتن واعتماد صلاحيتها تلقائياً.';
+  if(m.includes('captain_documents_expired_or_missing')) return 'المستندات منتهية أو غير مكتملة. حدّثها وأرسلها لمراجعة الإدارة.';
   if(m.includes('vehicle_capacity_exceeded')) return 'عدد الركاب أكبر من سعة نوع المركبة.';
   return m||'تعذر إرسال المستندات. حاول مرة أخرى.';
 }
 
+
+async function captainSubscriptionPanel() {
+  const {data,error}=await supabase.from('captain_subscriptions')
+    .select('id,plan_days,amount_egp,payment_reference,payment_status,starts_at,expires_at,created_at')
+    .eq('captain_id',profile.id).order('created_at',{ascending:false}).limit(10);
+  if(error) return '<section class="panel"><h2>اشتراك الكابتن</h2><p class="message">تعذر تحميل بيانات الاشتراك حالياً.</p></section>';
+  const rows=data||[];
+  const now=Date.now();
+  const active=rows.find(x=>x.payment_status==='approved'&&x.starts_at&&x.expires_at&&new Date(x.starts_at).getTime()<=now&&new Date(x.expires_at).getTime()>now);
+  const pending=rows.find(x=>x.payment_status==='submitted');
+  const latest=rows[0];
+  const status=active
+    ? '<div class="notice">اشتراكك نشط حتى '+esc(new Date(active.expires_at).toLocaleString('ar-EG'))+'.</div>'
+    : pending ? '<div class="notice">طلب الاشتراك قيد مراجعة الإدارة. لا ترسل طلباً آخر قبل انتهاء المراجعة.</div>'
+    : latest?.payment_status==='rejected' ? '<div class="notice">تم رفض آخر طلب اشتراك. راجع بيانات التحويل والإثبات ثم أرسل طلباً جديداً.</div>'
+    : '<div class="notice">لا يوجد اشتراك نشط حالياً. يمكنك تقديم طلب اشتراك جديد.</div>';
+  const history=rows.length?'<h3>سجل الاشتراكات</h3><ul>'+rows.map(x=>'<li>'+esc(x.plan_days)+' يوم · '+esc(x.amount_egp)+' جنيه · '+(x.payment_status==='approved'?'معتمد':x.payment_status==='submitted'?'قيد المراجعة':'مرفوض')+(x.expires_at?' · ينتهي '+esc(new Date(x.expires_at).toLocaleDateString('ar-EG')):'')+'</li>').join('')+'</ul>':'';
+  const form=pending?'':`
+    <form class="form" id="subscriptionForm">
+      <h3>تقديم / تجديد الاشتراك</h3>
+      <label>مدة الاشتراك
+        <select name="plan_days" required><option value="30">30 يومًا — 150 جنيه</option><option value="90">90 يومًا — 400 جنيه</option></select>
+      </label>
+      <label>رقم مرجع التحويل<input name="payment_reference" required maxlength="120" placeholder="رقم العملية أو مرجع التحويل"></label>
+      <label>إثبات الدفع (صورة أو PDF)<input name="payment_proof" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
+      <p class="muted">ارفع إثبات التحويل بعد الدفع خارج التطبيق. لا توجد مدفوعات إلكترونية داخل السكة.</p>
+      <button class="btn primary" type="submit">إرسال طلب الاشتراك</button>
+      <p class="message" id="subscriptionMessage" aria-live="polite"></p>
+    </form>`;
+  return '<section class="panel"><h2>اشتراك الكابتن</h2>'+status+history+form+'</section>';
+}
+
+async function captainDashboardPage() {
+  const docs=await captainDocumentsPanel();
+  const subscription=await captainSubscriptionPanel();
+  layout(`
+    <main class="wrap narrow">
+      <button type="button" class="back" id="captainHome">→ الرئيسية</button>
+      <section class="hero compact"><span class="tag">مساحة الكابتن</span><h1>إدارة حسابك واشتراكك</h1><p>يمكنك استخدام السكة كراكب في أي وقت. الاشتراك مطلوب فقط لممارسة نشاط القيادة.</p></section>
+      ${docs}
+      ${subscription}
+    </main>`);
+  document.getElementById('captainHome')?.addEventListener('click',()=>{page='home';render();});
+  document.getElementById('subscriptionForm')?.addEventListener('submit',async e=>{
+    e.preventDefault();
+    const form=e.currentTarget, d=new FormData(form), msg=document.getElementById('subscriptionMessage'), btn=form.querySelector('button[type="submit"]');
+    const file=d.get('payment_proof');
+    if(!(file instanceof File)||!file.size){msg.textContent='اختر صورة أو ملف PDF لإثبات الدفع.';return;}
+    if(file.size>5*1024*1024||!['image/jpeg','image/png','image/webp','application/pdf'].includes(file.type)){msg.textContent='الملف يجب أن يكون صورة JPG أو PNG أو WEBP أو PDF ولا يتجاوز 5 ميجابايت.';return;}
+    const reference=String(d.get('payment_reference')||'').trim();
+    if(!reference){msg.textContent='أدخل مرجع التحويل.';return;}
+    btn.disabled=true;
+    let uploadedPath=null;
+    try{
+      msg.textContent='جارٍ رفع إثبات الدفع بشكل خاص...';
+      const ext=file.type==='application/pdf'?'pdf':file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
+      uploadedPath=profile.id+'/subscription/'+crypto.randomUUID()+'.'+ext;
+      const {error:uploadError}=await supabase.storage.from('captain-payment-proofs').upload(uploadedPath,file,{contentType:file.type,upsert:false});
+      if(uploadError) throw uploadError;
+      const {error:rpcError}=await supabase.rpc('submit_subscription',{
+        p_plan_days:Number(d.get('plan_days')),p_payment_reference:reference,p_proof_path:uploadedPath
+      });
+      if(rpcError) throw rpcError;
+      await captainDashboardPage();
+    }catch(error){
+      if(uploadedPath) await supabase.storage.from('captain-payment-proofs').remove([uploadedPath]);
+      const m=error?.message||'';
+      msg.textContent=m.includes('subscription_already_pending')?'لديك طلب اشتراك قيد المراجعة بالفعل.':m.includes('valid_captain_documents_required')?'يجب اعتماد طلب الكابتن وصلاحية المستندات أولاً.':m.includes('payment_proof_not_owned_or_missing')?'تعذر التحقق من إثبات الدفع. أعد المحاولة.':m||'تعذر إرسال طلب الاشتراك.';
+    }finally{btn.disabled=false;}
+  });
+}
+
 async function adminApplicationsPage(){
+  const {data:applications,error:appError}=await supabase.from('captain_applications')
+    .select('id,user_id,national_id_last4,national_id_expiry,license_number,license_expiry,vehicle_license_expiry,application_status,created_at,national_id_front_path,national_id_back_path,driver_license_front_path,driver_license_back_path,vehicle_license_front_path,vehicle_license_back_path,vehicle:vehicles!captain_applications_vehicle_id_fkey(vehicle_type,make,model,model_year,color,plate_number,passenger_capacity)')
+    .eq('application_status','pending').order('created_at',{ascending:true});
+  const {data:subscriptions,error:subError}=await supabase.from('captain_subscriptions')
+    .select('id,captain_id,plan_days,amount_egp,payment_reference,payment_proof_path,payment_status,created_at')
+    .eq('payment_status','submitted').order('created_at',{ascending:true});
+  const docLabels=[
+    ['national_id_front_path','وجه البطاقة'],['national_id_back_path','ظهر البطاقة'],
+    ['driver_license_front_path','وجه رخصة القيادة'],['driver_license_back_path','ظهر رخصة القيادة'],
+    ['vehicle_license_front_path','وجه رخصة السيارة'],['vehicle_license_back_path','ظهر رخصة السيارة']
+  ];
+  const appCards=[];
+  for(const a of applications||[]){
+    const links=[];
+    for(const [field,label] of docLabels){
+      const path=a[field];
+      if(!path) continue;
+      const {data:signed}=await supabase.storage.from('captain-documents').createSignedUrl(path,300);
+      if(signed?.signedUrl) links.push('<a class="btn outline" target="_blank" rel="noopener" href="'+esc(signed.signedUrl)+'">'+label+'</a>');
+    }
+    const v=a.vehicle||{};
+    appCards.push('<article class="panel"><h3>طلب كابتن · '+esc(a.user_id.slice(0,8))+'</h3><p>تاريخ الطلب: '+esc(new Date(a.created_at).toLocaleString('ar-EG'))+'</p><p>آخر 4 أرقام: '+esc(a.national_id_last4)+' · انتهاء البطاقة: '+esc(a.national_id_expiry)+'</p><p>رخصة القيادة: '+esc(a.license_number)+' · تنتهي: '+esc(a.license_expiry)+'</p><p>رخصة المركبة تنتهي: '+esc(a.vehicle_license_expiry)+'</p><p>المركبة: '+esc([v.make,v.model,v.model_year,v.color].filter(Boolean).join(' '))+' · '+esc(v.vehicle_type||'')+' · اللوحة: '+esc(v.plate_number||'')+' · السعة: '+esc(v.passenger_capacity||'')+'</p><div class="share-actions">'+links.join(' ')+'</div><label>ملاحظات الإدارة<textarea data-notes="'+esc(a.id)+'" maxlength="1000" rows="2" placeholder="ملاحظات اختيارية"></textarea></label><div class="share-actions"><button class="btn primary" data-review-app="'+esc(a.id)+'" data-decision="approved">اعتماد الكابتن والمركبة</button><button class="btn outline" data-review-app="'+esc(a.id)+'" data-decision="rejected">رفض الطلب</button></div></article>');
+  }
+  const subCards=[];
+  for(const sub of subscriptions||[]){
+    const {data:signed}=await supabase.storage.from('captain-payment-proofs').createSignedUrl(sub.payment_proof_path,300);
+    const proof=signed?.signedUrl?'<a class="btn outline" target="_blank" rel="noopener" href="'+esc(signed.signedUrl)+'">فتح إثبات الدفع</a>':'<span class="muted">تعذر فتح الإثبات</span>';
+    subCards.push('<article class="panel"><h3>اشتراك كابتن · '+esc(sub.captain_id.slice(0,8))+'</h3><p>'+esc(sub.plan_days)+' يوم · '+esc(sub.amount_egp)+' جنيه</p><p>مرجع التحويل: '+esc(sub.payment_reference)+'</p><p>تاريخ الطلب: '+esc(new Date(sub.created_at).toLocaleString('ar-EG'))+'</p>'+proof+'<div class="share-actions"><button class="btn primary" data-sub-approve="'+esc(sub.id)+'">اعتماد الاشتراك</button><button class="btn outline" data-sub-reject="'+esc(sub.id)+'">رفض الاشتراك</button></div></article>');
+  }
   layout(`
     <main class="wrap narrow">
       <button type="button" class="back" id="back">→ الرئيسية</button>
-      <section class="hero compact"><span class="tag">إدارة المنصة</span><h1>التشغيل التلقائي للكباتن</h1><p>تفعيل الكباتن ومتابعة صلاحية المستندات تتم آلياً حسب اكتمال الصور وتواريخ الانتهاء.</p></section>
-      <section class="panel"><p>لا توجد مراجعة يدوية لطلبات الكباتن. النظام ينبه قبل انتهاء المستند بـ30 يوماً، ويوقف نشاط القيادة تلقائياً عند انتهاء أي مستند.</p><p class="muted">التحقق الآلي لا يثبت أصالة الصور أو صحة بيانات المستندات.</p></section>
+      <section class="hero compact"><span class="tag">إدارة المنصة</span><h1>مراجعة الكباتن والاشتراكات</h1><p>راجع المستندات وإثباتات الدفع بنفسك قبل اعتماد نشاط القيادة أو الاشتراك.</p></section>
+      <section><h2>طلبات الكباتن ${(applications||[]).length}</h2>${appError?'<p class="message">تعذر تحميل طلبات الكباتن.</p>':appCards.join('')||'<section class="panel"><p class="muted">لا توجد طلبات كابتن قيد المراجعة.</p></section>'}</section>
+      <section><h2>طلبات الاشتراك ${(subscriptions||[]).length}</h2>${subError?'<p class="message">تعذر تحميل طلبات الاشتراك.</p>':subCards.join('')||'<section class="panel"><p class="muted">لا توجد طلبات اشتراك قيد المراجعة.</p></section>'}</section>
     </main>`);
   document.getElementById('back')?.addEventListener('click',()=>{page='home';render();});
+  document.querySelectorAll('[data-review-app]').forEach(btn=>btn.addEventListener('click',async()=>{
+    btn.disabled=true;
+    const id=btn.dataset.reviewApp,decision=btn.dataset.decision;
+    const notes=document.querySelector('[data-notes="'+id+'"]')?.value||null;
+    const {error}=await supabase.rpc('review_captain_application_v2',{p_application_id:id,p_decision:decision,p_admin_notes:notes});
+    if(error){alert('تعذر تنفيذ مراجعة الطلب: '+error.message);btn.disabled=false;return;}
+    await adminApplicationsPage();
+  }));
+  document.querySelectorAll('[data-sub-approve]').forEach(btn=>btn.addEventListener('click',async()=>{
+    btn.disabled=true;
+    const {error}=await supabase.rpc('admin_approve_subscription',{p_subscription_id:btn.dataset.subApprove});
+    if(error){alert('تعذر اعتماد الاشتراك: '+error.message);btn.disabled=false;return;}
+    await adminApplicationsPage();
+  }));
+  document.querySelectorAll('[data-sub-reject]').forEach(btn=>btn.addEventListener('click',async()=>{
+    btn.disabled=true;
+    const {error}=await supabase.rpc('admin_reject_subscription',{p_subscription_id:btn.dataset.subReject});
+    if(error){alert('تعذر رفض الاشتراك: '+error.message);btn.disabled=false;return;}
+    await adminApplicationsPage();
+  }));
 }
 
 function placeholder(title, desc) {
@@ -1289,7 +1416,7 @@ function render() {
   if (page === 'share') return shareHome();
   if (page === 'apply-captain') return applyCaptainPage();
   if (page === 'admin') return profile?.role === 'admin' ? adminApplicationsPage() : (page='home',home());
-  if (page === 'captain') return placeholder('مساحة الكابتن', 'إدارة المركبة والعروض والحجوزات ستظهر هنا بعد ربطها بقاعدة البيانات الموحدة.');
+  if (page === 'captain') return profile?.role === 'captain' ? captainDashboardPage() : (page='home',home());
   if (page === 'admin') return placeholder('لوحة الإدارة', 'مراجعة الحسابات والمركبات والاشتراكات والبلاغات.');
   page = 'home'; home();
 }
