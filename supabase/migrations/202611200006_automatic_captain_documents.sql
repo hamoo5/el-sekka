@@ -22,6 +22,11 @@ create policy captain_documents_owner_read on storage.objects
 for select to authenticated
 using (bucket_id='captain-documents' and (storage.foldername(name))[1]=auth.uid()::text);
 
+drop policy if exists captain_documents_admin_read on storage.objects;
+create policy captain_documents_admin_read on storage.objects
+for select to authenticated
+using (bucket_id='captain-documents' and public.is_admin());
+
 drop policy if exists captain_documents_owner_insert on storage.objects;
 create policy captain_documents_owner_insert on storage.objects
 for insert to authenticated
@@ -157,8 +162,8 @@ begin
       model_year=p_model_year,color=btrim(p_color),plate_number=btrim(p_plate_number),
       passenger_capacity=p_passenger_capacity,has_ac=coalesce(p_has_ac,false),
       has_large_trunk=coalesce(p_has_large_trunk,false),no_smoking=coalesce(p_no_smoking,true),
-      pets_allowed=coalesce(p_pets_allowed,false),approval_status='approved',
-      is_active=exists(select 1 from public.captain_subscriptions s where s.captain_id=v_uid and s.payment_status='approved' and s.starts_at<=now() and s.expires_at>now()),
+      pets_allowed=coalesce(p_pets_allowed,false),approval_status='pending',
+      is_active=false,
       photo_front_path=p_vehicle_front_path,photo_side_path=p_vehicle_side_path,photo_rear_path=p_vehicle_rear_path
     where id=v_vehicle_id and captain_id=v_uid;
     if not found then v_vehicle_id:=null; end if;
@@ -170,12 +175,11 @@ begin
       photo_front_path,photo_side_path,photo_rear_path)
     values(v_uid,p_vehicle_type,btrim(p_make),btrim(p_model),p_model_year,btrim(p_color),btrim(p_plate_number),
       p_passenger_capacity,coalesce(p_has_ac,false),coalesce(p_has_large_trunk,false),coalesce(p_no_smoking,true),
-      coalesce(p_pets_allowed,false),'approved',
-      exists(select 1 from public.captain_subscriptions s where s.captain_id=v_uid and s.payment_status='approved' and s.starts_at<=now() and s.expires_at>now()),p_vehicle_front_path,p_vehicle_side_path,p_vehicle_rear_path)
+      coalesce(p_pets_allowed,false),'pending',false,p_vehicle_front_path,p_vehicle_side_path,p_vehicle_rear_path)
     returning id into v_vehicle_id;
   end if;
 
-  update public.profiles set role='captain',avatar_path=p_profile_photo_path where id=v_uid;
+  update public.profiles set avatar_path=p_profile_photo_path where id=v_uid;
 
   if v_app_id is null then
     insert into public.captain_applications(
@@ -185,7 +189,7 @@ begin
     ) values (
       v_uid,p_national_id_last4,p_national_id_expiry,btrim(p_license_number),p_license_expiry,p_vehicle_license_expiry,
       p_national_id_front_path,p_national_id_back_path,p_driver_license_front_path,p_driver_license_back_path,
-      p_vehicle_license_front_path,p_vehicle_license_back_path,v_vehicle_id,'approved',now(),now()
+      p_vehicle_license_front_path,p_vehicle_license_back_path,v_vehicle_id,'pending',null,now()
     ) returning id into v_app_id;
   else
     update public.captain_applications set
@@ -195,14 +199,10 @@ begin
       national_id_front_path=p_national_id_front_path,national_id_back_path=p_national_id_back_path,
       driver_license_front_path=p_driver_license_front_path,driver_license_back_path=p_driver_license_back_path,
       vehicle_license_front_path=p_vehicle_license_front_path,vehicle_license_back_path=p_vehicle_license_back_path,
-      vehicle_id=v_vehicle_id,application_status='approved',admin_notes=null,reviewed_by=null,
-      reviewed_at=now(),created_at=coalesce(created_at,now())
+      vehicle_id=v_vehicle_id,application_status='pending',admin_notes=null,reviewed_by=null,
+      reviewed_at=null,created_at=now()
     where id=v_app_id;
   end if;
-
-  insert into public.captain_document_notifications(user_id,notification_type,document_type,message)
-  values(v_uid,'captain_activated','account','تم تفعيل حساب الكابتن تلقائياً بعد اكتمال المستندات وصلاحيتها.')
-  on conflict do nothing;
 
   return v_app_id;
 end;
@@ -211,6 +211,60 @@ $$;
 revoke all on function public.submit_captain_application_v2(text,text,date,text,text,text,integer,text,text,integer,boolean,boolean,boolean,boolean,text,text,text,text) from public,anon,authenticated;
 revoke all on function public.submit_captain_application_v3(text,date,text,date,date,text,text,text,text,text,text,text,text,text,integer,text,text,integer,boolean,boolean,boolean,boolean,text,text,text,text) from public,anon;
 grant execute on function public.submit_captain_application_v3(text,date,text,date,date,text,text,text,text,text,text,text,text,text,integer,text,text,integer,boolean,boolean,boolean,boolean,text,text,text,text) to authenticated;
+
+-- Document completeness is automatic; approval of the captain and vehicle remains an admin decision.
+create or replace function public.review_captain_application_v2(
+  p_application_id uuid,
+  p_decision text,
+  p_admin_notes text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $
+declare
+  v_uid uuid := auth.uid();
+  v_app public.captain_applications%rowtype;
+begin
+  if v_uid is null or not public.is_admin() then raise exception 'admin_only'; end if;
+  if p_decision not in ('approved','rejected') then raise exception 'invalid_decision'; end if;
+  if p_admin_notes is not null and length(p_admin_notes)>1000 then raise exception 'admin_notes_too_long'; end if;
+
+  select * into v_app from public.captain_applications where id=p_application_id for update;
+  if not found then raise exception 'application_not_found'; end if;
+  if v_app.application_status not in ('pending','suspended') then raise exception 'application_not_reviewable'; end if;
+  if v_app.vehicle_id is null then raise exception 'application_vehicle_missing'; end if;
+
+  if p_decision='approved' then
+    if v_app.national_id_expiry is null or v_app.national_id_expiry<=current_date
+       or v_app.license_expiry is null or v_app.license_expiry<=current_date
+       or v_app.vehicle_license_expiry is null or v_app.vehicle_license_expiry<=current_date then
+      raise exception 'captain_documents_expired_or_missing';
+    end if;
+    if not exists(
+      select 1 from storage.objects o
+      where o.bucket_id='captain-documents'
+        and o.name in (v_app.national_id_front_path,v_app.national_id_back_path,
+          v_app.driver_license_front_path,v_app.driver_license_back_path,
+          v_app.vehicle_license_front_path,v_app.vehicle_license_back_path)
+      group by o.bucket_id having count(*)=6
+    ) then raise exception 'captain_document_upload_missing'; end if;
+  end if;
+
+  update public.captain_applications set application_status=p_decision,
+    admin_notes=nullif(btrim(p_admin_notes),''),reviewed_by=v_uid,reviewed_at=now()
+  where id=p_application_id;
+  update public.profiles set role=case when p_decision='approved' then 'captain' else 'passenger' end
+  where id=v_app.user_id;
+  update public.vehicles set approval_status=case when p_decision='approved' then 'approved' else 'rejected' end,
+    is_active=false
+  where id=v_app.vehicle_id and captain_id=v_app.user_id;
+end;
+$;
+
+revoke all on function public.review_captain_application_v2(uuid,text,text) from public,anon;
+grant execute on function public.review_captain_application_v2(uuid,text,text) to authenticated;
 
 -- Enforce current document validity at the moment a captain responds to a route-sharing request,
 -- even if the scheduled daily expiry job has not run yet.
@@ -320,7 +374,7 @@ begin
 end;
 $$;
 
-create or replace function public.process_captain_document_expiry()
+create or replace function public.process_captain_document_expiry_for(p_user_id uuid)
 returns void
 language plpgsql
 security definer
@@ -329,51 +383,72 @@ as $$
 declare
   r record;
 begin
-  for r in
-    select a.user_id,a.vehicle_id,a.national_id_expiry,a.license_expiry,a.vehicle_license_expiry
+  select a.user_id,a.vehicle_id,a.national_id_expiry,a.license_expiry,a.vehicle_license_expiry
+  into r
+  from public.captain_applications a
+  where a.user_id=p_user_id
+    and a.application_status in ('approved','suspended');
+
+  if not found then return; end if;
+
+  if r.national_id_expiry is null or r.national_id_expiry<=current_date
+     or r.license_expiry is null or r.license_expiry<=current_date
+     or r.vehicle_license_expiry is null or r.vehicle_license_expiry<=current_date then
+    update public.captain_applications
+    set application_status='suspended'
+    where user_id=r.user_id and application_status='approved';
+    update public.vehicles set is_active=false
+    where captain_id=r.user_id and (r.vehicle_id is null or id=r.vehicle_id);
+    if r.national_id_expiry is null or r.national_id_expiry<=current_date then
+      insert into public.captain_document_notifications(user_id,notification_type,document_type,expires_on,message)
+      values(r.user_id,'expired','national_id',r.national_id_expiry,'انتهت صلاحية بطاقة الرقم القومي. تم إيقاف نشاط القيادة لحين التجديد.')
+      on conflict do nothing;
+    end if;
+    if r.license_expiry is null or r.license_expiry<=current_date then
+      insert into public.captain_document_notifications(user_id,notification_type,document_type,expires_on,message)
+      values(r.user_id,'expired','driver_license',r.license_expiry,'انتهت صلاحية رخصة القيادة. تم إيقاف نشاط القيادة لحين التجديد.')
+      on conflict do nothing;
+    end if;
+    if r.vehicle_license_expiry is null or r.vehicle_license_expiry<=current_date then
+      insert into public.captain_document_notifications(user_id,notification_type,document_type,expires_on,message)
+      values(r.user_id,'expired','vehicle_license',r.vehicle_license_expiry,'انتهت صلاحية رخصة السيارة. تم إيقاف نشاط القيادة لحين التجديد.')
+      on conflict do nothing;
+    end if;
+  else
+    if r.national_id_expiry<=current_date+30 then
+      insert into public.captain_document_notifications(user_id,notification_type,document_type,expires_on,message)
+      values(r.user_id,'expiry_30_days','national_id',r.national_id_expiry,'بطاقة الرقم القومي ستنتهي خلال 30 يوماً. حدّث المستند قبل انتهاء صلاحيته.')
+      on conflict do nothing;
+    end if;
+    if r.license_expiry<=current_date+30 then
+      insert into public.captain_document_notifications(user_id,notification_type,document_type,expires_on,message)
+      values(r.user_id,'expiry_30_days','driver_license',r.license_expiry,'رخصة القيادة ستنتهي خلال 30 يوماً. حدّث المستند قبل انتهاء صلاحيته.')
+      on conflict do nothing;
+    end if;
+    if r.vehicle_license_expiry<=current_date+30 then
+      insert into public.captain_document_notifications(user_id,notification_type,document_type,expires_on,message)
+      values(r.user_id,'expiry_30_days','vehicle_license',r.vehicle_license_expiry,'رخصة السيارة ستنتهي خلال 30 يوماً. حدّث المستند قبل انتهاء صلاحيتها.')
+      on conflict do nothing;
+    end if;
+  end if;
+end;
+$$;
+
+create or replace function public.process_captain_document_expiry()
+returns void
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  v_user_id uuid;
+begin
+  for v_user_id in
+    select a.user_id
     from public.captain_applications a
     where a.application_status in ('approved','suspended')
   loop
-    if r.national_id_expiry is null or r.national_id_expiry<=current_date
-       or r.license_expiry is null or r.license_expiry<=current_date
-       or r.vehicle_license_expiry is null or r.vehicle_license_expiry<=current_date then
-      update public.captain_applications
-      set application_status='suspended'
-      where user_id=r.user_id and application_status='approved';
-      update public.vehicles set is_active=false
-      where captain_id=r.user_id and (r.vehicle_id is null or id=r.vehicle_id);
-      if r.national_id_expiry is null or r.national_id_expiry<=current_date then
-        insert into public.captain_document_notifications(user_id,notification_type,document_type,expires_on,message)
-        values(r.user_id,'expired','national_id',r.national_id_expiry,'انتهت صلاحية بطاقة الرقم القومي. تم إيقاف نشاط القيادة لحين التجديد.')
-        on conflict do nothing;
-      end if;
-      if r.license_expiry is null or r.license_expiry<=current_date then
-        insert into public.captain_document_notifications(user_id,notification_type,document_type,expires_on,message)
-        values(r.user_id,'expired','driver_license',r.license_expiry,'انتهت صلاحية رخصة القيادة. تم إيقاف نشاط القيادة لحين التجديد.')
-        on conflict do nothing;
-      end if;
-      if r.vehicle_license_expiry is null or r.vehicle_license_expiry<=current_date then
-        insert into public.captain_document_notifications(user_id,notification_type,document_type,expires_on,message)
-        values(r.user_id,'expired','vehicle_license',r.vehicle_license_expiry,'انتهت صلاحية رخصة السيارة. تم إيقاف نشاط القيادة لحين التجديد.')
-        on conflict do nothing;
-      end if;
-    else
-      if r.national_id_expiry<=current_date+30 then
-        insert into public.captain_document_notifications(user_id,notification_type,document_type,expires_on,message)
-        values(r.user_id,'expiry_30_days','national_id',r.national_id_expiry,'بطاقة الرقم القومي ستنتهي خلال 30 يوماً. حدّث المستند قبل انتهاء صلاحيته.')
-        on conflict do nothing;
-      end if;
-      if r.license_expiry<=current_date+30 then
-        insert into public.captain_document_notifications(user_id,notification_type,document_type,expires_on,message)
-        values(r.user_id,'expiry_30_days','driver_license',r.license_expiry,'رخصة القيادة ستنتهي خلال 30 يوماً. حدّث المستند قبل انتهاء صلاحيته.')
-        on conflict do nothing;
-      end if;
-      if r.vehicle_license_expiry<=current_date+30 then
-        insert into public.captain_document_notifications(user_id,notification_type,document_type,expires_on,message)
-        values(r.user_id,'expiry_30_days','vehicle_license',r.vehicle_license_expiry,'رخصة السيارة ستنتهي خلال 30 يوماً. حدّث المستند قبل انتهاء صلاحيتها.')
-        on conflict do nothing;
-      end if;
-    end if;
+    perform public.process_captain_document_expiry_for(v_user_id);
   end loop;
 end;
 $$;
@@ -386,11 +461,12 @@ set search_path = pg_catalog, public
 as $$
 begin
   if auth.uid() is null then raise exception 'login_required'; end if;
-  perform public.process_captain_document_expiry();
+  perform public.process_captain_document_expiry_for(auth.uid());
 end;
-$$;
+$;
 
 revoke all on function public.process_captain_document_expiry() from public,anon,authenticated;
+revoke all on function public.process_captain_document_expiry_for(uuid) from public,anon,authenticated;
 revoke all on function public.process_my_captain_document_status() from public,anon;
 grant execute on function public.process_my_captain_document_status() to authenticated;
 
