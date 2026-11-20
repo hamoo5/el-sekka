@@ -691,3 +691,73 @@ html.trip-day .passenger-bottom-sheet .location-card .suggestion-item:focus{back
 html.trip-night .passenger-map-stage .trip-map-night .leaflet-tile-pane,
 html.trip-night .passenger-map-stage .leaflet-tile-pane{filter:none!important}
 html.trip-night .passenger-map-stage .leaflet-tile{filter:none!important}
+
+/* Rider journey: three focused steps */
+.rider-start-screen,.rider-search-screen{width:min(100%,680px);min-height:calc(100dvh - 150px);margin:0 auto;padding:20px 16px 28px;box-sizing:border-box}
+.rider-start-screen{display:flex;flex-direction:column;gap:24px}
+.rider-search-hero{position:relative;display:flex;gap:9px;align-items:stretch}
+.rider-search-box{flex:1;min-height:82px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:5px;padding:14px 18px;border:1px solid #dce4e9;border-radius:19px;background:#fff;color:#111827;text-align:right;box-shadow:0 5px 20px #14283a0c}
+.rider-search-box span{font-size:18px}
+.rider-search-box b{font-size:19px;color:#111827}
+.rider-search-box small{font-size:11px;color:#64748b}
+.rider-mode-mini{width:92px;border:1px solid #dce4e9;border-radius:17px;background:#f5f8f6;color:#14532d;font-weight:850;font-size:12px}
+.rider-mode-menu{position:absolute;z-index:9000;top:90px;left:0;display:flex;flex-direction:column;gap:4px;padding:8px;background:#fff;border:1px solid #dce4e9;border-radius:13px;box-shadow:0 12px 28px #0002}
+.rider-mode-menu[hidden]{display:none}
+.rider-mode-menu button{border:0;background:transparent;color:#111827;padding:10px;text-align:right;white-space:nowrap}
+.rider-saved-section h2,.rider-search-saved h2{font-size:14px;color:var(--text,#111827);margin:0 0 12px}
+.rider-saved-places{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.rider-saved-place{min-width:0;min-height:108px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:6px;padding:12px;border:1px solid #dce4e9;border-radius:16px;background:#fff;color:#111827;text-align:right}
+.rider-saved-place span{font-size:23px}
+.rider-saved-place b{font-size:13px;color:#111827}
+.rider-saved-place small{font-size:10px;color:#64748b;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rider-saved-place.empty{background:#f8faf9;border-style:dashed}
+.rider-recent-place{display:flex;flex-direction:column;gap:7px;padding:14px;border-radius:15px;background:#eef7f0;color:#111827}
+.rider-recent-place small{color:#64748b}
+.rider-recent-place button{align-self:flex-start;border:0;background:transparent;color:#176b38;font-weight:850}
+.rider-search-screen{padding-top:10px}
+.rider-search-header{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.rider-search-header button{width:42px;height:42px;border:0;border-radius:50%;background:var(--surface-2,#f1f5f3);color:var(--text,#111827);font-size:22px}
+.rider-search-header h1{font-size:19px;margin:0;color:var(--text,#111827)}
+.rider-search-fields{position:relative;z-index:100;display:flex;flex-direction:column;gap:12px;padding:16px;border:1px solid var(--line,#dce4e9);border-radius:18px;background:var(--surface,#fff);box-shadow:0 6px 22px #10283b0a}
+.rider-search-fields label{position:relative;display:flex;flex-direction:column;gap:7px;padding-right:21px;color:var(--text,#111827);font-size:12px;font-weight:850}
+.rider-search-fields input{width:100%;min-height:48px;box-sizing:border-box;border:1px solid var(--line,#dce4e9);border-radius:12px;background:var(--surface-2,#f7f9f8);color:var(--text,#111827);padding:10px 12px;font:inherit;font-weight:500}
+.pickup-dot,.destination-dot{position:absolute;right:0;top:34px;width:10px;height:10px;border-radius:50%;background:#16a34a}
+.destination-dot{background:#ef4444}
+.rider-search-suggestions{position:absolute;top:100%;right:0;left:0;z-index:10000;max-height:44vh;overflow:auto;border-radius:12px;background:#fff;box-shadow:0 14px 32px #0003}
+.rider-search-suggestions:empty{display:none}
+.rider-search-suggestions button{display:block;width:100%;padding:13px 14px;border:0;border-bottom:1px solid #e5e7eb;background:#fff;color:#111827;text-align:right;font-size:13px}
+.rider-search-suggestions p{margin:0;padding:14px;color:#475569}
+.rider-use-location{align-self:flex-start;border:0;background:transparent;color:#168044;font-weight:850;padding:8px 0}
+.rider-search-saved{margin-top:22px}
+.rider-search-saved>div{display:flex;gap:8px;flex-wrap:wrap}
+.rider-search-saved button{border:1px solid var(--line,#dce4e9);border-radius:22px;padding:10px 13px;background:var(--surface,#fff);color:var(--text,#111827);font-size:12px}
+.rider-search-screen .message{color:#dc2626}
+.trip-step-back{align-self:flex-start;border:0;background:transparent;color:#168044;font-weight:850;padding:5px 0}
+.trip-options-heading{display:flex;flex-direction:column;gap:4px;margin:2px 0 8px;color:inherit}
+.trip-options-heading b{font-size:16px}
+.trip-options-heading small{font-size:10px;opacity:.72;line-height:1.5}
+.passenger-map-first{min-height:calc(100dvh - 126px)}
+.passenger-map-stage{height:43dvh;flex-basis:43dvh}
+.passenger-bottom-sheet{max-height:calc(100dvh - 43dvh - 126px);padding-bottom:calc(86px + env(safe-area-inset-bottom))}
+.passenger-bottom-sheet .trip-submit-button{position:sticky;bottom:0;z-index:20;min-height:55px;margin-top:8px;box-shadow:0 -5px 20px #15223318,0 5px 16px #00a84b35}
+.passenger-bottom-sheet .map-first-saving-note{margin-bottom:0}
+.passenger-bottom-sheet .trip-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.passenger-bottom-sheet .trip-summary>div{min-width:0;display:flex;flex-direction:column;gap:4px}
+.passenger-bottom-sheet .trip-summary small{font-size:10px}
+.passenger-bottom-sheet .trip-summary b{font-size:12px;overflow-wrap:anywhere}
+html.trip-night .rider-search-box,html.trip-night .rider-saved-place,html.trip-night .rider-mode-menu,html.trip-night .rider-search-fields,html.trip-night .rider-search-suggestions,html.trip-night .rider-search-suggestions button{background:#152233;color:#fff;border-color:#35495e}
+html.trip-night .rider-search-box b,html.trip-night .rider-saved-place b,html.trip-night .rider-mode-menu button,html.trip-night .rider-search-header h1,html.trip-night .rider-search-fields label,html.trip-night .rider-search-fields input,html.trip-night .rider-search-suggestions button{color:#fff}
+html.trip-night .rider-search-box small,html.trip-night .rider-saved-place small{color:#c3cfdb}
+html.trip-night .rider-mode-mini,html.trip-night .rider-search-header button,html.trip-night .rider-search-fields input{background:#1d2d40;color:#fff;border-color:#40566c}
+html.trip-night .rider-saved-place.empty{background:#1b2b3d}
+html.trip-night .rider-recent-place{background:#173b2a;color:#fff}
+html.trip-night .rider-recent-place small{color:#d1fae5}
+html.trip-night .rider-search-saved button{background:#1d2d40;color:#fff;border-color:#40566c}
+html.trip-night .trip-step-back,html.trip-night .rider-use-location{color:#b7f36b}
+@media(max-width:480px){
+ .rider-start-screen,.rider-search-screen{padding-inline:12px}
+ .rider-saved-place{padding:9px;min-height:96px}
+ .rider-saved-place small{font-size:9px}
+ .passenger-map-stage{height:40dvh;flex-basis:40dvh}
+ .passenger-bottom-sheet{max-height:calc(100dvh - 40dvh - 126px)}
+}
