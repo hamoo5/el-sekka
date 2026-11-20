@@ -782,3 +782,31 @@ html.trip-day .rider-search-suggestions button{background:#fff;color:#111827}
 .rider-save-current button{border:1px solid #b9d8c2;border-radius:20px;padding:7px 10px;background:#fff;color:#14532d;font-size:11px;font-weight:800}
 html.trip-night .rider-save-current{background:#173b2a;color:#d9fbe3}
 html.trip-night .rider-save-current button{background:#1d2d40;color:#d9fbe3;border-color:#42664e}
+
+/* Free night map: standard OSM tiles with CSS-only night treatment */
+.passenger-map-stage .trip-map-night .leaflet-tile-pane,
+.passenger-map-stage #tripMap.trip-map-night .leaflet-tile-pane{
+  filter:invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)!important;
+}
+.passenger-map-stage .trip-map-day .leaflet-tile-pane,
+.passenger-map-stage #tripMap.trip-map-day .leaflet-tile-pane{filter:none!important}
+html.trip-night .passenger-map-stage .leaflet-tile{filter:none!important}
+html.trip-night .passenger-map-stage .leaflet-tile-pane{filter:invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)!important}
+html.trip-day .passenger-map-stage .leaflet-tile-pane{filter:none!important}
+/* Keep every vehicle visible above a persistent bottom action */
+body[data-page="trip-options"] .passenger-bottom-sheet{
+  display:flex;flex-direction:column;overflow-y:auto;
+  padding-bottom:calc(74px + env(safe-area-inset-bottom));
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-grid{display:flex;flex-direction:column;gap:7px;flex:0 0 auto}
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-card{flex:0 0 auto}
+body[data-page="trip-options"] .passenger-bottom-sheet .trip-submit-button{
+  position:sticky!important;bottom:0!important;z-index:50;flex:0 0 auto;
+  margin-top:auto;width:100%;min-height:58px;
+  box-shadow:0 -8px 22px #07111d55,0 4px 18px #00a84b44;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .map-first-saving-note{
+  order:5;text-align:center;margin:8px 0 4px;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .trip-submit-button{order:6}
+body[data-page="trip-options"] .passenger-bottom-sheet #tripMessage{order:7}
