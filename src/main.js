@@ -1809,7 +1809,7 @@ async function captainSubscriptionPanel(completedTripsCount=0) {
   const {data,error}=await supabase.from('captain_subscriptions')
     .select('id,plan_days,amount_egp,payment_reference,payment_status,starts_at,expires_at,created_at')
     .eq('captain_id',profile.id).order('created_at',{ascending:false}).limit(10);
-  if(error) return {active:null,html:'<section class="panel" id="captainSubscriptionPanel"><h2>اشتراك الكابتن</h2><p class="message">تعذر تحميل بيانات الاشتراك حالياً.</p></section>'};
+  if(error) return {active:null,loaded:false,html:'<section class="panel" id="captainSubscriptionPanel"><h2>اشتراك الكابتن</h2><p class="message">تعذر تحميل بيانات الاشتراك حالياً.</p></section>'};
   const rows=data||[];
   const now=Date.now();
   const active=rows.find(x=>x.payment_status==='approved'&&x.starts_at&&x.expires_at&&new Date(x.starts_at).getTime()<=now&&new Date(x.expires_at).getTime()>now);
@@ -1844,7 +1844,7 @@ async function captainSubscriptionPanel(completedTripsCount=0) {
   const subscriptionContent=status+history+(earlyActivation
     ? '<details class="subscription-early-details"><summary>تفعيل الاشتراك مبكراً (اختياري)</summary>'+form+'</details>'
     : form);
-  return {active:active||null,html:'<section class="panel" id="captainSubscriptionPanel"><h2>اشتراك الكابتن</h2>'+subscriptionContent+'</section>'};
+  return {active:active||null,loaded:true,html:'<section class="panel" id="captainSubscriptionPanel"><h2>اشتراك الكابتن</h2>'+subscriptionContent+'</section>'};
 }
 
 async function captainDashboardPage() {
@@ -1878,8 +1878,8 @@ async function captainDashboardPage() {
       .order('created_at',{ascending:false}).limit(10)
   ]);
   const availableVehicles=(vehicles||[]).filter(vehicle=>vehicle.is_active||trialEligible);
-  const showFirstTripOffer=trialEligible&&!subscriptionState.active;
-  const showPostTrialSubscription=(Number(completedTripsCount||0)>=1&&!subscriptionState.active);
+  const showFirstTripOffer=trialEligible&&subscriptionState.loaded&&!subscriptionState.active;
+  const showPostTrialSubscription=(subscriptionState.loaded&&Number(completedTripsCount||0)>=1&&!subscriptionState.active);
   const firstTripOffer=showFirstTripOffer
     ? '<section class="panel first-trip-free-card"><div class="first-trip-free-icon">🎁</div><h2>مشوارك الأول مجاني 100%</h2><p>اقبل أول طلب من قائمة المشاوير المتاحة بالأسفل وجرّب السكة مجاناً بدون اشتراك!</p></section>'
     : '';
