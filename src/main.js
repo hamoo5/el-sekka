@@ -578,6 +578,8 @@ function shareHome() {
         <p class="muted">طلبات الركاب والكباتن الذين يستخدمون الخدمة كطالبي مقاعد.</p>
         <div id="shareOpenRequests" class="share-list">جارٍ تحميل الطلبات...</div>
       </section>` : ''}
+      ${isCaptain ? '<section class="panel"><h2>متابعة تفاوضاتك ككابتن</h2><div id="shareCaptainNegotiations" class="share-list">جارٍ تحميل التفاوضات...</div></section>' : ''}
+      <section class="panel"><h2>حجوزات الكراسي الحالية</h2><div id="legacyShareBookings" class="share-list">جارٍ تحميل الحجوزات...</div></section>
       <section class="panel">
         <h2>عروض الكراسي المتاحة</h2>
         <p class="muted">تقدر تطلب كرسياً من عرض كابتن آخر، حتى لو حسابك كابتن.</p>
@@ -712,6 +714,79 @@ function shareHome() {
     }));
   }
 
+
+  async function loadCaptainNegotiations(){
+    const host=$('shareCaptainNegotiations'); if(!host || !isCaptain)return;
+    const {data:ns,error}=await supabase.from('share_route_negotiations')
+      .select('id,request_id,vehicle_id,requester_offer_egp,negotiation_status,created_at')
+      .eq('captain_id',profile.id).order('created_at',{ascending:false}).limit(30);
+    if(error){host.textContent='تعذر تحميل تفاوضاتك.';return;}
+    const waiting=(ns||[]).filter(n=>n.negotiation_status==='pending');
+    if(!waiting.length){host.innerHTML='<p class="muted">لا توجد عروض تحتاج إلى رد منك حالياً.</p>';return;}
+    const ids=[...new Set(waiting.map(n=>n.request_id))];
+    const {data:rs}=await supabase.from('share_route_requests')
+      .select('id,origin_name,destination_name,ride_mode,departure_at,seats_requested')
+      .in('id',ids);
+    const byId=new Map((rs||[]).map(r=>[r.id,r]));
+    host.innerHTML=waiting.map(n=>{
+      const r=byId.get(n.request_id); if(!r)return '';
+      return '<article class="share-item"><b>'+esc(r.origin_name)+' ← '+esc(r.destination_name)+'</b>'+
+        '<small>'+(r.ride_mode==='live_share'?'فوري':'مجدول')+' · '+new Date(r.departure_at).toLocaleString('ar-EG')+'</small>'+
+        '<p>صاحب الطلب قدم سعراً جديداً: '+Number(n.requester_offer_egp).toLocaleString('ar-EG')+' جنيه للكرسي · '+r.seats_requested+' كرسي</p>'+
+        '<div class="share-actions"><button class="btn primary" data-follow-accept="'+n.id+'">قبول السعر الجديد</button>'+
+        '<input id="follow-price-'+n.id+'" type="number" min="0" step="0.5" placeholder="سعر مقابل جديد">'+
+        '<button class="btn outline" data-follow-counter="'+n.id+'">إرسال سعر مقابل</button></div></article>';
+    }).join('') || '<p class="muted">لا توجد تفاصيل متاحة.</p>';
+    const reply=async(id,action,price)=>{
+      const n=waiting.find(x=>x.id===id); if(!n)return;
+      const {error}=await supabase.rpc('captain_reply_share_route_request',{
+        p_request_id:n.request_id,p_vehicle_id:n.vehicle_id,p_action:action,p_counter_price:price??null
+      });
+      if(error){alert(shareError(error));return;}
+      await loadCaptainNegotiations(); await loadMyShareRequests();
+    };
+    host.querySelectorAll('[data-follow-accept]').forEach(b=>b.addEventListener('click',()=>reply(b.dataset.followAccept,'accept')));
+    host.querySelectorAll('[data-follow-counter]').forEach(b=>b.addEventListener('click',()=>{
+      const price=Number($('follow-price-'+b.dataset.followCounter).value);
+      if(!Number.isFinite(price)||price<0){alert('اكتب سعراً صحيحاً.');return;}
+      reply(b.dataset.followCounter,'counter',price);
+    }));
+  }
+
+  async function loadLegacyShareBookings(){
+    const host=$('legacyShareBookings'); if(!host)return;
+    let rideIds=[];
+    if(isCaptain){
+      const {data:rides}=await supabase.from('rides').select('id').eq('captain_id',profile.id);
+      rideIds=(rides||[]).map(r=>r.id);
+    }
+    let q=supabase.from('bookings').select('id,ride_id,passenger_id,pickup_name,dropoff_name,seats_requested,passenger_offer_egp,captain_counter_offer_egp,agreed_price_egp,booking_status,created_at').order('created_at',{ascending:false}).limit(50);
+    q=isCaptain?(rideIds.length?q.in('ride_id',rideIds):q.eq('passenger_id',profile.id)):q.eq('passenger_id',profile.id);
+    const {data:bs,error}=await q;
+    if(error){host.textContent='تعذر تحميل حجوزات الكراسي.';return;}
+    if(!bs?.length){host.innerHTML='<p class="muted">لا توجد حجوزات كراسي حتى الآن.</p>';return;}
+    host.innerHTML=bs.map(b=>{
+      const requester=b.passenger_id===profile.id;
+      let actions='';
+      if(requester&&b.booking_status==='counter_offer') actions=
+        '<div class="share-actions"><button class="btn primary" data-b-accept="'+b.id+'">قبول سعر الكابتن</button><input id="b-offer-'+b.id+'" type="number" min="0" step="0.5" placeholder="سعرك الجديد"><button class="btn outline" data-b-counter="'+b.id+'">سعر مقابل</button><button class="btn ghost" data-b-cancel="'+b.id+'">إلغاء</button></div>';
+      else if(requester&&b.booking_status==='accepted') actions='<button class="btn primary" data-b-confirm="'+b.id+'">تأكيد حجز الكرسي</button>';
+      else if(!requester&&b.booking_status==='pending') actions=
+        '<div class="share-actions"><button class="btn primary" data-b-captain-accept="'+b.id+'">قبول عرض الراكب</button><input id="b-counter-'+b.id+'" type="number" min="0" step="0.5" placeholder="سعرك المقابل"><button class="btn outline" data-b-captain-counter="'+b.id+'">سعر مقابل</button><button class="btn ghost" data-b-reject="'+b.id+'">رفض</button></div>';
+      return '<article class="share-item"><b>'+esc(b.pickup_name)+' ← '+esc(b.dropoff_name)+'</b>'+
+        '<small>'+b.seats_requested+' كرسي · '+(requester?'طلب أرسلته':'طلب على عرضك')+' · '+new Date(b.created_at).toLocaleString('ar-EG')+'</small>'+
+        '<p>عرض الراكب: '+Number(b.passenger_offer_egp).toLocaleString('ar-EG')+' جنيه · '+(b.captain_counter_offer_egp==null?'لا يوجد سعر مقابل':'سعر الكابتن: '+Number(b.captain_counter_offer_egp).toLocaleString('ar-EG')+' جنيه')+' · الحالة: '+shareStatus(b.booking_status)+'</p>'+actions+'</article>';
+    }).join('');
+    const call=async(id,fn,args)=>{const {error}=await supabase.rpc(fn,args);if(error){alert(shareError(error));return;}await loadLegacyShareBookings();};
+    host.querySelectorAll('[data-b-accept]').forEach(b=>b.addEventListener('click',()=>call(b.dataset.bAccept,'passenger_reply_booking',{p_booking_id:b.dataset.bAccept,p_action:'accept',p_new_offer:null})));
+    host.querySelectorAll('[data-b-counter]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.bCounter,price=Number($('b-offer-'+id).value);if(!Number.isFinite(price)||price<0){alert('اكتب سعراً صحيحاً.');return;}call(id,'passenger_reply_booking',{p_booking_id:id,p_action:'counter',p_new_offer:price});}));
+    host.querySelectorAll('[data-b-cancel]').forEach(b=>b.addEventListener('click',()=>call(b.dataset.bCancel,'passenger_reply_booking',{p_booking_id:b.dataset.bCancel,p_action:'cancel',p_new_offer:null})));
+    host.querySelectorAll('[data-b-confirm]').forEach(b=>b.addEventListener('click',()=>call(b.dataset.bConfirm,'confirm_seat_booking',{p_booking_id:b.dataset.bConfirm})));
+    host.querySelectorAll('[data-b-captain-accept]').forEach(b=>b.addEventListener('click',()=>call(b.dataset.bCaptainAccept,'captain_reply_booking',{p_booking_id:b.dataset.bCaptainAccept,p_action:'accept',p_counter_price:null})));
+    host.querySelectorAll('[data-b-captain-counter]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.bCaptainCounter,price=Number($('b-counter-'+id).value);if(!Number.isFinite(price)||price<0){alert('اكتب سعراً صحيحاً.');return;}call(id,'captain_reply_booking',{p_booking_id:id,p_action:'counter',p_counter_price:price});}));
+    host.querySelectorAll('[data-b-reject]').forEach(b=>b.addEventListener('click',()=>call(b.dataset.bReject,'captain_reply_booking',{p_booking_id:b.dataset.bReject,p_action:'reject',p_counter_price:null})));
+  }
+
   async function loadCaptainSeatVehicles(){
     const select=$('seatOfferVehicle'); if(!select)return;
     const {data,error}=await supabase.from('vehicles')
@@ -784,7 +859,8 @@ function shareHome() {
   if(isCaptain) loadCaptainSeatVehicles();
   loadAvailableRides();
   loadMyShareRequests();
-  if(isCaptain) loadCaptainRequests();
+  loadLegacyShareBookings();
+  if(isCaptain){loadCaptainRequests();loadCaptainNegotiations();}
 }
 
 function shareStatus(value) {
