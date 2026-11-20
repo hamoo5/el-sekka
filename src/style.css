@@ -629,3 +629,41 @@ html.trip-night .passenger-map-stage .leaflet-tile{filter:brightness(.62) invert
 .passenger-map-first .map-first-saving-note{margin:6px 0 12px}
 .passenger-map-first .trip-result{margin-bottom:10px}
 @media(min-width:760px){.passenger-map-first{min-height:calc(100dvh - 130px)}.passenger-map-stage{height:45dvh;flex-basis:45dvh}.passenger-bottom-sheet{max-height:calc(100dvh - 45dvh - 130px)}}
+
+/* Final passenger sheet contrast and stacked vehicle rows */
+.passenger-bottom-sheet .vehicle-grid{display:flex;flex-direction:column;gap:7px}
+.passenger-bottom-sheet .vehicle-card{width:100%;min-height:58px;height:auto;box-sizing:border-box;display:flex;flex-direction:row;direction:rtl;align-items:center;justify-content:space-between;gap:10px;padding:8px 13px;text-align:right}
+.passenger-bottom-sheet .vehicle-card .vehicle-icon{font-size:22px;flex:0 0 30px}
+.passenger-bottom-sheet .vehicle-card .vehicle-meta{display:flex;flex:1;min-width:0;flex-direction:column;align-items:flex-start;gap:2px}
+.passenger-bottom-sheet .vehicle-card .vehicle-meta b{font-size:14px;color:#fff!important}
+.passenger-bottom-sheet .vehicle-card .vehicle-capacity{font-size:11px;color:#d1dbe6!important}
+.passenger-bottom-sheet .vehicle-card .vehicle-price{flex:0 0 auto;min-width:76px;text-align:left;font-size:13px;color:#b7f36b!important;font-weight:900}
+.passenger-bottom-sheet .location-card label{color:#fff!important;font-weight:850}
+.passenger-bottom-sheet .map-first-location-title{color:#fff!important}
+.passenger-bottom-sheet .trip-extra-options summary{color:#b7f36b!important}
+html.trip-night .passenger-bottom-sheet{background:#152233!important;color:#f7fafc!important;border-color:#33465b!important}
+html.trip-night .passenger-bottom-sheet .location-card{background:#1d2d40!important;border-color:#3b4e63!important}
+html.trip-night .passenger-bottom-sheet .location-card label,html.trip-night .passenger-bottom-sheet .map-first-location-title{color:#fff!important}
+html.trip-night .passenger-bottom-sheet .location-card input{background:#0f1b2a!important;color:#fff!important;border-color:#52657a!important}
+html.trip-night .passenger-bottom-sheet .ride-mode-switch{background:#0e1927!important}
+html.trip-night .passenger-bottom-sheet .ride-mode-switch button{color:#d5deea!important}
+html.trip-night .passenger-bottom-sheet .ride-mode-switch button.active{background:#0aae50!important;color:#fff!important}
+html.trip-night .passenger-bottom-sheet .vehicle-card{background:#1d2d40!important;border-color:#52677c!important;color:#fff!important}
+html.trip-night .passenger-bottom-sheet .vehicle-card b,html.trip-night .passenger-bottom-sheet .vehicle-card .vehicle-meta b{color:#fff!important}
+html.trip-night .passenger-bottom-sheet .vehicle-card .vehicle-capacity{color:#d1dbe6!important}
+html.trip-night .passenger-bottom-sheet .trip-extra-options{background:#1d2d40!important;border-color:#40566c!important}
+html.trip-night .passenger-bottom-sheet .trip-extra-options summary{color:#b7f36b!important}
+html.trip-day .passenger-bottom-sheet{background:#fff!important;color:#111827!important;border-color:#e4e9ee!important}
+html.trip-day .passenger-bottom-sheet .location-card{background:#f8fafb!important;border-color:#e0e6eb!important}
+html.trip-day .passenger-bottom-sheet .location-card label,html.trip-day .passenger-bottom-sheet .map-first-location-title{color:#111827!important}
+html.trip-day .passenger-bottom-sheet .location-card input{background:#fff!important;color:#111827!important;border-color:#cbd5df!important}
+html.trip-day .passenger-bottom-sheet .vehicle-card{background:#f7faf8!important;border-color:#d2ddd6!important;color:#111827!important}
+html.trip-day .passenger-bottom-sheet .vehicle-card .vehicle-meta b{color:#111827!important}
+html.trip-day .passenger-bottom-sheet .vehicle-card .vehicle-capacity{color:#475569!important}
+html.trip-day .passenger-bottom-sheet .vehicle-card .vehicle-price{color:#176b38!important}
+html.trip-day .passenger-bottom-sheet .vehicle-card.selected{background:#e7f7eb!important;border-color:#159447!important}
+html.trip-day .passenger-bottom-sheet .trip-extra-options{background:#f8fafb!important;border-color:#dce3e8!important}
+html.trip-day .passenger-bottom-sheet .trip-extra-options summary{color:#166534!important}
+html.trip-day .passenger-bottom-sheet .trip-summary{background:#f5f8f6!important;color:#111827!important}
+html.trip-day .passenger-bottom-sheet .trip-summary b{color:#111827!important}
+@media(max-width:480px){.passenger-bottom-sheet .vehicle-card{min-height:54px;padding:7px 11px}.passenger-bottom-sheet .vehicle-card .vehicle-price{min-width:70px;font-size:12px}}
