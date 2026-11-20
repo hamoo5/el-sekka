@@ -277,7 +277,7 @@ function tripForm() {
             <input id="destinationName" required placeholder="رايح فين؟ اكتب اسم المكان" autocomplete="off">
             <div class="suggestions" id="destinationSuggestions" role="listbox"></div>
             <div class="destination-shortcuts" id="destinationQuickPlaceRow"></div>
-            <div class="save-place-actions destination-save-actions">
+            <div class="save-place-actions destination-save-actions" hidden>
               <button type="button" data-save-destination="home">حفظ الوجهة كـ البيت</button>
               <button type="button" data-save-destination="work">حفظ الوجهة كـ الشغل</button>
               <button type="button" data-save-destination="metro">حفظ محطة المترو</button>
@@ -646,6 +646,7 @@ function tripForm() {
     box.querySelectorAll('.suggestion-item').forEach((button,index)=>button.addEventListener('click',async()=>{
       box.hidden = true;
       await setPoint(point,rows[index].lat,rows[index].lng,rows[index].name,true);
+      if(point==='destination') document.querySelector('.destination-save-actions').hidden=false;
     }));
   };
 
@@ -659,6 +660,7 @@ function tripForm() {
       if (routeLine && map) map.removeLayer(routeLine);
       routeLine=null; routeDistanceKm=null; routeDurationMinutes=null; updateFarePreview();
       const query=field.value.trim();
+      if(point==='destination') document.querySelector('.destination-save-actions').hidden=!query;
       clearTimeout(searchTimers[point]);
       const seq=++searchSequence[point];
       if(query.length<3){box.hidden=true;box.innerHTML='';return;}
@@ -1965,11 +1967,12 @@ async function adminApplicationsPage(){
     </main>`);
   document.getElementById('back')?.addEventListener('click',()=>{page='home';render();});
   document.querySelectorAll('[data-review-app]').forEach(btn=>btn.addEventListener('click',async()=>{
-    btn.disabled=true;
     const id=btn.dataset.reviewApp,decision=btn.dataset.decision;
+    const relatedButtons=[...document.querySelectorAll('[data-review-app="'+id+'"]')];
+    relatedButtons.forEach(item=>item.disabled=true);
     const notes=document.querySelector('[data-notes="'+id+'"]')?.value||null;
     const {error}=await supabase.rpc('review_captain_application_v2',{p_application_id:id,p_decision:decision,p_admin_notes:notes});
-    if(error){alert('تعذر تنفيذ مراجعة الطلب: '+error.message);btn.disabled=false;return;}
+    if(error){alert('تعذر تنفيذ مراجعة الطلب: '+error.message);relatedButtons.forEach(item=>item.disabled=false);return;}
     await adminApplicationsPage();
   }));
   document.querySelectorAll('[data-sub-approve]').forEach(btn=>btn.addEventListener('click',async()=>{
