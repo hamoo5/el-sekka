@@ -761,3 +761,17 @@ html.trip-night .trip-step-back,html.trip-night .rider-use-location{color:#b7f36
  .passenger-map-stage{height:40dvh;flex-basis:40dvh}
  .passenger-bottom-sheet{max-height:calc(100dvh - 40dvh - 126px)}
 }
+
+body[data-page="trip-search"] .app-bottom-nav,body[data-page="trip-search"] footer,
+body[data-page="trip-options"] .app-bottom-nav,body[data-page="trip-options"] footer{display:none!important}
+body[data-page="trip-search"] .topbar{display:none}
+body[data-page="trip-options"] .topbar{display:none}
+body[data-page="trip-options"] #app{padding-bottom:env(safe-area-inset-bottom)}
+body[data-page="trip-options"] .passenger-map-first{min-height:100dvh}
+body[data-page="trip-options"] .passenger-map-stage{height:44dvh;flex-basis:44dvh}
+body[data-page="trip-options"] .passenger-bottom-sheet{max-height:calc(100dvh - 44dvh);padding-bottom:calc(78px + env(safe-area-inset-bottom))}
+html.trip-night .rider-start-screen{color:#fff}
+html.trip-night .rider-saved-section h2{color:#fff}
+html.trip-night .rider-search-hero .rider-search-box{border-color:#35495e}
+html.trip-night .rider-mode-menu{border-color:#35495e}
+html.trip-day .rider-search-suggestions button{background:#fff;color:#111827}
