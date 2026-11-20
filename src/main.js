@@ -1051,11 +1051,34 @@ async function captainApplicationStatus() {
 }
 
 async function applyCaptainPage() {
-  const {data: existing} = await supabase.from('captain_applications')
+  const {data: existing, error: existingError} = await supabase.from('captain_applications')
     .select('national_id_last4,license_number,license_expiry,application_status')
     .eq('user_id',profile.id).maybeSingle();
+  if (existingError) {
+    layout(`
+      <main class="wrap narrow">
+        <section class="panel">
+          <h2>تعذر التحقق من حالة طلبك</h2>
+          <p class="muted">لم نتمكن من تحميل بيانات طلب الكابتن. لم يتم إرسال طلب جديد من هذه الصفحة.</p>
+          <button class="btn primary" id="back">العودة للرئيسية</button>
+        </section>
+      </main>`);
+    $('back')?.addEventListener('click',()=>{page='home';render();});
+    return;
+  }
   if (existing?.application_status === 'pending' || existing?.application_status === 'approved' || existing?.application_status === 'suspended') {
-    page='home'; return render();
+    const statusText = {pending:'طلبك قيد المراجعة لدى الإدارة.',approved:'تمت الموافقة على طلبك بالفعل.',suspended:'تم إيقاف اعتماد الكابتن لحسابك حالياً.'}[existing.application_status];
+    layout(`
+      <main class="wrap narrow">
+        <section class="hero compact"><span class="tag">طلب الانضمام للكباتن</span><h1>حالة طلبك</h1></section>
+        <section class="panel">
+          <h2>${statusText}</h2>
+          <p class="muted">لن تحتاج إلى إرسال الطلب مرة أخرى. يمكنك العودة للرئيسية ومتابعة استخدام السكة.</p>
+          <button class="btn primary" id="back">العودة للرئيسية</button>
+        </section>
+      </main>`);
+    $('back')?.addEventListener('click',()=>{page='home';render();});
+    return;
   }
   layout(`
     <main class="wrap narrow">
