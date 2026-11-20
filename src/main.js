@@ -332,7 +332,7 @@ function riderSearchPage(){
 }
 
 function tripForm() {
-  const types = [['private_car','🚘','ملاكي','3 ركاب'],['taxi','🚕','تاكسي','4 ركاب'],['suzuki','🚐','سوزوكي','6 ركاب']];
+  const types = [['private_car','🚘','ملاكي','حتى 3 ركاب'],['taxi','🚕','تاكسي','حتى 4 ركاب'],['suzuki','🚐','سوزوكي','حتى 6 ركاب'],['microbus','🚍','ميكروباص','حتى 13 راكب'],['scooter','🛵','اسكوتر','راكب واحد'],['motorcycle','🏍️','دراجة نارية','راكب واحد']];
   layout(`
     <main class="passenger-map-first"><section class="passenger-map-stage"><div id="tripMap" class="trip-map" role="application" aria-label="خريطة تحديد مكان الركوب والوجهة"></div><div class="map-floating-status" id="mapHint">حدد مكان الركوب والوجهة لعرض المسار</div><button type="button" class="map-locate-button" id="useLocation" aria-label="تحديد موقعي الحالي">◎</button></section>
       <form class="panel form trip-panel passenger-bottom-sheet" id="tripForm"><div class="bottom-sheet-handle"></div><div class="trip-options-scroll"><div class="trip-options-heading"><b>اختار المركبة المناسبة</b><small id="selectedRouteNames"></small></div>
@@ -538,7 +538,7 @@ function tripForm() {
   }));
   const setVehicle=value=>{
     $('vehicleType').value=value;
-    document.querySelectorAll('.vehicle-card').forEach(card=>card.classList.toggle('selected',card.dataset.vehicle===value));
+    document.querySelectorAll('.vehicle-card').forEach(card=>{const selected=card.dataset.vehicle===value;card.classList.toggle('selected',selected);card.setAttribute('aria-pressed',String(selected));});
     currentPassengerMax=vehicleCapacities[value]||1;$('passengerCountField').hidden=currentPassengerMax===1;
     if(selectedPassengerCount>currentPassengerMax)selectedPassengerCount=currentPassengerMax;
     updatePassengerCountUI();updateFarePreview();
@@ -567,7 +567,7 @@ function tripForm() {
       if (seq !== routeSequence || origin !== start || destination !== end) return;
       if (!response.ok || data.code !== 'Ok' || !data.routes?.length) throw new Error('تعذر إيجاد مسار قيادة بين النقطتين.');
       if (routeLine) map.removeLayer(routeLine);
-      routeLine = window.L.geoJSON(data.routes[0].geometry,{style:{color:'#a8ff45',weight:6,opacity:1}}).addTo(map);
+      routeLine = window.L.geoJSON(data.routes[0].geometry,{style:{color:'#10B981',weight:6,opacity:0.95}}).addTo(map);
       routeDistanceKm = data.routes[0].distance / 1000;
       routeDurationMinutes = data.routes[0].duration / 60;
       map.fitBounds(routeLine.getBounds(),{padding:[35,35]});
