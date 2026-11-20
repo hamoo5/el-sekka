@@ -299,7 +299,7 @@ async function reversePlace(lat, lng) {
 }
 
 function tripForm() {
-  const types = [['private_car','🚘','ملاكي',''],['taxi','🚕','تاكسي',''],['suzuki','🚐','سوزوكي','']];
+  const types = [['private_car','🚘','ملاكي','3 ركاب'],['taxi','🚕','تاكسي','4 ركاب'],['suzuki','🚐','سوزوكي','6 ركاب']];
   layout(`
     <main class="passenger-map-first"><section class="passenger-map-stage"><div id="tripMap" class="trip-map" role="application" aria-label="خريطة تحديد مكان الركوب والوجهة"></div><div class="map-floating-status" id="mapHint">حدد مكان الركوب والوجهة لعرض المسار</div><button type="button" class="map-locate-button" id="useLocation" aria-label="تحديد موقعي الحالي">◎</button></section>
       <form class="panel form trip-panel passenger-bottom-sheet" id="tripForm"><div class="bottom-sheet-handle"></div><div class="ride-mode-switch"><button type="button" class="active" id="normalRideMode">🚖 مشوار عادي</button><button type="button" id="sharedRideMode">👥 مشوار مشترك</button></div>
@@ -333,7 +333,7 @@ function tripForm() {
           <div class="vehicle-grid">
             ${types.map(([value,icon,name,desc]) => `
               <button class="vehicle-card" type="button" data-vehicle="${value}">
-                <span class="vehicle-icon">${icon}</span><b>${name}</b><small class="vehicle-price" data-vehicle-price="${value}">السعر —</small>
+                <span class="vehicle-icon">${icon}</span><span class="vehicle-meta"><b>${name}</b><small class="vehicle-capacity">${desc}</small></span><small class="vehicle-price" data-vehicle-price="${value}">السعر —</small>
               </button>`).join('')}
           </div>
           <input type="hidden" name="vehicle_type" id="vehicleType" value="private_car">
