@@ -623,3 +623,9 @@ html.trip-night .passenger-map-stage .leaflet-tile{filter:brightness(.62) invert
  .passenger-bottom-sheet{max-height:calc(100dvh - 39dvh - 118px);padding-inline:12px}
  .passenger-bottom-sheet .vehicle-card{min-height:75px}
 }
+
+.passenger-map-first .traffic-badge{display:none}
+.passenger-map-first .pickup-marker-row{display:none}
+.passenger-map-first .map-first-saving-note{margin:6px 0 12px}
+.passenger-map-first .trip-result{margin-bottom:10px}
+@media(min-width:760px){.passenger-map-first{min-height:calc(100dvh - 130px)}.passenger-map-stage{height:45dvh;flex-basis:45dvh}.passenger-bottom-sheet{max-height:calc(100dvh - 45dvh - 130px)}}
