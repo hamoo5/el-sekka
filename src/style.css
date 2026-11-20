@@ -1503,3 +1503,9 @@ html.trip-night body[data-page="trip-options"] .map-floating-status{
   body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-grid{gap:4px!important}
   body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-card{padding:4px!important}
 }
+
+
+/* Four ordinary-trip vehicle options: balanced 2x2 cards */
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+}
