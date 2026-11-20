@@ -335,7 +335,7 @@ function tripForm() {
   const types = [['private_car','🚘','ملاكي','3 ركاب'],['taxi','🚕','تاكسي','4 ركاب'],['suzuki','🚐','سوزوكي','6 ركاب']];
   layout(`
     <main class="passenger-map-first"><section class="passenger-map-stage"><div id="tripMap" class="trip-map" role="application" aria-label="خريطة تحديد مكان الركوب والوجهة"></div><div class="map-floating-status" id="mapHint">حدد مكان الركوب والوجهة لعرض المسار</div><button type="button" class="map-locate-button" id="useLocation" aria-label="تحديد موقعي الحالي">◎</button></section>
-      <form class="panel form trip-panel passenger-bottom-sheet" id="tripForm"><div class="bottom-sheet-handle"></div><div class="trip-options-heading"><b>اختار المركبة المناسبة</b><small id="selectedRouteNames"></small></div>
+      <form class="panel form trip-panel passenger-bottom-sheet" id="tripForm"><div class="bottom-sheet-handle"></div><div class="trip-options-scroll"><div class="trip-options-heading"><b>اختار المركبة المناسبة</b><small id="selectedRouteNames"></small></div>
         <button type="button" class="trip-step-back" id="tripOptionsBack">← تعديل العناوين</button>
         <section class="location-card" hidden>
           <label>مكان الركوب<input id="originName" autocomplete="off"><div class="suggestions" id="originSuggestions" role="listbox"></div><div class="pickup-marker-row"><button type="button" data-pickup-note="قدام البوابة">قدام البوابة</button><button type="button" data-pickup-note="عند الصيدلية">عند الصيدلية</button><button type="button" data-pickup-note="على الناصية">على الناصية</button></div><input id="pickupNote" maxlength="160" autocomplete="off"></label>
@@ -385,11 +385,11 @@ function tripForm() {
         </details>
         <section class="trip-summary" id="tripSummary"><div><small>المسافة</small><b id="summaryDistance">—</b></div><div><small>الوقت المتوقع</small><b id="summaryDuration">—</b></div><div><small>السعر النهائي</small><b id="summaryFare">—</b></div></section>
         <div class="notice" id="pricingNotice" hidden></div>
-        <button class="btn primary trip-submit-button" type="submit" id="sendTrip">
+        </div><div class="trip-options-action-bar"><button class="btn primary trip-submit-button" type="submit" id="sendTrip">
           <span id="sendTripLabel">اطلب السكة الآن</span>
           <small id="trafficBadge" class="traffic-badge"></small>
         </button>
-        <p class="map-first-saving-note">وفّرت 15% تلقائياً بدون عمولة</p>
+        <p class="map-first-saving-note">وفّرت 15% تلقائياً بدون عمولة</p></div>
         <p class="message" id="tripMessage" aria-live="polite"></p>
         <section id="tripResult" class="trip-result" hidden></section>
       </form>
@@ -772,6 +772,7 @@ function tripForm() {
     updateFarePreview();
   });
 
+  $('tripOptionsBack')?.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();page='trip-search';render();});
   $('tripForm').addEventListener('submit',async e=>{
     e.preventDefault();
     const msg=$('tripMessage'),button=$('sendTrip');
