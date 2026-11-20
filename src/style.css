@@ -191,3 +191,15 @@ html.trip-day .share-item>small,html.trip-day .share-negotiation small{color:#64
 html.trip-day .share-item p{color:#405166}
 html.trip-day .share-negotiation{background:#f2f6f8}
 @media(max-width:430px){.share-actions{grid-template-columns:1fr}}
+
+
+/* Captain onboarding media and vehicle review */
+.review-photos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
+.review-photos figure{margin:0;min-width:0}
+.review-photo{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:12px;border:1px solid var(--line,#ddd)}
+.review-photos figcaption{font-size:.8rem;color:var(--muted,#777);text-align:center;margin-top:4px}
+.checkline{display:flex!important;flex-direction:row!important;align-items:center;gap:10px}
+.checkline input{width:auto!important}
+#captainApplyForm hr{border:0;border-top:1px solid var(--line,#ddd);margin:20px 0}
+#captainApplyForm h3{margin:8px 0}
+@media(max-width:420px){.review-photos{gap:6px}}
