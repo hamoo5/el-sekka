@@ -407,7 +407,15 @@ function tripForm() {
   let map = null, originMarker = null, destinationMarker = null, routeLine = null;
   const searchTimers = {origin:null,destination:null};
   const searchSequence = {origin:0,destination:0};
-  const statusHint = message => { $('mapHint').textContent = message; };
+  let mapHintTimer=null;
+  const statusHint = message => {
+    const hint=$('mapHint');
+    if(!hint)return;
+    hint.textContent=message;
+    hint.classList.add('is-visible');
+    if(mapHintTimer)clearTimeout(mapHintTimer);
+    mapHintTimer=setTimeout(()=>hint.classList.remove('is-visible'),4200);
+  };
   const riderDraft = readRiderDraft();
   const rememberedTrip = pendingTrip || riderDraft || readPassengerStore('last-trip');
   const routeNames=document.getElementById('selectedRouteNames');if(routeNames)routeNames.textContent=[riderDraft.origin?.name,riderDraft.destination?.name].filter(Boolean).join(' ← ');
