@@ -93,7 +93,7 @@ async function loadProfile() {
   render();
 }
 
-function home() {
+async function home() {
   if (!profile) {
     layout('<main class="wrap"><section class="panel">جاري تحميل الحساب...</section></main>');
     return;
@@ -115,6 +115,7 @@ function home() {
       </section>
       ${profile.role === 'captain' ? '<section class="panel"><h2>مساحة الكابتن</h2><p class="muted">إدارة المركبة والرحلات والحجوزات والاشتراك.</p><button class="btn primary" data-page="captain">لوحة الكابتن</button></section>' : ''}
       ${profile.role === 'admin' ? '<section class="panel"><h2>إدارة المنصة</h2><p class="muted">مراجعة الكباتن والمركبات والاشتراكات والبلاغات.</p><button class="btn primary" data-page="admin">لوحة الإدارة</button></section>' : ''}
+      ${profile.role === 'passenger' ? await captainApplicationStatus() : ''}
       <section class="panel"><h3>اختار طريقك</h3><p class="muted">في المشوار العادي السعر يحدده النظام. وفي مشاركة الكرسي السعر بالتفاوض وموافقة الطرفين.</p></section>
     </main>`);
   app.querySelectorAll('[data-page]').forEach(b => b.addEventListener('click', () => { page = b.dataset.page; render(); }));
@@ -1035,6 +1036,100 @@ function shareError(error) {
   return code||'حدث خطأ غير متوقع. حاول مرة أخرى.';
 }
 
+
+async function captainApplicationStatus() {
+  const { data, error } = await supabase.from('captain_applications')
+    .select('id,application_status,admin_notes,created_at,reviewed_at')
+    .eq('user_id', profile.id).maybeSingle();
+  if (error) return '<section class="panel"><p class="muted">تعذر تحميل حالة طلب الكابتن.</p></section>';
+  if (!data) return '<section class="panel"><h2>انضم كابتن في السكة</h2><p class="muted">قدّم بيانات الرخصة ليتم مراجعتها من الإدارة. ستظل تستخدم حسابك كراكب لحين الموافقة.</p><button class="btn primary" data-page="apply-captain">التقديم ككابتن</button></section>';
+  const labels = {pending:'طلبك قيد المراجعة',approved:'تمت الموافقة على طلبك',rejected:'تم رفض الطلب',suspended:'تم إيقاف اعتماد الكابتن'};
+  return '<section class="panel"><h2>طلب الكابتن</h2><p><b>'+labels[data.application_status]+'</b></p>'+
+    (data.admin_notes ? '<p class="muted">ملاحظات الإدارة: '+esc(data.admin_notes)+'</p>' : '')+
+    (data.application_status === 'rejected' ? '<button class="btn outline" data-page="apply-captain">تعديل البيانات وإعادة التقديم</button>' : '')+
+    '</section>';
+}
+
+async function applyCaptainPage() {
+  const {data: existing} = await supabase.from('captain_applications')
+    .select('national_id_last4,license_number,license_expiry,application_status')
+    .eq('user_id',profile.id).maybeSingle();
+  if (existing?.application_status === 'pending' || existing?.application_status === 'approved' || existing?.application_status === 'suspended') {
+    page='home'; return render();
+  }
+  layout(`
+    <main class="wrap narrow">
+      <button class="back" id="back">→ الرئيسية</button>
+      <section class="hero compact"><span class="tag">الانضمام للكباتن</span><h1>قدّم طلب كابتن</h1><p>أدخل البيانات المطلوبة للمراجعة. لا ترسل صورة البطاقة أو بيانات حساسة هنا.</p></section>
+      <form class="panel form" id="captainApplyForm">
+        <label>آخر 4 أرقام من الرقم القومي<input name="national_id_last4" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" minlength="4" required value="${esc(existing?.national_id_last4||'')}" placeholder="1234"></label>
+        <label>رقم رخصة القيادة<input name="license_number" maxlength="80" required value="${esc(existing?.license_number||'')}" placeholder="رقم الرخصة"></label>
+        <label>تاريخ انتهاء الرخصة<input name="license_expiry" type="date" required value="${esc(existing?.license_expiry||'')}"></label>
+        <div class="notice">إرسال الطلب لا يفعّل حساب الكابتن تلقائياً. التفعيل بعد مراجعة الإدارة فقط.</div>
+        <button class="btn primary" type="submit">إرسال طلب التقديم</button>
+        <p class="message" id="applyMessage" aria-live="polite"></p>
+      </form>
+    </main>`);
+  $('back')?.addEventListener('click',()=>{page='home';render();});
+  const form=document.getElementById('captainApplyForm');
+  form.addEventListener('submit',async e=>{
+    e.preventDefault();
+    const d=new FormData(form), msg=document.getElementById('applyMessage'), btn=form.querySelector('button[type="submit"]');
+    const last4=String(d.get('national_id_last4')||'').trim();
+    const license=String(d.get('license_number')||'').trim();
+    const expiry=String(d.get('license_expiry')||'');
+    if(!/^\\d{4}$/.test(last4)||!license||!expiry){msg.textContent='راجع البيانات المطلوبة.';return;}
+    if(new Date(expiry+'T23:59:59')<new Date()){msg.textContent='تاريخ انتهاء الرخصة يجب أن يكون في المستقبل.';return;}
+    btn.disabled=true;msg.textContent='جارٍ إرسال الطلب...';
+    const {error}=await supabase.rpc('submit_captain_application',{p_national_id_last4:last4,p_license_number:license,p_license_expiry:expiry});
+    btn.disabled=false;
+    if(error){msg.textContent=applicationError(error);return;}
+    msg.textContent='تم إرسال طلبك بنجاح. ستظل حساباً كراكب حتى مراجعة الإدارة.';
+    setTimeout(()=>{page='home';render();},900);
+  });
+}
+
+function applicationError(error){
+  const m=error?.message||'';
+  if(m.includes('application_already_pending')) return 'لديك طلب قيد المراجعة بالفعل.';
+  if(m.includes('account_not_allowed')) return 'الحساب غير مسموح له بالتقديم حالياً.';
+  if(m.includes('invalid_application_data')) return 'راجع آخر 4 أرقام ورقم الرخصة وتاريخ انتهائها.';
+  return m||'تعذر إرسال الطلب. حاول مرة أخرى.';
+}
+
+async function adminApplicationsPage(){
+  layout(`
+    <main class="wrap narrow">
+      <button class="back" id="back">→ الرئيسية</button>
+      <section class="hero compact"><span class="tag">إدارة المنصة</span><h1>طلبات الكباتن</h1><p>راجع البيانات ثم وافق أو ارفض الطلب.</p></section>
+      <section class="panel" id="captainApplicationsList">جارٍ تحميل الطلبات...</section>
+    </main>`);
+  document.getElementById('back').addEventListener('click',()=>{page='home';render();});
+  const host=document.getElementById('captainApplicationsList');
+  const {data,error}=await supabase.from('captain_applications')
+    .select('id,user_id,national_id_last4,license_number,license_expiry,application_status,admin_notes,created_at')
+    .order('created_at',{ascending:false}).limit(100);
+  if(error){host.textContent='تعذر تحميل الطلبات. تأكد من صلاحيات الإدارة.';return;}
+  const rows=(data||[]).filter(x=>x.application_status==='pending');
+  if(!rows.length){host.innerHTML='<p class="muted">لا توجد طلبات جديدة للمراجعة.</p>';return;}
+  host.innerHTML=rows.map(a=>'<article class="share-item"><b>طلب كابتن</b>'+
+    '<p>آخر 4 أرقام من الرقم القومي: '+esc(a.national_id_last4||'—')+'</p>'+
+    '<p>رقم الرخصة: '+esc(a.license_number||'—')+'</p>'+
+    '<p>انتهاء الرخصة: '+esc(a.license_expiry||'—')+'</p>'+
+    '<small>تاريخ التقديم: '+new Date(a.created_at).toLocaleString('ar-EG')+'</small>'+
+    '<label>ملاحظات الإدارة<textarea id="admin-note-'+a.id+'" rows="2" maxlength="1000" placeholder="اختياري"></textarea></label>'+
+    '<div class="share-actions"><button class="btn primary" data-app-review="approved" data-app-id="'+a.id+'">موافقة وتفعيل كابتن</button>'+
+    '<button class="btn outline" data-app-review="rejected" data-app-id="'+a.id+'">رفض الطلب</button></div></article>').join('');
+  host.querySelectorAll('[data-app-review]').forEach(btn=>btn.addEventListener('click',async()=>{
+    const id=btn.dataset.appId, decision=btn.dataset.appReview;
+    const note=document.getElementById('admin-note-'+id)?.value.trim()||null;
+    btn.disabled=true;
+    const {error}=await supabase.rpc('review_captain_application',{p_application_id:id,p_decision:decision,p_admin_notes:note});
+    if(error){alert(applicationError(error));btn.disabled=false;return;}
+    await adminApplicationsPage();
+  }));
+}
+
 function placeholder(title, desc) {
   layout(`
     <main class="wrap narrow">
@@ -1051,6 +1146,8 @@ function render() {
   if (page === 'home') return home();
   if (page === 'trip') return tripForm();
   if (page === 'share') return shareHome();
+  if (page === 'apply-captain') return applyCaptainPage();
+  if (page === 'admin') return profile?.role === 'admin' ? adminApplicationsPage() : (page='home',home());
   if (page === 'captain') return placeholder('مساحة الكابتن', 'إدارة المركبة والعروض والحجوزات ستظهر هنا بعد ربطها بقاعدة البيانات الموحدة.');
   if (page === 'admin') return placeholder('لوحة الإدارة', 'مراجعة الحسابات والمركبات والاشتراكات والبلاغات.');
   page = 'home'; home();
