@@ -9,10 +9,19 @@ const app = document.querySelector('#app');
 let session = null;
 let profile = null;
 const PAGE_STORAGE_KEY = 'el-sekka-current-page';
-const VALID_PAGES = new Set(['home','trip','share','apply-captain','captain','admin']);
+const VALID_PAGES = new Set(['home','trip','share','apply-captain','captain','admin','trip-status','track']);
+const publicTrackingToken = new URLSearchParams(window.location.search).get('token') || '';
+let currentTripId = null;
+let activeChatChannels = [];
+let activeTripChannels = [];
+let publicTrackingTimer = null;
+let publicTrackingMap = null;
+let publicTrackingMarker = null;
+let captainLocationWatchId = null;
 let page = (() => {
   try {
     const saved = sessionStorage.getItem(PAGE_STORAGE_KEY);
+    if (window.location.pathname === '/track' && publicTrackingToken) return 'track';
     return VALID_PAGES.has(saved) ? saved : 'home';
   } catch (_) {
     return 'home';
@@ -136,6 +145,14 @@ async function home() {
     return;
   }
   const role = profile.role === 'admin' ? 'الإدارة' : profile.role === 'captain' ? 'الكابتن' : 'الراكب';
+  let activePassengerTrip=null;
+  if(profile.role==='passenger'){
+    const {data}=await supabase.from('trip_requests')
+      .select('id,origin_name,destination_name,request_status,fixed_fare_egp,created_at')
+      .eq('passenger_id',profile.id).in('request_status',['searching','accepted','in_progress'])
+      .order('created_at',{ascending:false}).limit(1).maybeSingle();
+    activePassengerTrip=data;
+  }
   layout(`
     <main class="wrap">
       <section class="welcome">
@@ -146,6 +163,7 @@ async function home() {
         <button class="service" data-page="trip"><span>🚕</span><b>مشوار عادي</b><small>السعر يحسبه النظام تلقائياً</small><strong>اطلب مشوار ←</strong></button>
         <button class="service" data-page="share"><span>🛣️</span><b>مشاركة السكة</b><small>احجز كرسي أو انشر طريقك</small><strong>اكتشف الرحلات ←</strong></button>
       </section>
+      ${activePassengerTrip?'<section class="panel active-trip-home"><h3>رحلتك الحالية</h3><p>'+esc(activePassengerTrip.origin_name)+' ← '+esc(activePassengerTrip.destination_name)+'</p><p class="muted">'+(activePassengerTrip.request_status==='searching'?'جارٍ البحث عن كابتن':activePassengerTrip.request_status==='accepted'?'تم قبول الرحلة': 'الرحلة جارية')+'</p><button type="button" class="btn primary" id="openActivePassengerTrip">متابعة الرحلة</button></section>':''}
       <section class="panel passenger-shortcuts">
         <div class="section-head"><div><h3>مشاويرك السريعة</h3><p class="muted">أماكنك المحفوظة وآخر مشوار في متناول إيدك.</p></div></div>
         <div id="homeSavedPlaces" class="saved-place-list"></div>
@@ -176,6 +194,7 @@ async function home() {
       page='trip'; render();
     });
   }
+  document.getElementById('openActivePassengerTrip')?.addEventListener('click',()=>{currentTripId=activePassengerTrip.id;page='trip-status';render();});
   app.querySelectorAll('[data-page]').forEach(b => b.addEventListener('click', () => { page = b.dataset.page; render(); }));
 }
 
@@ -741,8 +760,11 @@ function tripForm() {
         passenger_count:Number($('passengerCount').value)
       });
       const nextStep=scheduled?'تم تسجيل حجزك بالموعد المحدد.':'بنبحث لك عن كابتن قريب منك الآن.';
-      $('tripResult').innerHTML=`<div class="trip-success-icon">✓</div><h3>طلبك وصل بنجاح</h3><div class="fare-line"><span>السعر النهائي</span><strong>${fareLabel}</strong></div><p>${nextStep}</p>`;
-      $('tripResult').hidden=false;msg.textContent='تم إنشاء الطلب بنجاح.';$('sendTripLabel').textContent='تم إرسال الطلب';
+      currentTripId=requestId;
+      $('tripResult').innerHTML=`<div class="trip-success-icon">✓</div><h3>طلبك وصل بنجاح</h3><div class="fare-line"><span>السعر النهائي</span><strong>${fareLabel}</strong></div><p>${nextStep}</p><button type="button" class="btn primary" id="openCreatedTrip">متابعة الطلب</button>`;
+      $('tripResult').hidden=false;
+      $('openCreatedTrip').addEventListener('click',()=>{page='trip-status';render();});
+      msg.textContent='تم إنشاء الطلب بنجاح.';$('sendTripLabel').textContent='تم إرسال الطلب';
     }catch(error){
       msg.textContent=error.message||'حصل خطأ غير متوقع. حاول مرة أخرى.';
       button.disabled=false;updateTripSubmitLabel();
@@ -1688,13 +1710,24 @@ function placeholder(title, desc) {
   document.querySelector('#back').addEventListener('click', () => { page = 'home'; render(); });
 }
 
+function disposeLiveUi(){
+  activeChatChannels.forEach(channel=>{try{supabase?.removeChannel(channel);}catch(_){}});
+  activeTripChannels.forEach(channel=>{try{supabase?.removeChannel(channel);}catch(_){}});
+  activeChatChannels=[];activeTripChannels=[];
+  if(publicTrackingTimer){clearInterval(publicTrackingTimer);publicTrackingTimer=null;}
+  if(publicTrackingMap){try{publicTrackingMap.remove();}catch(_){}publicTrackingMap=null;publicTrackingMarker=null;}
+  if(captainLocationWatchId!==null&&navigator.geolocation){navigator.geolocation.clearWatch(captainLocationWatchId);captainLocationWatchId=null;}
+}
 function render() {
+  disposeLiveUi();
   try {
     if (session && VALID_PAGES.has(page)) sessionStorage.setItem(PAGE_STORAGE_KEY, page);
     else if (!session) sessionStorage.removeItem(PAGE_STORAGE_KEY);
   } catch (_) {}
   if (!supabase) return setup();
+  if (page === 'track' && publicTrackingToken) return publicTrackingPage(publicTrackingToken);
   if (!session) return auth();
+  if (page === 'trip-status') return tripStatusPage(currentTripId);
   if (page === 'home') return home();
   if (page === 'trip') return tripForm();
   if (page === 'share') return shareHome();
