@@ -410,3 +410,14 @@ html.trip-day .reward-stats small,html.trip-day .reward-invite small,html.trip-d
 html.trip-day .reward-stats strong,html.trip-day .reward-invite strong,html.trip-day .reward-history li b{color:#176b38}
 html.trip-day .reward-invite{border-bottom-color:#e2e8ef}
 @media(max-width:380px){.reward-stats{grid-template-columns:1fr 1fr}.reward-invite{gap:4px}}
+
+
+.points-use-panel{margin:12px 0;padding:12px 14px;border:1px solid #73975a55;border-radius:14px;background:#15251b}
+.points-use-panel label{display:flex;align-items:flex-start;gap:9px;flex-wrap:wrap;font-weight:800}
+.points-use-panel input{width:18px;height:18px;accent-color:#79b84c}
+.points-use-panel small{display:block;width:100%;margin-inline-start:27px;color:#a9bdab;font-size:11px;font-weight:500;line-height:1.7}
+.discount-explainer{font-size:12px;line-height:1.8;color:#9bd47c;background:#18301f;border-radius:10px;padding:9px 11px}
+.fare-line.discount strong{color:#8ed36d}
+html.trip-day .points-use-panel{background:#f0f8f0;border-color:#b9d8bc}
+html.trip-day .points-use-panel small{color:#55745a}
+html.trip-day .discount-explainer{background:#edf8ed;color:#236b36}
