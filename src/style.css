@@ -211,3 +211,21 @@ html.trip-day .share-negotiation{background:#f2f6f8}
 .captain-image-preview{margin:-5px 0 14px;min-height:0}
 .captain-image-preview:empty{display:none}
 .captain-image-preview img{display:block;width:100%;max-width:220px;max-height:180px;object-fit:cover;border-radius:12px;border:1px solid var(--line,#ddd)}
+
+
+/* Passenger trip booking: clean, focused and mobile-first */
+.trip-map-details{border:1px solid #34465d;border-radius:14px;padding:12px 14px;background:#101b2b}
+.trip-map-details summary{font-size:12px;font-weight:800;color:#c9f58f;cursor:pointer;list-style:none}
+.trip-map-details summary::-webkit-details-marker{display:none}
+.trip-map-details summary:after{content:"＋";float:left;color:#b7f36b}
+.trip-map-details[open] summary:after{content:"−"}
+.trip-map-details .map-helper{font-size:11px;color:#9aabc0;margin:9px 0}
+.trip-map-details .trip-map{margin-top:10px}
+.vehicle-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.vehicle-card{min-height:86px;padding:10px 5px;gap:4px;border-radius:14px}
+.vehicle-card .vehicle-icon{font-size:25px}
+.vehicle-card b{font-size:13px}
+.trip-success-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:50%;background:#b7f36b;color:#142018;font-size:24px;font-weight:900;margin-bottom:10px}
+.trip-result h3{color:#eaffd3}
+.trip-result .fare-line{margin-top:8px}
+@media(max-width:380px){.vehicle-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
