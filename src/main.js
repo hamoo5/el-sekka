@@ -1091,7 +1091,7 @@ async function captainApplicationStatusPage(knownApplicationId = null) {
     suspended:['تم إيقاف نشاط القيادة تلقائياً','يوجد مستند منتهي الصلاحية. ارفع النسخة المجددة بوجهيها وتاريخها الجديد لاستعادة النشاط.']
   };
   const details = labels[status];
-  layout(\`
+  layout(`
     <main class="wrap narrow">
       <section class="hero compact"><span class="tag">الانضمام للكباتن</span><h1>حالة مستنداتك</h1><p>يتابع النظام صلاحية المستندات تلقائياً.</p></section>
       <section class="panel">
@@ -1106,7 +1106,7 @@ async function captainApplicationStatusPage(knownApplicationId = null) {
           <button type="button" class="btn outline" id="statusHome">العودة للرئيسية</button>
         </div>
       </section>
-    </main>\`);
+    </main>`);
   document.getElementById('refreshApplicationStatus')?.addEventListener('click',()=>captainApplicationStatusPage(knownApplicationId));
   document.getElementById('renewCaptainDocuments')?.addEventListener('click',()=>{page='apply-captain';render();});
   document.getElementById('statusHome')?.addEventListener('click',async()=>{page='home';await loadProfile();});
@@ -1125,7 +1125,7 @@ async function applyCaptainPage() {
   const v=existing?.vehicle||{};
   const val=(x)=>esc(x??'');
   const selected=(x,y)=>x===y?' selected':'';
-  layout(\`
+  layout(`
     <main class="wrap narrow">
       <button type="button" class="back" id="back">→ الرئيسية</button>
       <section class="hero compact"><span class="tag">الانضمام للكباتن</span><h1>بيانات ومستندات الكابتن</h1><p>أدخل تواريخ الصلاحية وارفع وجه وظهر كل مستند. التفعيل والإيقاف والتنبيهات تتم تلقائياً.</p></section>
@@ -1171,7 +1171,7 @@ async function applyCaptainPage() {
         <button class="btn primary" type="submit">حفظ المستندات وتفعيل / تحديث الحساب</button>
         <p class="message" id="applyMessage" aria-live="polite"></p>
       </form>
-    </main>\`);
+    </main>`);
   document.getElementById('back')?.addEventListener('click',()=>{page='home';render();});
   const form=document.getElementById('captainApplyForm');
   const capacityByType={private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
@@ -1257,12 +1257,12 @@ function applicationError(error){
 }
 
 async function adminApplicationsPage(){
-  layout(\`
+  layout(`
     <main class="wrap narrow">
       <button type="button" class="back" id="back">→ الرئيسية</button>
       <section class="hero compact"><span class="tag">إدارة المنصة</span><h1>التشغيل التلقائي للكباتن</h1><p>تفعيل الكباتن ومتابعة صلاحية المستندات تتم آلياً حسب اكتمال الصور وتواريخ الانتهاء.</p></section>
       <section class="panel"><p>لا توجد مراجعة يدوية لطلبات الكباتن. النظام ينبه قبل انتهاء المستند بـ30 يوماً، ويوقف نشاط القيادة تلقائياً عند انتهاء أي مستند.</p><p class="muted">التحقق الآلي لا يثبت أصالة الصور أو صحة بيانات المستندات.</p></section>
-    </main>\`);
+    </main>`);
   document.getElementById('back')?.addEventListener('click',()=>{page='home';render();});
 }
 
