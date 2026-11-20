@@ -1844,10 +1844,14 @@ async function captainSubscriptionPanel() {
 async function captainDashboardPage() {
   const docs=await captainDocumentsPanel();
   const subscription=await captainSubscriptionPanel();
-  const {count:completedTripsCount,error:completedTripsCountError}=await supabase
-    .from('trip_requests').select('id',{count:'exact',head:true})
-    .eq('accepted_captain_id',profile.id).eq('request_status','completed');
-  const trialEligible=!completedTripsCountError&&(completedTripsCount||0)===0;
+  const [{count:completedTripsCount,error:completedTripsCountError},{data:captainApp,error:captainAppError}]=await Promise.all([
+    supabase.from('trip_requests').select('id',{count:'exact',head:true})
+      .eq('accepted_captain_id',profile.id).eq('request_status','completed'),
+    supabase.from('captain_applications').select('application_status')
+      .eq('user_id',profile.id).maybeSingle()
+  ]);
+  const trialEligible=!completedTripsCountError&&!captainAppError
+    && captainApp?.application_status==='approved'&&(completedTripsCount||0)===0;
   const [{data:vehicles, error:vehicleError},{data:requests,error:requestError},{data:activeTrips,error:activeTripError}]=await Promise.all([
     supabase.from('vehicles')
       .select('id,vehicle_type,make,model,color,plate_number,passenger_capacity,is_active')
@@ -1863,7 +1867,7 @@ async function captainDashboardPage() {
   ]);
   const availableVehicles=(vehicles||[]).filter(vehicle=>vehicle.is_active||trialEligible);
   const trialNotice=trialEligible
-    ? '<div class="notice">متاح لك مشوار تجريبي مجاني واحد قبل الاشتراك المدفوع، بشرط إكماله. بعد إكماله يلزم اشتراك نشط لقبول رحلات أخرى.</div>'
+    ? '<div class="notice">متاح لك قبول مشوار تجريبي واحد بدون اشتراك مدفوع. أجرة المشوار تظل محسوبة على الراكب، وبعد إكماله يلزم اشتراك نشط لقبول رحلات أخرى.</div>'
     : '';
   const activeTripCards=(activeTrips||[]).map(trip=>`<article class="fixed-trip-card active-captain-trip">
     <div class="fixed-trip-card-head"><b>${trip.request_status==='in_progress'?'رحلة جارية':'رحلة مقبولة'}</b><strong>${Number(trip.fixed_fare_egp||0).toLocaleString('ar-EG')} جنيه</strong></div>
