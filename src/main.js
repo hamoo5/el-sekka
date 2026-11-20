@@ -990,7 +990,7 @@ async function tripStatusPage(tripId){
       }).subscribe();
     activeTripChannels.push(locationChannel);
   }
-  if(trip.request_status==='accepted'||trip.request_status==='in_progress'||trip.request_status==='completed')await setupTripChat(trip.id,partnerName);
+  if(['accepted','in_progress','completed','cancelled'].includes(trip.request_status))await setupTripChat(trip.id,partnerName);
   const statusChannel=supabase.channel('trip-status-'+trip.id+'-'+profile.id)
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'trip_requests',filter:'id=eq.'+trip.id},()=>tripStatusPage(trip.id))
     .subscribe();
@@ -1845,7 +1845,7 @@ async function captainDashboardPage() {
             <div class="fixed-trip-card-head"><b>طلب مشوار جديد</b><strong>${Number(request.fixed_fare_egp||0).toLocaleString('ar-EG')} جنيه</strong></div>
             <p><b>من:</b> ${esc(request.origin_name)}</p>
             <p><b>إلى:</b> ${esc(request.destination_name)}</p>
-            <p><b>المركبة:</b> ${esc(request.vehicle_type)} · <b>الركاب:</b> ${esc(request.passenger_count)}</p>
+            <p><b>المركبة:</b> ${esc(({private_car:'ملاكي',taxi:'تاكسي',suzuki:'سوزوكي',microbus:'ميكروباص',scooter:'اسكوتر',motorcycle:'موتوسيكل'})[request.vehicle_type]||request.vehicle_type)} · <b>الركاب:</b> ${esc(request.passenger_count)}</p>
             ${request.is_scheduled?'<p><b>موعد محدد:</b> '+esc(request.scheduled_at?new Date(request.scheduled_at).toLocaleString('ar-EG'):'')+'</p>':'<p class="muted">مشوار فوري</p>'}
             ${request.pickup_note?'<p><b>ملاحظة الركوب:</b> '+esc(request.pickup_note)+'</p>':''}
             ${preferenceLabels.length?'<div class="fixed-trip-preferences">'+preferenceLabels.map(item=>'<span>'+item+'</span>').join('')+'</div>':'<small class="muted">لا توجد تفضيلات إضافية.</small>'}
@@ -1883,7 +1883,7 @@ async function captainDashboardPage() {
     if(error){
       const message=error.message||'تعذر قبول المشوار.';
       button.disabled=false;button.textContent='اقبل المشوار';
-      alert(message.includes('active_subscription_required')?'الاشتراك غير نشط. راجع قسم الاشتراك.':message.includes('request_not_available')||message.includes('request_already_taken')?'الطلب اتقبل بواسطة كابتن آخر أو لم يعد متاحًا.':message.includes('approved_active_vehicle_required')?'المركبة غير معتمدة أو غير نشطة.':'تعذر قبول الطلب. راجع بيانات المركبة والاشتراك.');
+      alert(message.includes('active_subscription_required')?'الاشتراك غير نشط. راجع قسم الاشتراك.':message.includes('request_not_available')||message.includes('request_already_taken')?'الطلب اتقبل بواسطة كابتن آخر أو لم يعد متاحًا.':message.includes('approved_active_vehicle_required')?'المركبة غير معتمدة أو غير نشطة.':message.includes('trip_requests_one_active_trip_per_captain_idx')?'عندك رحلة مقبولة أو جارية بالفعل. أنهِها أولاً قبل قبول رحلة جديدة.':'تعذر قبول الطلب. راجع بيانات المركبة والاشتراك.');
       return;
     }
     if(data===true){alert('تم قبول المشوار.');await captainDashboardPage();}
