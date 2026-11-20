@@ -98,21 +98,30 @@ function auth() {
       <section class="hero compact"><span class="tag">أهلاً بك في السكة</span><h1>حسابك على السكة</h1><p>سجّل الدخول أو أنشئ حساباً جديداً.</p></section>
       <form class="panel form" id="authForm">
         <label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email" placeholder="name@example.com"></label>
-        <label>كود دعوة (اختياري)<input name="referral_code" maxlength="10" value="${esc(new URLSearchParams(window.location.search).get('ref') || '')}" placeholder="SEKKA-XXXX" autocomplete="off"></label>
+        <label id="referralCodeField" hidden>كود دعوة (اختياري)<input name="referral_code" maxlength="10" value="${esc(new URLSearchParams(window.location.search).get('ref') || '')}" placeholder="SEKKA-XXXX" autocomplete="off"></label>
         <label>كلمة المرور<input name="password" type="password" minlength="6" required autocomplete="current-password" placeholder="••••••••"></label>
-        <button class="btn primary" type="submit">تسجيل الدخول</button>
-        <button class="btn outline" type="button" id="signup">إنشاء حساب جديد</button>
+        <button class="btn primary" type="submit" id="authSubmit">تسجيل الدخول</button>
+        <button class="btn outline" type="button" id="authModeToggle">إنشاء حساب جديد</button>
         <p id="msg" class="message"></p>
       </form>
     </main>`);
-  document.querySelector('#authForm').addEventListener('submit', async e => {
+  let signupMode = false;
+  const form = document.querySelector('#authForm');
+  const referralField = document.querySelector('#referralCodeField');
+  const submitButton = document.querySelector('#authSubmit');
+  const modeToggle = document.querySelector('#authModeToggle');
+  form.addEventListener('submit', async e => {
     e.preventDefault();
-    const d = new FormData(e.currentTarget);
-    await authAction('signin', d.get('email'), d.get('password'));
+    const d = new FormData(form);
+    await authAction(signupMode ? 'signup' : 'signin', d.get('email'), d.get('password'), signupMode ? d.get('referral_code') : '');
   });
-  document.querySelector('#signup').addEventListener('click', async () => {
-    const d = new FormData(document.querySelector('#authForm'));
-    await authAction('signup', d.get('email'), d.get('password'), d.get('referral_code'));
+  modeToggle.addEventListener('click', () => {
+    signupMode = !signupMode;
+    referralField.hidden = !signupMode;
+    submitButton.textContent = signupMode ? 'إنشاء الحساب' : 'تسجيل الدخول';
+    modeToggle.textContent = signupMode ? 'لديك حساب؟ تسجيل الدخول' : 'إنشاء حساب جديد';
+    form.querySelector('[name="password"]').autocomplete = signupMode ? 'new-password' : 'current-password';
+    document.querySelector('#msg').textContent = '';
   });
 }
 
