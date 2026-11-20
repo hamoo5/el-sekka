@@ -9,7 +9,7 @@ const app = document.querySelector('#app');
 let session = null;
 let profile = null;
 const PAGE_STORAGE_KEY = 'el-sekka-current-page';
-const VALID_PAGES = new Set(['home','trip','share','apply-captain','captain','admin','trip-status','track']);
+const VALID_PAGES = new Set(['home','trip','share','apply-captain','captain','admin','trip-status','track','rewards']);
 const urlTrackingToken = new URLSearchParams(window.location.search).get('token') || '';
 let publicTrackingToken = urlTrackingToken;
 try {
@@ -98,6 +98,7 @@ function auth() {
       <section class="hero compact"><span class="tag">أهلاً بك في السكة</span><h1>حسابك على السكة</h1><p>سجّل الدخول أو أنشئ حساباً جديداً.</p></section>
       <form class="panel form" id="authForm">
         <label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email" placeholder="name@example.com"></label>
+        <label>كود دعوة (اختياري)<input name="referral_code" maxlength="10" value="${esc(new URLSearchParams(window.location.search).get('ref') || '')}" placeholder="SEKKA-XXXX" autocomplete="off"></label>
         <label>كلمة المرور<input name="password" type="password" minlength="6" required autocomplete="current-password" placeholder="••••••••"></label>
         <button class="btn primary" type="submit">تسجيل الدخول</button>
         <button class="btn outline" type="button" id="signup">إنشاء حساب جديد</button>
@@ -111,15 +112,15 @@ function auth() {
   });
   document.querySelector('#signup').addEventListener('click', async () => {
     const d = new FormData(document.querySelector('#authForm'));
-    await authAction('signup', d.get('email'), d.get('password'));
+    await authAction('signup', d.get('email'), d.get('password'), d.get('referral_code'));
   });
 }
 
-async function authAction(mode, email, password) {
+async function authAction(mode, email, password, referralCode = '') {
   const msg = document.querySelector('#msg');
   msg.textContent = 'جارٍ التنفيذ...';
   const result = mode === 'signup'
-    ? await supabase.auth.signUp({ email, password })
+    ? await supabase.auth.signUp({ email, password, options: { data: { referral_code: String(referralCode || '').trim().toUpperCase() || null } } })
     : await supabase.auth.signInWithPassword({ email, password });
   if (result.error) { msg.textContent = result.error.message; return; }
   if (mode === 'signup' && !result.data.session) {
@@ -132,7 +133,7 @@ async function authAction(mode, email, password) {
 
 async function loadProfile() {
   const { data, error } = await supabase.from('profiles')
-    .select('id,display_name,role,is_blocked,is_vip')
+    .select('id,display_name,role,is_blocked,is_vip,referral_code,points,captain_reward_days_balance,captain_referral_progress')
     .eq('id', session.user.id).maybeSingle();
   if (error) console.error(error);
   profile = data;
@@ -168,6 +169,7 @@ async function home() {
         <div class="avatar">${esc((profile.display_name || 'س').slice(0,1))}</div>
       </section>
       <section class="cards">
+        <button class="service" data-page="rewards"><span>🎁</span><b>الدعوات والمكافآت</b><small>كودك ونقاطك وأيام الاشتراك المجانية</small><strong>افتح المكافآت ←</strong></button>
         <button class="service" data-page="trip"><span>🚕</span><b>مشوار عادي</b><small>السعر يحسبه النظام تلقائياً</small><strong>اطلب مشوار ←</strong></button>
         <button class="service" data-page="share"><span>🛣️</span><b>مشاركة السكة</b><small>احجز كرسي أو انشر طريقك</small><strong>اكتشف الرحلات ←</strong></button>
       </section>
@@ -2007,6 +2009,55 @@ function disposeLiveUi(){
   if(publicTrackingMap){try{publicTrackingMap.remove();}catch(_){}publicTrackingMap=null;publicTrackingMarker=null;}
   if(captainLocationWatchId!==null&&navigator.geolocation){navigator.geolocation.clearWatch(captainLocationWatchId);captainLocationWatchId=null;}
 }
+
+async function rewardsPage() {
+  const [{data:profileRow,error:profileError},{data:invites,error:invitesError},{data:myReferral,error:myReferralError},{data:pointsRows},{data:rewardRows}] = await Promise.all([
+    supabase.from('profiles').select('referral_code,points,captain_reward_days_balance,captain_referral_progress,role').eq('id',profile.id).single(),
+    supabase.from('referrals').select('id,referred_id,referred_role,status,captain_progress,created_at').eq('referrer_id',profile.id).order('created_at',{ascending:false}).limit(50),
+    supabase.from('referrals').select('id,referrer_id,referrer_role,referred_role,status,captain_progress,created_at').eq('referred_id',profile.id).maybeSingle(),
+    supabase.from('points_ledger').select('points_delta,reason,created_at').eq('user_id',profile.id).order('created_at',{ascending:false}).limit(20),
+    supabase.from('rewards_ledger').select('reward_type,quantity,description,created_at').eq('beneficiary_id',profile.id).order('created_at',{ascending:false}).limit(20)
+  ]);
+  const row=profileRow||profile;
+  const inviteUrl=window.location.origin+'/?ref='+encodeURIComponent(row.referral_code||'');
+  const inviteList=(invites||[]).map((r,i)=>'<article class="reward-invite"><b>دعوة رقم '+(i+1)+'</b><small>'+new Date(r.created_at).toLocaleDateString('ar-EG')+'</small><span>'+(r.referred_role==='captain'?'كابتن':'راكب')+'</span><strong>'+(r.status==='completed'?'مكتملة':r.referred_role==='captain'?'التقدم '+Number(r.captain_progress||0)+'/5':'في انتظار أول رحلة مكتملة')+'</strong></article>').join('');
+  const myProgress=myReferral
+    ? '<div class="notice">تم تسجيل كود دعوة من '+(myReferral.referrer_role==='captain'?'كابتن':'راكب')+' · '+(myReferral.referred_role==='captain'?'تقدمك '+Number(myReferral.captain_progress||0)+'/5 رحلات':'خصم الدعوة متاح لأول 3 رحلات مؤهلة')+'</div>'
+    : '';
+  const pointsHistory=(pointsRows||[]).map(x=>'<li><b>'+(x.points_delta>0?'+':'')+x.points_delta+' نقطة</b><small>'+esc(x.reason)+' · '+new Date(x.created_at).toLocaleDateString('ar-EG')+'</small></li>').join('');
+  const rewardHistory=(rewardRows||[]).map(x=>'<li><b>'+(x.reward_type==='free_days'?x.quantity+' يوم مجاني':x.quantity+' نقطة')+'</b><small>'+esc(x.description)+' · '+new Date(x.created_at).toLocaleDateString('ar-EG')+'</small></li>').join('');
+  layout(`
+    <main class="wrap narrow">
+      <button class="back" id="backRewards">← الرئيسية</button>
+      <section class="hero compact"><span class="tag">SEKKA REWARDS</span><h1>الدعوات والمكافآت 🎁</h1><p>ادعُ أصحابك واجمع النقاط وأيام الاشتراك المجانية.</p></section>
+      ${profileError||invitesError||myReferralError?'<section class="panel"><p class="message">تعذر تحميل بعض بيانات المكافآت. حاول مرة أخرى.</p></section>':''}
+      ${myProgress}
+      <section class="panel referral-code-panel">
+        <h2>كود دعوتك الموحد</h2><div class="referral-code-value">${esc(row.referral_code||'—')}</div>
+        <p class="muted">الكود صالح لدعوة راكب أو كابتن.</p>
+        <button class="btn primary" id="copyReferralCode">نسخ كود الدعوة</button>
+        <button class="btn outline" id="shareReferralLink">مشاركة رابط الدعوة</button>
+      </section>
+      <section class="reward-stats">
+        <article class="panel"><small>نقاطك</small><strong>${Number(row.points||0)}</strong></article>
+        <article class="panel"><small>أيام مجانية معلّقة</small><strong>${Number(row.captain_reward_days_balance||0)}</strong></article>
+        ${row.role==='captain'?'<article class="panel"><small>تقدم دعوة الكابتن</small><strong>'+Number(row.captain_referral_progress||0)+'/5</strong></article>':''}
+      </section>
+      <section class="panel"><h2>الأشخاص الذين دعوتهم</h2>${inviteList||'<p class="muted">لم تسجل دعوات حتى الآن. شارك كودك مع أصدقائك.</p>'}</section>
+      <section class="panel"><h2>سجل المكافآت</h2><ul class="reward-history">${rewardHistory||'<li class="muted">لا توجد مكافآت مسجلة حتى الآن.</li>'}</ul></section>
+      <section class="panel"><h2>حركة النقاط</h2><ul class="reward-history">${pointsHistory||'<li class="muted">لا توجد حركة نقاط حتى الآن.</li>'}</ul><p class="muted">كل 100 نقطة تمنح خصمًا على رحلة واحدة وفق قواعد الخصم المعتمدة.</p></section>
+    </main>`);
+  document.getElementById('backRewards')?.addEventListener('click',()=>{page='home';render();});
+  document.getElementById('copyReferralCode')?.addEventListener('click',async()=>{
+    try{await navigator.clipboard.writeText(row.referral_code);document.getElementById('copyReferralCode').textContent='تم النسخ ✓';}
+    catch(_){window.prompt('انسخ كود الدعوة:',row.referral_code);}
+  });
+  document.getElementById('shareReferralLink')?.addEventListener('click',async()=>{
+    if(navigator.share){try{await navigator.share({title:'انضم إلى السكة',text:'سجل في السكة باستخدام كود دعوتي',url:inviteUrl});}catch(_){}}
+    else {try{await navigator.clipboard.writeText(inviteUrl);document.getElementById('shareReferralLink').textContent='تم نسخ الرابط ✓';}catch(_){window.prompt('انسخ رابط الدعوة:',inviteUrl);}}
+  });
+}
+
 function render() {
   disposeLiveUi();
   try {
@@ -2018,6 +2069,7 @@ function render() {
   if (!session) return auth();
   if (page === 'trip-status') return tripStatusPage(currentTripId);
   if (page === 'home') return home();
+  if (page === 'rewards') return rewardsPage();
   if (page === 'trip') return tripForm();
   if (page === 'share') return shareHome();
   if (page === 'apply-captain') return applyCaptainPage();
