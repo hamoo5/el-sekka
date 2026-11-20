@@ -2124,7 +2124,6 @@ async function profilePage(){
       ${profile.role==='admin'?'<button class="profile-action" id="openAdminProfile"><span>⚙️</span><b>إدارة المنصة</b><small>طلبات الكباتن والاشتراكات</small></button>':''}
     </section>
     <section class="panel profile-section theme-preference-panel"><h2>مظهر التطبيق</h2><p class="muted">اختار التبديل التلقائي حسب وقت هاتفك أو ثبّت الوضع اللي يناسبك.</p><div class="theme-mode-options"><button type="button" data-theme-mode="auto">تلقائي ☀️🌙</button><button type="button" data-theme-mode="day">نهاري ☀️</button><button type="button" data-theme-mode="night">ليلي 🌙</button></div></section>
-     ${profile.account_type==='rider'?'<section class="panel profile-section"><h2>الدعوات والمكافآت</h2><p class="muted">نقاطك وخصوماتك وأيام المكافأة.</p><button class="btn outline" id="openRewardsFromProfile">🎁 افتح الدعوات والمكافآت</button></section>':''}
      <section class="panel profile-section"><h2>الأمان والخصوصية</h2><p class="muted">التواصل بين أطراف الرحلة يتم داخل التطبيق. أرقام الهواتف لا تظهر للطرف الآخر.</p><button class="btn outline" id="profileLogout">تسجيل الخروج</button></section>
   </main>`);
   document.querySelectorAll('[data-theme-mode]').forEach(button=>button.addEventListener('click',()=>{try{localStorage.setItem(APP_THEME_KEY,button.dataset.themeMode);}catch(_){}applyAppTheme();document.querySelectorAll('[data-theme-mode]').forEach(x=>x.classList.toggle('active',x===button));}));
