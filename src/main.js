@@ -1066,7 +1066,7 @@ async function applyCaptainPage() {
         <label>آخر 4 أرقام من الرقم القومي<input name="national_id_last4" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" minlength="4" required value="${esc(existing?.national_id_last4||'')}" placeholder="1234"></label>
         <label>رقم رخصة القيادة<input name="license_number" maxlength="80" required value="${esc(existing?.license_number||'')}" placeholder="رقم الرخصة"></label>
         <label>تاريخ انتهاء الرخصة<input name="license_expiry" type="date" required value="${esc(existing?.license_expiry||'')}"></label>
-        <label>الصورة الشخصية<input name="profile_photo" type="file" accept="image/*" capture="user" required></label>
+        <label>الصورة الشخصية<input name="profile_photo" type="file" accept="image/*" required></label>
         <div class="notice">اختر صورة واضحة لوجهك، بدون مستندات أو بيانات شخصية ظاهرة في الخلفية.</div>
         <hr>
         <h3>ثانياً: بيانات المركبة</h3>
@@ -1086,9 +1086,9 @@ async function applyCaptainPage() {
         <label class="checkline"><input name="no_smoking" type="checkbox" checked> ممنوع التدخين داخل المركبة</label>
         <label class="checkline"><input name="pets_allowed" type="checkbox"> يسمح باصطحاب الحيوانات الأليفة</label>
         <h3>ثالثاً: صور المركبة</h3>
-        <label>صورة أمامية واضحة<input name="vehicle_front" type="file" accept="image/*" capture="environment" required></label>
-        <label>صورة جانبية واضحة<input name="vehicle_side" type="file" accept="image/*" capture="environment" required></label>
-        <label>صورة خلفية واضحة<input name="vehicle_rear" type="file" accept="image/*" capture="environment" required></label>
+        <label>صورة أمامية واضحة<input name="vehicle_front" type="file" accept="image/*" required></label>
+        <label>صورة جانبية واضحة<input name="vehicle_side" type="file" accept="image/*" required></label>
+        <label>صورة خلفية واضحة<input name="vehicle_rear" type="file" accept="image/*" required></label>
         <div class="notice">ارفع صور المركبة فقط. صور الرخص والمستندات الرسمية ستُطلب في خطوة تحقق منفصلة وآمنة، ولا تظهر للراكب.</div>
         <div class="notice">لا يتم تفعيل حساب الكابتن أو المركبة إلا بعد مراجعة الإدارة واعتمادهما.</div>
         <button class="btn primary" type="submit">إرسال طلب الانضمام</button>
