@@ -192,7 +192,7 @@ begin
   if nullif(btrim(p_proof_path), '') is null then
     raise exception 'payment_proof_required';
   end if;
-  if (storage.foldername(btrim(p_proof_path)))[1] <> v_id::text
+  if coalesce((storage.foldername(btrim(p_proof_path)))[1],'') <> v_id::text
      or not exists (
        select 1 from storage.objects o
        where o.bucket_id='captain-payment-proofs' and o.name=btrim(p_proof_path)
