@@ -624,15 +624,29 @@ function tripForm() {
         throw new Error('تعذر تحميل مكتبة الخريطة. تحقق من الاتصال ثم أعد تحميل الصفحة.');
       }
       map = window.L.map(mapElement,{zoomControl:true,preferCanvas:true}).setView([30.0444,31.2357],11);
-      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      const lightTiles=window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
         maxZoom:19,
         attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>',
         crossOrigin:true
-      }).addTo(map);
+      });
+      const darkTiles=window.L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+        subdomains:'abcd',maxZoom:20,
+        attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>',
+        crossOrigin:true
+      });
+      let activeTiles=null;
+      const syncBaseTiles=()=>{
+        const desired=document.documentElement.classList.contains('trip-night')?darkTiles:lightTiles;
+        if(activeTiles===desired)return;
+        if(activeTiles&&map.hasLayer(activeTiles))map.removeLayer(activeTiles);
+        activeTiles=desired;
+        activeTiles.addTo(map);
+      };
+      syncBaseTiles();
       // Restore any addresses selected while Leaflet was loading.
       if (origin) setPoint('origin',origin.lat,origin.lng,origin.name,true).catch(error => statusHint(error.message || 'تعذر إظهار مكان الركوب.'));
       if (destination) setPoint('destination',destination.lat,destination.lng,destination.name,true).catch(error => statusHint(error.message || 'تعذر إظهار الوجهة.'));
-      const applyMapTheme=()=>{applyAppTheme();const day=document.documentElement.classList.contains('trip-day');mapElement.classList.toggle('trip-map-day',day);mapElement.classList.toggle('trip-map-night',!day);};
+      const applyMapTheme=()=>{applyAppTheme();const day=document.documentElement.classList.contains('trip-day');mapElement.classList.toggle('trip-map-day',day);mapElement.classList.toggle('trip-map-night',!day);syncBaseTiles();};
       applyMapTheme();
       if(appThemeTimer)clearInterval(appThemeTimer);appThemeTimer=window.setInterval(applyMapTheme,60_000);
       if(!origin&&navigator.geolocation){navigator.geolocation.getCurrentPosition(pos=>{if(!origin)setPoint('origin',pos.coords.latitude,pos.coords.longitude,null,true).catch(()=>{});},()=>{}, {enableHighAccuracy:false,timeout:8000,maximumAge:120000});}
