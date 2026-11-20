@@ -859,3 +859,83 @@ body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-card{flex:0 0 au
  body[data-page="trip-options"] .passenger-map-stage{flex-basis:34dvh;height:34dvh;max-height:34dvh}
  body[data-page="trip-options"] .passenger-bottom-sheet{padding-inline:11px!important}
 }
+
+
+/* Global responsive foundation: small, medium and large mobile screens */
+html,body{
+  width:100%;max-width:100%;min-width:0;overflow-x:hidden;
+  overscroll-behavior-x:none;
+}
+html{min-height:100%;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{
+  min-height:100dvh;height:auto;
+  padding-bottom:calc(82px + env(safe-area-inset-bottom));
+}
+#app{
+  width:100%;max-width:100%;min-width:0;
+  min-height:100dvh;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+img,video,canvas,svg,iframe{max-width:100%}
+button,input,select,textarea{max-width:100%;min-width:0}
+.wrap{width:min(100% - clamp(1rem,4vw,2rem),62.5rem)}
+.panel,.service,.role-choice-card,.trip-history-card{min-width:0}
+.panel{padding:clamp(.75rem,3.5vw,1.45rem)}
+.hero h1,.welcome h1{font-size:clamp(1.45rem,5.8vw,2.75rem)}
+.btn,.trip-submit-button{font-size:clamp(.82rem,3.5vw,1rem)}
+.app-bottom-nav{
+  padding-bottom:calc(8px + env(safe-area-inset-bottom));
+}
+body[data-page="trip-options"]{
+  width:100%;max-width:100%;height:100dvh;min-height:100dvh;
+  overflow:hidden;padding:0;
+}
+body[data-page="trip-options"] #app{
+  width:100%;max-width:100%;height:100dvh;min-height:0;
+  overflow:hidden;padding:0!important;
+}
+body[data-page="trip-options"] .passenger-map-first{
+  width:100%;max-width:100%;height:100dvh;min-height:0;max-height:100dvh;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+body[data-page="trip-options"] .passenger-map-stage{
+  flex:1 1 0;height:auto;min-height:clamp(10rem,27dvh,18rem);max-height:none;
+  width:100%;min-width:0;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet{
+  flex:1 1 0;min-height:0;max-height:none;width:100%;min-width:0;
+  padding-bottom:0!important;
+}
+body[data-page="trip-options"] .trip-options-scroll{
+  flex:1 1 0;min-height:0;overflow-x:hidden;overflow-y:auto;
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+}
+body[data-page="trip-options"] .trip-options-action-bar{
+  flex:0 0 auto;min-width:0;
+  padding-bottom:calc(7px + env(safe-area-inset-bottom));
+}
+body[data-page="trip-options"] .trip-step-back,
+body[data-page="trip-options"] .trip-submit-button{max-width:100%;white-space:normal}
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-grid{
+  display:flex;flex-direction:column;gap:clamp(.35rem,1.5vw,.55rem);
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-card{
+  width:100%;min-height:clamp(4.25rem,10dvh,5.75rem);
+  padding:clamp(.45rem,2vw,.7rem);
+}
+body[data-page="trip-options"] .trip-options-heading,
+body[data-page="trip-options"] .trip-options-heading b{color:#fff!important}
+@media(max-width:380px){
+  .wrap{width:calc(100% - 1.25rem)}
+  .panel{padding:.75rem}
+  .app-bottom-nav button small{font-size:clamp(.55rem,2.5vw,.65rem)}
+  body[data-page="trip-options"] .passenger-bottom-sheet{padding-inline:.65rem!important}
+  body[data-page="trip-options"] .trip-options-action-bar{padding-inline:0}
+}
+@media(min-width:430px){
+  .wrap{width:min(100% - 2rem,62.5rem)}
+  body[data-page="trip-options"] .passenger-bottom-sheet{padding-inline:1rem!important}
+}
+@media(min-width:600px){
+  body[data-page="trip-options"] .passenger-map-first{max-width:48rem;margin-inline:auto}
+}
