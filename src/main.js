@@ -27,6 +27,7 @@ let publicTrackingMap = null;
 let publicTrackingMarker = null;
 let captainLocationWatchId = null;
 let preserveCaptainSubscriptionPanel = true;
+let appThemeTimer = null;
 let selectedAuthRole = (()=>{try{return sessionStorage.getItem('el-sekka-auth-role')||'';}catch(_){return '';}})();
 let page = (() => {
   try {
@@ -336,6 +337,7 @@ function tripForm() {
           </div>
           <input type="hidden" name="vehicle_type" id="vehicleType" value="private_car">
         </fieldset>
+        <details class="trip-extra-options"><summary>تفاصيل إضافية للرحلة</summary>
         <fieldset class="passenger-count-field" id="passengerCountField">
           <legend>عدد الركاب</legend>
           <div class="passenger-count-options">
@@ -365,6 +367,7 @@ function tripForm() {
           <input type="datetime-local" id="scheduledAt">
         </label>
         <section class="points-use-panel"><label><input type="checkbox" id="usePoints" ${Number(profile.points||0)>=100?'':'disabled'}> اسمح باستخدام 100 نقطة إذا لم يتوفر خصم الدعوة <small>رصيدك الحالي: ${Number(profile.points||0)} نقطة · الخصم لا يجتمع مع خصم الدعوة، والنظام يختار الأفضل تلقائيًا.</small></label></section><div class="notice">إذا كان حسابك مدعوًا، يُطبّق خصم الدعوة تلقائيًا لأول 3 رحلات مؤهلة (15% بحد أقصى 15 جنيهًا).</div>
+        </details>
         <section class="trip-summary" id="tripSummary"><div><small>المسافة</small><b id="summaryDistance">—</b></div><div><small>الوقت المتوقع</small><b id="summaryDuration">—</b></div><div><small>السعر النهائي</small><b id="summaryFare">—</b></div></section>
         <div class="notice" id="pricingNotice" hidden></div>
         <button class="btn primary trip-submit-button" type="submit" id="sendTrip">
@@ -442,7 +445,7 @@ function tripForm() {
     if(!parts.includes(value))parts.push(value);
     note.value=parts.join('، ').slice(0,160);button.classList.add('selected');
   }));
-  $('back').addEventListener('click', () => { page = 'home'; render(); });
+  $('back')?.addEventListener('click', () => { page = 'home'; render(); });
   $('sharedRideMode').addEventListener('click',()=>{page='share';render();});
   $('normalRideMode').addEventListener('click',()=>{$('normalRideMode').classList.add('active');$('sharedRideMode').classList.remove('active');});
 
@@ -630,7 +633,7 @@ function tripForm() {
       if (destination) setPoint('destination',destination.lat,destination.lng,destination.name,true).catch(error => statusHint(error.message || 'تعذر إظهار الوجهة.'));
       const applyMapTheme=()=>{applyAppTheme();const day=document.documentElement.classList.contains('trip-day');mapElement.classList.toggle('trip-map-day',day);mapElement.classList.toggle('trip-map-night',!day);};
       applyMapTheme();
-      const themeTimer=window.setInterval(applyMapTheme,60_000);activeUiTimers.push(themeTimer);
+      if(appThemeTimer)clearInterval(appThemeTimer);appThemeTimer=window.setInterval(applyMapTheme,60_000);
       map.on('click',event => {
         try { setPoint(activePoint,event.latlng.lat,event.latlng.lng).catch(error => statusHint(error.message || 'تعذر تحديد النقطة.')); }
         catch(error) { statusHint(error.message || 'تعذر تحديد النقطة.'); }
@@ -1051,6 +1054,7 @@ async function publicTrackingPage(token){
       status.textContent='انتهت صلاحية رابط المتابعة أو انتهت الرحلة.';
       details.hidden=true;mapBox.hidden=true;
       if(publicTrackingTimer){clearInterval(publicTrackingTimer);publicTrackingTimer=null;}
+  if(appThemeTimer){clearInterval(appThemeTimer);appThemeTimer=null;}
       return;
     }
     status.textContent=data.status==='in_progress'?'الرحلة جارية الآن':'تم قبول الرحلة والكابتن في الطريق';
