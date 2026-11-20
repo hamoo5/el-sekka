@@ -559,12 +559,6 @@ function shareHome() {
       </section>
       ${isCaptain ? `
       <section class="panel">
-        <h2>طلبات مشاركة متاحة على الطريق</h2>
-        <p class="muted">تظهر هنا طلبات الركاب والكباتن الذين يستخدمون الخدمة كطالبي مقاعد.</p>
-        <div id="shareOpenRequests" class="share-list">جارٍ تحميل الطلبات...</div>
-      </section>` : `
-      ${isCaptain ? `
-      <section class="panel">
         <h2>انشر كراسي متاحة بمركبتك</h2>
         <p class="muted">هذا العرض ينشره الكابتن فقط بمركبة معتمدة ونشطة، ويحدد سعر الكرسي.</p>
         <form id="captainSeatOfferForm" class="form">
@@ -578,6 +572,11 @@ function shareHome() {
           <button class="btn primary" type="submit">نشر عرض الكراسي</button>
           <p id="seatOfferMessage" class="message" aria-live="polite"></p>
         </form>
+      </section>
+      <section class="panel">
+        <h2>طلبات مشاركة متاحة على الطريق</h2>
+        <p class="muted">طلبات الركاب والكباتن الذين يستخدمون الخدمة كطالبي مقاعد.</p>
+        <div id="shareOpenRequests" class="share-list">جارٍ تحميل الطلبات...</div>
       </section>` : ''}
       <section class="panel">
         <h2>عروض الكراسي المتاحة</h2>
@@ -585,15 +584,9 @@ function shareHome() {
         <div id="shareAvailableRides" class="share-list">جارٍ تحميل العروض...</div>
       </section>
       <section class="panel">
-        <h2>الردود على طلبات المشاركة</h2>
-        <p class="muted">عندما يرد كابتن معتمد على طلبك سيظهر عرضه هنا.</p>
+        <h2>طلباتي وردود الكباتن</h2>
         <div id="shareMyRequests" class="share-list">جارٍ تحميل طلباتك...</div>
-      </section>`}
-      ${isCaptain ? `
-      <section class="panel">
-        <h2>طلباتي كمستخدم للطريق</h2>
-        <div id="shareMyRequests" class="share-list">جارٍ تحميل طلباتك...</div>
-      </section>` : ''}
+      </section>
     </main>`);
   const $ = id => document.getElementById(id);
   $('back').addEventListener('click',()=>{page='home';render();});
