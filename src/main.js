@@ -332,7 +332,7 @@ function riderSearchPage(){
 }
 
 function tripForm() {
-  const types = [['private_car','🚘','ملاكي','حتى 3 ركاب'],['taxi','🚕','تاكسي','حتى 4 ركاب'],['suzuki','🚐','سوزوكي','حتى 6 ركاب'],['microbus','🚍','ميكروباص','حتى 13 راكب'],['scooter','🛵','اسكوتر','راكب واحد'],['motorcycle','🏍️','دراجة نارية','راكب واحد']];
+  const types = [['private_car','🚘','ملاكي','حتى 3 ركاب'],['taxi','🚕','تاكسي','حتى 4 ركاب'],['scooter','🛵','اسكوتر','راكب واحد'],['motorcycle','🏍️','موتوسيكل','راكب واحد']];
   layout(`
     <main class="passenger-map-first"><section class="passenger-map-stage"><div id="tripMap" class="trip-map" role="application" aria-label="خريطة تحديد مكان الركوب والوجهة"></div><div class="map-floating-status" id="mapHint">حدد مكان الركوب والوجهة لعرض المسار</div><button type="button" class="map-locate-button" id="useLocation" aria-label="تحديد موقعي الحالي">◎</button></section>
       <form class="panel form trip-panel passenger-bottom-sheet" id="tripForm"><div class="bottom-sheet-handle"></div><div class="trip-options-scroll"><div class="trip-options-heading"><b>اختار المركبة المناسبة</b><small id="selectedRouteNames"></small></div>
@@ -521,7 +521,7 @@ function tripForm() {
     });
   };
 
-  const vehicleCapacities={private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
+  const vehicleCapacities={private_car:3,taxi:4,scooter:1,motorcycle:1};
   let currentPassengerMax=3, selectedPassengerCount=Math.max(1,Number(rememberedTrip?.passenger_count)||1);
   const updatePassengerCountUI=()=>{
     $('passengerCount').value=String(selectedPassengerCount);
@@ -552,7 +552,7 @@ function tripForm() {
     updatePassengerCountUI();updateFarePreview();
   };
   document.querySelectorAll('.vehicle-card').forEach(card=>card.addEventListener('click',()=>setVehicle(card.dataset.vehicle)));
-  setVehicle(rememberedTrip?.vehicle_type||'private_car');
+  setVehicle(['private_car','taxi','scooter','motorcycle'].includes(rememberedTrip?.vehicle_type)?rememberedTrip.vehicle_type:'private_car');
 
   const fitPoints = () => {
     if (!map) return;
@@ -1117,10 +1117,8 @@ async function publicTrackingPage(token){
 
 function shareHome() {
   const isCaptain = profile?.role === 'captain';
-  const types = [
-    ['private_car','ملاكي'],['taxi','تاكسي'],['suzuki','سوزوكي'],
-    ['microbus','ميكروباص'],['scooter','اسكوتر'],['motorcycle','موتوسيكل']
-  ];
+  const sharedVehicleTypes=['private_car','suzuki','microbus'];
+  const types = [['private_car','ملاكي'],['suzuki','سوزوكي'],['microbus','ميكروباص']];
   layout(`
     <main class="wrap narrow">
       <button type="button" class="back" id="back">→ الرئيسية</button>
@@ -1158,6 +1156,7 @@ function shareHome() {
           <label>السعر المبدئي للكرسي (جنيه)<input id="sharePrice" type="number" min="0" step="0.5" required placeholder="اكتب السعر الذي تقترحه"></label>
           <label>نوع المركبة المفضل (اختياري)
             <select id="shareVehicle"><option value="">أي مركبة مناسبة</option>${types.map(([v,n])=>`<option value="${v}">${n}</option>`).join('')}</select>
+            <small class="muted">المشاركة وحجز الكراسي متاحون بملاكي أو سوزوكي أو ميكروباص فقط.</small>
           </label>
           <button class="btn primary" type="submit">نشر طلب المشاركة</button>
           <p id="shareCreateMessage" class="message" aria-live="polite"></p>
@@ -1300,7 +1299,7 @@ function shareHome() {
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initializeShareMap,{once:true});
   else window.requestAnimationFrame(initializeShareMap);
-  const shareVehicleCapacity = {private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
+  const shareVehicleCapacity = {private_car:3,suzuki:6,microbus:13};
   const updateShareVehicleOptions = () => {
     const select = $('shareVehicle');
     const seats = Math.max(1, Number.parseInt($('shareSeats').value, 10) || 1);
@@ -1424,6 +1423,7 @@ function shareHome() {
         .eq('request_status','open').neq('requester_id',profile.id).order('departure_at',{ascending:true}).limit(40),
       supabase.from('vehicles').select('id,vehicle_type,make,model,passenger_capacity')
         .eq('captain_id',profile.id).eq('approval_status','approved').eq('is_active',true)
+        .in('vehicle_type',sharedVehicleTypes)
     ]);
     if(error){host.textContent='تعذر تحميل الطلبات. تأكد من تنفيذ تحديث قاعدة البيانات أولاً.';return;}
     if(!requests?.length){host.innerHTML='<p class="muted">لا توجد طلبات مشاركة متاحة حالياً.</p>';return;}
@@ -1547,8 +1547,9 @@ function shareHome() {
     const select=$('seatOfferVehicle'); if(!select)return;
     const {data,error}=await supabase.from('vehicles')
       .select('id,vehicle_type,make,model,passenger_capacity')
-      .eq('captain_id',profile.id).eq('approval_status','approved').eq('is_active',true);
-    if(error||!data?.length){select.innerHTML='<option value="">لا توجد مركبات معتمدة ونشطة</option>';return;}
+      .eq('captain_id',profile.id).eq('approval_status','approved').eq('is_active',true)
+      .in('vehicle_type',sharedVehicleTypes);
+    if(error||!data?.length){select.innerHTML='<option value="">لا توجد مركبات مشاركة معتمدة ونشطة (ملاكي/سوزوكي/ميكروباص)</option>';return;}
     select.innerHTML=data.map(v=>`<option value="${v.id}">${esc([v.make,v.model].filter(Boolean).join(' ')||v.vehicle_type)} · ${v.passenger_capacity} مقعد</option>`).join('');
     $('seatOfferSeats').max=String(Math.max(...data.map(v=>v.passenger_capacity)));
   }
@@ -1581,11 +1582,17 @@ function shareHome() {
 
   async function loadAvailableRides(){
     const host=$('shareAvailableRides');if(!host)return;
-    let q=supabase.from('rides').select('id,captain_id,ride_mode,origin_name,destination_name,departure_at,available_seats,seat_price_egp')
+    let q=supabase.from('rides').select('id,captain_id,vehicle_id,ride_mode,origin_name,destination_name,departure_at,available_seats,seat_price_egp')
       .eq('ride_status','open').order('departure_at',{ascending:true}).limit(40);
     const {data,error}=await q;
     if(error){host.textContent='تعذر تحميل عروض الكراسي.';return;}
-    const rides=(data||[]).filter(r=>r.captain_id!==profile.id);
+    const vehicleIds=[...new Set((data||[]).map(r=>r.vehicle_id).filter(Boolean))];
+    const {data:eligibleVehicles,error:vehicleError}=vehicleIds.length
+      ?await supabase.from('vehicles').select('id').in('id',vehicleIds).in('vehicle_type',sharedVehicleTypes).eq('approval_status','approved').eq('is_active',true)
+      :{data:[],error:null};
+    if(vehicleError){host.textContent='تعذر التحقق من أنواع المركبات المتاحة.';return;}
+    const eligibleVehicleIds=new Set((eligibleVehicles||[]).map(v=>v.id));
+    const rides=(data||[]).filter(r=>r.captain_id!==profile.id&&eligibleVehicleIds.has(r.vehicle_id));
     if(!rides.length){host.innerHTML='<p class="muted">لا توجد عروض كراسي متاحة حالياً.</p>';return;}
     host.innerHTML=rides.map(r=>`<article class="share-item">
       <b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b>
