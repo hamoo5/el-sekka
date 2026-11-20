@@ -810,3 +810,52 @@ body[data-page="trip-options"] .passenger-bottom-sheet .map-first-saving-note{
 }
 body[data-page="trip-options"] .passenger-bottom-sheet .trip-submit-button{order:6}
 body[data-page="trip-options"] .passenger-bottom-sheet #tripMessage{order:7}
+
+/* Mobile vehicle step: true viewport layout with independent scroll and bottom action bar */
+body[data-page="trip-options"]{height:100dvh;min-height:100dvh;overflow:hidden}
+body[data-page="trip-options"] #app{height:100dvh;min-height:0;padding:0!important;margin:0;overflow:hidden;box-sizing:border-box}
+body[data-page="trip-options"] .passenger-map-first{
+ height:100dvh;min-height:100dvh;max-height:100dvh;display:flex;flex-direction:column;
+ overflow:hidden;gap:0;padding:0;margin:0;box-sizing:border-box;
+}
+body[data-page="trip-options"] .passenger-map-stage{
+ flex:0 0 36dvh;height:36dvh;min-height:150px;max-height:40dvh;position:relative;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet{
+ flex:1 1 0;min-height:0;height:auto;max-height:none;display:flex;flex-direction:column;
+ overflow:hidden;padding:8px 14px 0!important;margin:0;border-radius:20px 20px 0 0;
+ box-sizing:border-box;gap:0;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .bottom-sheet-handle{flex:0 0 auto}
+body[data-page="trip-options"] .trip-options-heading{flex:0 0 auto;color:#111827;padding:3px 2px 7px}
+html.trip-night body[data-page="trip-options"] .trip-options-heading,
+html.trip-night body[data-page="trip-options"] .trip-options-heading b{color:#fff!important}
+body[data-page="trip-options"] .trip-step-back{position:relative;z-index:5;flex:0 0 auto;align-self:flex-start;pointer-events:auto;margin:0 0 5px}
+body[data-page="trip-options"] .trip-options-scroll{
+ flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+ -webkit-overflow-scrolling:touch;padding:0 0 8px;
+}
+body[data-page="trip-options"] .trip-options-action-bar{
+ position:relative;z-index:6;display:flex;flex:0 0 auto;flex-direction:column;
+ gap:3px;padding:7px 0 calc(7px + env(safe-area-inset-bottom));
+ background:var(--surface,#fff);border-top:1px solid var(--line,#dce4e9);
+}
+html.trip-night body[data-page="trip-options"] .trip-options-action-bar{
+ background:#152233;border-color:#35495e;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .trip-submit-button{
+ position:static!important;inset:auto!important;order:initial!important;flex:0 0 auto;
+ width:100%;min-height:54px;margin:0;box-shadow:none;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .map-first-saving-note{
+ order:initial!important;flex:0 0 auto;text-align:center;margin:3px 0 0;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet #tripMessage,
+body[data-page="trip-options"] .passenger-bottom-sheet #tripResult{order:initial!important}
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-field{margin-bottom:8px}
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-grid{display:flex;flex-direction:column;gap:7px}
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-card{flex:0 0 auto}
+@media(max-width:480px){
+ body[data-page="trip-options"] .passenger-map-stage{flex-basis:34dvh;height:34dvh;max-height:34dvh}
+ body[data-page="trip-options"] .passenger-bottom-sheet{padding-inline:11px!important}
+}
