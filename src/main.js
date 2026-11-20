@@ -30,7 +30,7 @@ let page = (() => {
   try {
     const saved = sessionStorage.getItem(PAGE_STORAGE_KEY);
     if (window.location.pathname === '/track' && publicTrackingToken) return 'track';
-    return VALID_PAGES.has(saved) ? saved : 'home';
+    return VALID_PAGES.has(saved) && saved !== 'track' ? saved : 'home';
   } catch (_) {
     return 'home';
   }
@@ -2007,7 +2007,7 @@ function disposeLiveUi(){
 function render() {
   disposeLiveUi();
   try {
-    if (session && VALID_PAGES.has(page)) sessionStorage.setItem(PAGE_STORAGE_KEY, page);
+    if (session && VALID_PAGES.has(page) && page !== 'track') sessionStorage.setItem(PAGE_STORAGE_KEY, page);
     else if (!session) sessionStorage.removeItem(PAGE_STORAGE_KEY);
   } catch (_) {}
   if (!supabase) return setup();
