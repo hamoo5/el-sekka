@@ -63,11 +63,20 @@ begin
   end if;
 
   if not exists (
+    select 1 from public.vehicles v
+    where v.captain_id=p_captain_id
+      and v.approval_status='approved'
+      and v.is_active=true
+  ) then
+    raise exception 'approved_active_vehicle_required';
+  end if;
+
+  if not exists (
     select 1
     from public.captain_subscriptions s
     where s.captain_id = p_captain_id
       and s.payment_status = 'approved'
-      and s.starts_at <= now()
+      and s.starts_at <= greatest(now(), coalesce(p_activity_at, now()))
       and s.expires_at > greatest(now(), coalesce(p_activity_at, now()))
   ) then
     raise exception 'active_subscription_required';
@@ -325,9 +334,10 @@ declare
   v_id uuid := auth.uid();
   v_booking public.bookings%rowtype;
   v_departure_at timestamptz;
+  v_vehicle_id uuid;
 begin
-  select b, r.departure_at
-  into v_booking, v_departure_at
+  select b, r.departure_at, r.vehicle_id
+  into v_booking, v_departure_at, v_vehicle_id
   from public.bookings b
   join public.rides r on r.id = b.ride_id
   where b.id = p_booking_id
@@ -341,6 +351,9 @@ begin
 
   if p_action in ('accept','counter') then
     perform public.require_captain_ready_for(v_id, v_departure_at);
+    if not exists(select 1 from public.vehicles v where v.id=v_vehicle_id and v.captain_id=v_id and v.approval_status='approved' and v.is_active=true) then
+      raise exception 'approved_active_vehicle_required';
+    end if;
   end if;
 
   if p_action = 'reject' then
@@ -408,6 +421,9 @@ begin
   end if;
 
   perform public.require_captain_ready_for(v_ride.captain_id, v_ride.departure_at);
+  if not exists(select 1 from public.vehicles v where v.id=v_ride.vehicle_id and v.captain_id=v_ride.captain_id and v.approval_status='approved' and v.is_active=true) then
+    raise exception 'approved_active_vehicle_required';
+  end if;
 
   select coalesce(sum(b.seats_requested),0)
   into v_used
