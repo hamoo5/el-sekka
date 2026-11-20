@@ -421,3 +421,15 @@ html.trip-day .reward-invite{border-bottom-color:#e2e8ef}
 html.trip-day .points-use-panel{background:#f0f8f0;border-color:#b9d8bc}
 html.trip-day .points-use-panel small{color:#55745a}
 html.trip-day .discount-explainer{background:#edf8ed;color:#236b36}
+
+
+/* Captain subscription transfer details */
+.subscription-transfer-box{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;
+  gap:12px;padding:14px;margin:10px 0 14px;
+  border:1px solid var(--border-color,rgba(128,128,128,.25));
+  border-radius:14px;background:var(--surface-2,rgba(128,128,128,.07));
+}
+.subscription-transfer-box p{margin:5px 0;color:var(--muted,#777)}
+.subscription-transfer-box strong{display:block;font-size:1.25rem;letter-spacing:1px}
+.subscription-transfer-box small{flex-basis:100%;color:var(--muted,#777)}
