@@ -133,7 +133,7 @@ async function authAction(mode, email, password, referralCode = '') {
 
 async function loadProfile() {
   const { data, error } = await supabase.from('profiles')
-    .select('id,display_name,role,is_blocked,is_vip,referral_code,points,captain_reward_days_balance,captain_referral_progress,referral_discount_trips_used,referral_discount_trips_reserved,discounted_trips_count')
+    .select('id,display_name,role,is_blocked,is_vip,referral_code,points,captain_reward_days_balance,captain_referral_progress,referred_by,referral_discount_trips_used,referral_discount_trips_reserved,discounted_trips_count')
     .eq('id', session.user.id).maybeSingle();
   if (error) console.error(error);
   profile = data;
