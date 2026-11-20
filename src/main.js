@@ -1095,11 +1095,11 @@ async function captainApplicationStatusPage(knownApplicationId = null) {
     <main class="wrap narrow">
       <section class="hero compact"><span class="tag">الانضمام للكباتن</span><h1>حالة مستنداتك</h1><p>يتابع النظام صلاحية المستندات تلقائياً.</p></section>
       <section class="panel">
-        \${details ? '<h2>'+details[0]+'</h2><p>'+details[1]+'</p>' : '<h2>تعذر تحديد الحالة</h2><p>اضغط تحديث الحالة بعد قليل.</p>'}
-        \${application?.id || knownApplicationId ? '<p class="muted">رقم الطلب: <b>'+esc(application?.id || knownApplicationId)+'</b></p>' : ''}
-        \${application?.created_at ? '<p class="muted">تاريخ الإرسال: '+new Date(application.created_at).toLocaleString('ar-EG')+'</p>' : ''}
-        \${application ? '<ul><li>انتهاء البطاقة: '+esc(application.national_id_expiry||'—')+'</li><li>انتهاء رخصة القيادة: '+esc(application.license_expiry||'—')+'</li><li>انتهاء رخصة السيارة: '+esc(application.vehicle_license_expiry||'—')+'</li></ul>' : ''}
-        \${error ? '<p class="message">تعذر تحديث الحالة من قاعدة البيانات حالياً.</p>' : ''}
+        ${details ? '<h2>'+details[0]+'</h2><p>'+details[1]+'</p>' : '<h2>تعذر تحديد الحالة</h2><p>اضغط تحديث الحالة بعد قليل.</p>'}
+        ${application?.id || knownApplicationId ? '<p class="muted">رقم الطلب: <b>'+esc(application?.id || knownApplicationId)+'</b></p>' : ''}
+        ${application?.created_at ? '<p class="muted">تاريخ الإرسال: '+new Date(application.created_at).toLocaleString('ar-EG')+'</p>' : ''}
+        ${application ? '<ul><li>انتهاء البطاقة: '+esc(application.national_id_expiry||'—')+'</li><li>انتهاء رخصة القيادة: '+esc(application.license_expiry||'—')+'</li><li>انتهاء رخصة السيارة: '+esc(application.vehicle_license_expiry||'—')+'</li></ul>' : ''}
+        ${error ? '<p class="message">تعذر تحديث الحالة من قاعدة البيانات حالياً.</p>' : ''}
         <div class="share-actions">
           <button type="button" class="btn primary" id="refreshApplicationStatus">تحديث الحالة</button>
           <button type="button" class="btn outline" id="renewCaptainDocuments">تحديث / تجديد المستندات</button>
@@ -1109,7 +1109,7 @@ async function captainApplicationStatusPage(knownApplicationId = null) {
     </main>\`);
   document.getElementById('refreshApplicationStatus')?.addEventListener('click',()=>captainApplicationStatusPage(knownApplicationId));
   document.getElementById('renewCaptainDocuments')?.addEventListener('click',()=>{page='apply-captain';render();});
-  document.getElementById('statusHome')?.addEventListener('click',async()=>{await loadProfile();});
+  document.getElementById('statusHome')?.addEventListener('click',async()=>{page='home';await loadProfile();});
 }
 
 async function applyCaptainPage() {
@@ -1131,41 +1131,41 @@ async function applyCaptainPage() {
       <section class="hero compact"><span class="tag">الانضمام للكباتن</span><h1>بيانات ومستندات الكابتن</h1><p>أدخل تواريخ الصلاحية وارفع وجه وظهر كل مستند. التفعيل والإيقاف والتنبيهات تتم تلقائياً.</p></section>
       <form class="panel form" id="captainApplyForm">
         <h3>أولاً: بطاقة الرقم القومي</h3>
-        <label>آخر 4 أرقام من الرقم القومي<input name="national_id_last4" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" minlength="4" required value="\${val(existing?.national_id_last4)}" placeholder="1234"></label>
-        <label>تاريخ انتهاء البطاقة<input name="national_id_expiry" type="date" required value="\${val(existing?.national_id_expiry)}"></label>
+        <label>آخر 4 أرقام من الرقم القومي<input name="national_id_last4" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" minlength="4" required value="${val(existing?.national_id_last4)}" placeholder="1234"></label>
+        <label>تاريخ انتهاء البطاقة<input name="national_id_expiry" type="date" required value="${val(existing?.national_id_expiry)}"></label>
         <label>وجه البطاقة<input name="national_id_front" type="file" accept="image/*" required></label><div class="captain-image-preview" data-preview="id-front"></div>
         <label>ظهر البطاقة<input name="national_id_back" type="file" accept="image/*" required></label><div class="captain-image-preview" data-preview="id-back"></div>
         <hr>
         <h3>ثانياً: رخصة القيادة</h3>
-        <label>رقم رخصة القيادة<input name="license_number" maxlength="80" required value="\${val(existing?.license_number)}" placeholder="رقم الرخصة"></label>
-        <label>تاريخ انتهاء رخصة القيادة<input name="license_expiry" type="date" required value="\${val(existing?.license_expiry)}"></label>
+        <label>رقم رخصة القيادة<input name="license_number" maxlength="80" required value="${val(existing?.license_number)}" placeholder="رقم الرخصة"></label>
+        <label>تاريخ انتهاء رخصة القيادة<input name="license_expiry" type="date" required value="${val(existing?.license_expiry)}"></label>
         <label>وجه رخصة القيادة<input name="driver_license_front" type="file" accept="image/*" required></label><div class="captain-image-preview" data-preview="driver-front"></div>
         <label>ظهر رخصة القيادة<input name="driver_license_back" type="file" accept="image/*" required></label><div class="captain-image-preview" data-preview="driver-back"></div>
         <hr>
         <h3>ثالثاً: رخصة السيارة</h3>
-        <label>تاريخ انتهاء رخصة السيارة<input name="vehicle_license_expiry" type="date" required value="\${val(existing?.vehicle_license_expiry)}"></label>
+        <label>تاريخ انتهاء رخصة السيارة<input name="vehicle_license_expiry" type="date" required value="${val(existing?.vehicle_license_expiry)}"></label>
         <label>وجه رخصة السيارة<input name="vehicle_license_front" type="file" accept="image/*" required></label><div class="captain-image-preview" data-preview="vehicle-license-front"></div>
         <label>ظهر رخصة السيارة<input name="vehicle_license_back" type="file" accept="image/*" required></label><div class="captain-image-preview" data-preview="vehicle-license-back"></div>
         <hr>
         <h3>رابعاً: بيانات المركبة</h3>
         <label>نوع المركبة<select name="vehicle_type" required>
-          <option value="private_car"\${selected(v.vehicle_type,'private_car')}>ملاكي</option><option value="taxi"\${selected(v.vehicle_type,'taxi')}>تاكسي</option><option value="suzuki"\${selected(v.vehicle_type,'suzuki')}>سوزوكي</option><option value="microbus"\${selected(v.vehicle_type,'microbus')}>ميكروباص</option><option value="scooter"\${selected(v.vehicle_type,'scooter')}>اسكوتر</option><option value="motorcycle"\${selected(v.vehicle_type,'motorcycle')}>موتوسيكل</option>
+          <option value="private_car"${selected(v.vehicle_type,'private_car')}>ملاكي</option><option value="taxi"${selected(v.vehicle_type,'taxi')}>تاكسي</option><option value="suzuki"${selected(v.vehicle_type,'suzuki')}>سوزوكي</option><option value="microbus"${selected(v.vehicle_type,'microbus')}>ميكروباص</option><option value="scooter"${selected(v.vehicle_type,'scooter')}>اسكوتر</option><option value="motorcycle"${selected(v.vehicle_type,'motorcycle')}>موتوسيكل</option>
         </select></label>
-        <label>الماركة<input name="make" maxlength="60" required value="\${val(v.make)}" placeholder="مثال: هيونداي"></label>
-        <label>الموديل<input name="model" maxlength="60" required value="\${val(v.model)}" placeholder="مثال: إلنترا"></label>
-        <label>سنة الصنع<input name="model_year" type="number" min="1980" max="2027" required value="\${val(v.model_year)}"></label>
-        <label>لون المركبة<input name="color" maxlength="40" required value="\${val(v.color)}" placeholder="مثال: أبيض"></label>
-        <label>رقم اللوحة<input name="plate_number" maxlength="30" required value="\${val(v.plate_number)}" placeholder="رقم اللوحة"></label>
-        <label>عدد الركاب (بدون السائق)<input name="passenger_capacity" type="number" min="1" max="13" value="\${val(v.passenger_capacity||3)}" required></label>
-        <label class="checkline"><input name="has_ac" type="checkbox"\${v.has_ac?' checked':''}> يوجد تكييف</label>
-        <label class="checkline"><input name="has_large_trunk" type="checkbox"\${v.has_large_trunk?' checked':''}> شنطة واسعة</label>
-        <label class="checkline"><input name="no_smoking" type="checkbox"\${v.no_smoking!==false?' checked':''}> ممنوع التدخين داخل المركبة</label>
-        <label class="checkline"><input name="pets_allowed" type="checkbox"\${v.pets_allowed?' checked':''}> يسمح باصطحاب الحيوانات الأليفة</label>
+        <label>الماركة<input name="make" maxlength="60" required value="${val(v.make)}" placeholder="مثال: هيونداي"></label>
+        <label>الموديل<input name="model" maxlength="60" required value="${val(v.model)}" placeholder="مثال: إلنترا"></label>
+        <label>سنة الصنع<input name="model_year" type="number" min="1980" max="2027" required value="${val(v.model_year)}"></label>
+        <label>لون المركبة<input name="color" maxlength="40" required value="${val(v.color)}" placeholder="مثال: أبيض"></label>
+        <label>رقم اللوحة<input name="plate_number" maxlength="30" required value="${val(v.plate_number)}" placeholder="رقم اللوحة"></label>
+        <label>عدد الركاب (بدون السائق)<input name="passenger_capacity" type="number" min="1" max="13" value="${val(v.passenger_capacity||3)}" required></label>
+        <label class="checkline"><input name="has_ac" type="checkbox"${v.has_ac?' checked':''}> يوجد تكييف</label>
+        <label class="checkline"><input name="has_large_trunk" type="checkbox"${v.has_large_trunk?' checked':''}> شنطة واسعة</label>
+        <label class="checkline"><input name="no_smoking" type="checkbox"${v.no_smoking!==false?' checked':''}> ممنوع التدخين داخل المركبة</label>
+        <label class="checkline"><input name="pets_allowed" type="checkbox"${v.pets_allowed?' checked':''}> يسمح باصطحاب الحيوانات الأليفة</label>
         <h3>خامساً: الصور التعريفية</h3>
-        <label>الصورة الشخصية<input name="profile_photo" type="file" accept="image/*"\${profileData?.avatar_path?'':' required'}></label><div class="captain-image-preview" data-preview="profile"></div>
-        <label>صورة أمامية للمركبة<input name="vehicle_front" type="file" accept="image/*"\${v.photo_front_path?'':' required'}></label><div class="captain-image-preview" data-preview="front"></div>
-        <label>صورة جانبية للمركبة<input name="vehicle_side" type="file" accept="image/*"\${v.photo_side_path?'':' required'}></label><div class="captain-image-preview" data-preview="side"></div>
-        <label>صورة خلفية للمركبة<input name="vehicle_rear" type="file" accept="image/*"\${v.photo_rear_path?'':' required'}></label><div class="captain-image-preview" data-preview="rear"></div>
+        <label>الصورة الشخصية<input name="profile_photo" type="file" accept="image/*"${profileData?.avatar_path?'':' required'}></label><div class="captain-image-preview" data-preview="profile"></div>
+        <label>صورة أمامية للمركبة<input name="vehicle_front" type="file" accept="image/*"${v.photo_front_path?'':' required'}></label><div class="captain-image-preview" data-preview="front"></div>
+        <label>صورة جانبية للمركبة<input name="vehicle_side" type="file" accept="image/*"${v.photo_side_path?'':' required'}></label><div class="captain-image-preview" data-preview="side"></div>
+        <label>صورة خلفية للمركبة<input name="vehicle_rear" type="file" accept="image/*"${v.photo_rear_path?'':' required'}></label><div class="captain-image-preview" data-preview="rear"></div>
         <div class="notice">صور المستندات الرسمية تحفظ في مساحة خاصة ولا تظهر للركاب. التحقق الآلي يراجع اكتمال الصور والتواريخ فقط، ولا يثبت أصالة المستند أو صحة بياناته.</div>
         <label class="checkline"><input name="attestation" type="checkbox" required> أقر أن المستندات والبيانات المرفوعة صحيحة وتخصني أو تخص المركبة المسجلة.</label>
         <button class="btn primary" type="submit">حفظ المستندات وتفعيل / تحديث الحساب</button>
