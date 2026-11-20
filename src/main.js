@@ -1847,11 +1847,16 @@ async function captainDashboardPage() {
   const [{count:completedTripsCount,error:completedTripsCountError},{data:captainApp,error:captainAppError}]=await Promise.all([
     supabase.from('trip_requests').select('id',{count:'exact',head:true})
       .eq('accepted_captain_id',profile.id).eq('request_status','completed'),
-    supabase.from('captain_applications').select('application_status')
+    supabase.from('captain_applications').select('application_status,national_id_expiry,license_expiry,vehicle_license_expiry')
       .eq('user_id',profile.id).maybeSingle()
   ]);
+  const cairoToday=new Intl.DateTimeFormat('sv-SE',{timeZone:'Africa/Cairo'}).format(new Date());
   const trialEligible=!completedTripsCountError&&!captainAppError
-    && captainApp?.application_status==='approved'&&(completedTripsCount||0)===0;
+    && captainApp?.application_status==='approved'
+    && captainApp.national_id_expiry>cairoToday
+    && captainApp.license_expiry>cairoToday
+    && captainApp.vehicle_license_expiry>cairoToday
+    && (completedTripsCount||0)===0;
   const [{data:vehicles, error:vehicleError},{data:requests,error:requestError},{data:activeTrips,error:activeTripError}]=await Promise.all([
     supabase.from('vehicles')
       .select('id,vehicle_type,make,model,color,plate_number,passenger_capacity,is_active')
