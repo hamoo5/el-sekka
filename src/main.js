@@ -126,7 +126,7 @@ async function home() {
         <button class="service" data-page="share"><span>🛣️</span><b>مشاركة السكة</b><small>احجز كرسي أو انشر طريقك</small><strong>اكتشف الرحلات ←</strong></button>
       </section>
       ${profile.role === 'captain' ? '<section class="panel"><h2>مساحة الكابتن</h2><p class="muted">إدارة المركبة والرحلات والحجوزات والاشتراك.</p><button class="btn primary" data-page="captain">لوحة الكابتن</button></section>' + await captainDocumentsPanel() : ''}
-      ${profile.role === 'admin' ? '<section class="panel"><h2>إدارة المنصة</h2><p class="muted">مراجعة الكباتن والمركبات والاشتراكات والبلاغات.</p><button class="btn primary" data-page="admin">لوحة الإدارة</button></section>' : ''}
+      ${profile.role === 'admin' ? '<section class="panel"><h2>إدارة المنصة</h2><p class="muted">متابعة التشغيل التلقائي والتنبيهات.</p><button class="btn primary" data-page="admin">إعدادات التشغيل</button></section>' : ''}
       ${profile.role === 'passenger' ? await captainApplicationStatus() : ''}
       <section class="panel"><h3>اختار طريقك</h3><p class="muted">في المشوار العادي السعر يحدده النظام. وفي مشاركة الكرسي السعر بالتفاوض وموافقة الطرفين.</p></section>
     </main>`);
@@ -1252,6 +1252,7 @@ function applicationError(error){
   if(m.includes('invalid_application_data')) return 'راجع بيانات المستندات وتواريخ انتهائها وبيانات المركبة.';
   if(m.includes('captain_document_upload_missing')) return 'لم يكتمل رفع صور المستندات. أعد اختيار الصور وحاول مرة أخرى.';
   if(m.includes('captain_media_upload_missing')) return 'لم تكتمل الصور التعريفية. أعد اختيار الصور وحاول مرة أخرى.';
+  if(m.includes('captain_documents_expired_or_missing')) return 'لا يمكن قبول العروض قبل تحديث مستندات الكابتن واعتماد صلاحيتها تلقائياً.';
   if(m.includes('vehicle_capacity_exceeded')) return 'عدد الركاب أكبر من سعة نوع المركبة.';
   return m||'تعذر إرسال المستندات. حاول مرة أخرى.';
 }
