@@ -552,3 +552,74 @@ html.trip-day .error-message,html.trip-day .alert-error,
 html.trip-day .notice.error,html.trip-day .notice.warning{
   color:#DC2626;
 }
+
+/* Map-first passenger booking experience */
+.passenger-map-first{width:100%;max-width:760px;margin:0 auto;display:flex;flex-direction:column;min-height:calc(100dvh - 126px);gap:0;overflow:hidden}
+.passenger-map-stage{height:42dvh;min-height:250px;max-height:430px;position:relative;flex:0 0 42dvh;background:#172536;overflow:hidden}
+.passenger-map-stage #tripMap{height:100%;width:100%;margin:0;border:0;border-radius:0;z-index:1}
+.passenger-map-stage .leaflet-control-zoom{margin-top:58px}
+.map-floating-status{position:absolute;z-index:500;left:12px;right:58px;bottom:12px;padding:8px 12px;border-radius:12px;background:#111827d9;color:#fff;font-size:11px;box-shadow:0 4px 16px #0003;pointer-events:none}
+.map-locate-button{position:absolute;z-index:600;right:14px;top:14px;width:42px;height:42px;border:0;border-radius:50%;background:#fff;color:#176b38;font-size:25px;box-shadow:0 4px 18px #0003}
+.passenger-bottom-sheet{position:relative;z-index:10;flex:1;min-height:0;max-height:calc(100dvh - 42dvh - 126px);overflow-y:auto;overscroll-behavior:contain;margin:-18px 0 0;padding:10px 16px 20px;border-radius:22px 22px 0 0;background:#152233;color:#f7fafc;border:1px solid #33465b;border-bottom:0;box-shadow:0 -8px 28px #0002}
+.bottom-sheet-handle{width:42px;height:5px;border-radius:99px;background:#8190a1;margin:0 auto 12px;opacity:.65}
+.ride-mode-switch{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:4px;border-radius:15px;background:#0e1927;margin-bottom:12px}
+.ride-mode-switch button{border:0;border-radius:11px;padding:11px 8px;background:transparent;color:#d5deea;font:inherit;font-size:13px;font-weight:850}
+.ride-mode-switch button.active{background:#0aae50;color:white;box-shadow:0 3px 10px #00a84b44}
+.map-first-location-title{font-size:12px;font-weight:900;margin-bottom:8px;color:inherit}
+.map-first-location-title span{color:#22c55e;margin-inline-end:6px}
+.passenger-bottom-sheet .location-card{padding:12px;border-radius:15px;background:#1d2d40;border:1px solid #3b4e63}
+.passenger-bottom-sheet .location-card label{color:#eaf0f6;font-size:12px}
+.passenger-bottom-sheet .location-card input{background:#0f1b2a;color:#fff;border:1px solid #52657a;border-radius:11px;min-height:43px}
+.passenger-bottom-sheet .location-card input::placeholder{color:#a6b4c3}
+.passenger-bottom-sheet .location-divider{margin:9px 0;border-color:#43566a}
+.passenger-bottom-sheet .destination-shortcuts{display:flex;gap:7px;flex-wrap:nowrap;overflow-x:auto;margin-top:8px}
+.passenger-bottom-sheet .destination-chip{white-space:nowrap;flex:0 0 auto;background:#244432;color:#d9f8df;border-color:#4a805a}
+.passenger-bottom-sheet .vehicle-field{margin:12px 0 8px;padding:0;border:0}
+.passenger-bottom-sheet .vehicle-field legend{font-size:12px;font-weight:900;margin-bottom:8px;color:inherit}
+.passenger-bottom-sheet .vehicle-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.passenger-bottom-sheet .vehicle-card{min-width:0;min-height:82px;padding:9px 5px;border:1px solid #52677c;border-radius:13px;background:#1d2d40;color:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.passenger-bottom-sheet .vehicle-card b{font-size:12px;color:#fff}
+.passenger-bottom-sheet .vehicle-card .vehicle-icon{font-size:23px}
+.passenger-bottom-sheet .vehicle-card .vehicle-price{font-size:11px;color:#b7f36b!important;font-weight:900}
+.passenger-bottom-sheet .vehicle-card.selected{background:#153c2a;border:2px solid #22c55e;box-shadow:0 0 0 2px #22c55e22}
+.passenger-bottom-sheet .vehicle-card.selected b{color:#fff}
+.passenger-bottom-sheet .vehicle-card.selected .vehicle-price{color:#d9ffb9!important}
+.passenger-bottom-sheet .trip-summary{margin:10px 0;background:#1d2d40;border-color:#40566c;color:#fff}
+.passenger-bottom-sheet .trip-summary small{color:#c1ccd8}
+.passenger-bottom-sheet .trip-summary b{color:#fff}
+.passenger-bottom-sheet .trip-submit-button{width:100%;min-height:54px;border-radius:14px;background:#08ad4b;color:#fff;font-size:16px;box-shadow:0 6px 16px #00a84b35}
+.map-first-saving-note{text-align:center;color:#b7f36b;font-size:11px;font-weight:850;margin:7px 0 0}
+.passenger-bottom-sheet .message{color:#fca5a5}
+.passenger-bottom-sheet .trip-extra-options{margin:10px 0;border:1px solid #40566c;border-radius:12px;padding:10px}
+.passenger-bottom-sheet .trip-extra-options summary{color:#c8f4cf;font-size:12px;font-weight:850;cursor:pointer}
+.passenger-map-legend{display:none}
+.theme-mode-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.theme-mode-options button{padding:10px 6px;border:1px solid var(--line,#dce3e8);border-radius:12px;background:var(--surface-2,#f4f7f5);color:var(--text,#111827);font-size:12px;font-weight:800}
+.theme-mode-options button.active{background:#176b48;color:#fff;border-color:#176b48}
+html.trip-day .passenger-bottom-sheet{background:#fff;color:#111827;border-color:#e4e9ee}
+html.trip-day .passenger-bottom-sheet .bottom-sheet-handle{background:#aab5bf}
+html.trip-day .passenger-bottom-sheet .ride-mode-switch{background:#edf1f4}
+html.trip-day .passenger-bottom-sheet .ride-mode-switch button{color:#475569}
+html.trip-day .passenger-bottom-sheet .ride-mode-switch button.active{color:#fff;background:#08ad4b}
+html.trip-day .passenger-bottom-sheet .location-card{background:#f8fafb;border-color:#e0e6eb}
+html.trip-day .passenger-bottom-sheet .location-card label,html.trip-day .passenger-bottom-sheet .map-first-location-title{color:#111827}
+html.trip-day .passenger-bottom-sheet .location-card input{background:#fff;color:#111827;border-color:#cbd5df}
+html.trip-day .passenger-bottom-sheet .location-card input::placeholder{color:#7b8794}
+html.trip-day .passenger-bottom-sheet .vehicle-card{background:#f7faf8;color:#111827;border-color:#d2ddd6}
+html.trip-day .passenger-bottom-sheet .vehicle-card b{color:#111827}
+html.trip-day .passenger-bottom-sheet .vehicle-card .vehicle-price{color:#176b38!important}
+html.trip-day .passenger-bottom-sheet .vehicle-card.selected{background:#e7f7eb;border-color:#159447}
+html.trip-day .passenger-bottom-sheet .vehicle-card.selected .vehicle-price{color:#14532d!important}
+html.trip-day .passenger-bottom-sheet .trip-summary{background:#f5f8f6;border-color:#dce8df;color:#111827}
+html.trip-day .passenger-bottom-sheet .trip-summary small{color:#64748b}
+html.trip-day .passenger-bottom-sheet .trip-summary b{color:#111827}
+html.trip-day .passenger-bottom-sheet .trip-extra-options{border-color:#dce3e8}
+html.trip-day .passenger-bottom-sheet .trip-extra-options summary{color:#176b38}
+html.trip-day .map-floating-status{background:#ffffffed;color:#111827}
+html.trip-night .passenger-map-stage .leaflet-tile{filter:brightness(.62) invert(1) contrast(2.6) hue-rotate(200deg) saturate(.35) brightness(.72)}
+@media(max-width:480px){
+ .passenger-map-first{min-height:calc(100dvh - 118px)}
+ .passenger-map-stage{height:39dvh;min-height:235px;flex-basis:39dvh}
+ .passenger-bottom-sheet{max-height:calc(100dvh - 39dvh - 118px);padding-inline:12px}
+ .passenger-bottom-sheet .vehicle-card{min-height:75px}
+}
