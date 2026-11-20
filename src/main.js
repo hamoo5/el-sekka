@@ -332,7 +332,7 @@ function tripForm() {
         <label id="scheduleField" hidden>موعد المشوار
           <input type="datetime-local" id="scheduledAt">
         </label>
-        <section class="points-use-panel"><label><input type="checkbox" id="usePoints" ${Number(profile.points||0)>=100?'':'disabled'}> استخدم 100 نقطة لو هتوفر خصمًا أكبر <small>رصيدك الحالي: ${Number(profile.points||0)} نقطة · الخصم لا يجتمع مع خصم الدعوة، والنظام يختار الأفضل تلقائيًا.</small></label></section><div class="notice">خصم الدعوة متاح تلقائيًا لأول 3 رحلات مؤهلة، بخصم 15% وبحد أقصى 15 جنيهًا.</div>
+        <section class="points-use-panel"><label><input type="checkbox" id="usePoints" ${Number(profile.points||0)>=100?'':'disabled'}> اسمح باستخدام 100 نقطة إذا لم يتوفر خصم الدعوة <small>رصيدك الحالي: ${Number(profile.points||0)} نقطة · الخصم لا يجتمع مع خصم الدعوة، والنظام يختار الأفضل تلقائيًا.</small></label></section><div class="notice">خصم الدعوة متاح تلقائيًا لأول 3 رحلات مؤهلة، بخصم 15% وبحد أقصى 15 جنيهًا.</div>
         <section class="trip-summary" id="tripSummary"><div><small>المسافة</small><b id="summaryDistance">—</b></div><div><small>الوقت المتوقع</small><b id="summaryDuration">—</b></div><div><small>السعر النهائي</small><b id="summaryFare">—</b></div></section>
         <div class="notice" id="pricingNotice" hidden></div>
         <button class="btn primary trip-submit-button" type="submit" id="sendTrip">
