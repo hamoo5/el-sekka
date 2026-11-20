@@ -209,6 +209,9 @@ end;
 $$;
 
 revoke all on function public.submit_captain_application_v2(text,text,date,text,text,text,integer,text,text,integer,boolean,boolean,boolean,boolean,text,text,text,text) from public,anon,authenticated;
+-- Disable legacy onboarding RPCs that could approve an application without the six document checks.
+revoke all on function public.submit_captain_application(text,text,date) from public,anon,authenticated;
+revoke all on function public.review_captain_application(uuid,text,text) from public,anon,authenticated;
 revoke all on function public.submit_captain_application_v3(text,date,text,date,date,text,text,text,text,text,text,text,text,text,integer,text,text,integer,boolean,boolean,boolean,boolean,text,text,text,text) from public,anon;
 grant execute on function public.submit_captain_application_v3(text,date,text,date,date,text,text,text,text,text,text,text,text,text,integer,text,text,integer,boolean,boolean,boolean,boolean,text,text,text,text) to authenticated;
 
