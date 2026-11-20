@@ -1346,3 +1346,160 @@ html.trip-night body[data-page="trip-options"] .trip-summary{background:#111f33;
  body[data-page="trip-options"] .passenger-map-stage{flex-basis:30dvh;min-height:155px}
  body[data-page="trip-options"] .vehicle-card{min-height:76px}
 }
+
+
+/* FIX: balanced map / vehicle sheet layout and compact route toast */
+body[data-page="trip-options"]{
+  height:100dvh!important;min-height:100dvh!important;
+  padding:0!important;overflow:hidden!important;
+}
+body[data-page="trip-options"] #app{
+  height:calc(100dvh - 76px - env(safe-area-inset-bottom))!important;
+  min-height:0!important;max-height:calc(100dvh - 76px - env(safe-area-inset-bottom))!important;
+  padding:0!important;margin:0!important;overflow:hidden!important;
+}
+body[data-page="trip-options"] .passenger-map-first{
+  display:flex!important;flex-direction:column!important;
+  width:100%!important;height:100%!important;min-height:0!important;max-height:100%!important;
+  margin:0!important;padding:0!important;gap:0!important;overflow:hidden!important;
+  box-sizing:border-box!important;
+}
+body[data-page="trip-options"] .passenger-map-stage{
+  position:relative!important;display:block!important;
+  flex:0 0 52%!important;width:100%!important;height:52%!important;
+  min-height:0!important;max-height:none!important;
+  margin:0!important;border-radius:0 0 18px 18px!important;overflow:hidden!important;
+}
+body[data-page="trip-options"] .passenger-map-stage #tripMap{
+  position:absolute!important;inset:0!important;width:100%!important;height:100%!important;
+  min-height:0!important;margin:0!important;border:0!important;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet{
+  position:relative!important;display:flex!important;flex:1 1 48%!important;
+  flex-direction:column!important;width:100%!important;height:auto!important;
+  min-height:0!important;max-height:none!important;overflow:hidden!important;
+  margin:0!important;padding:7px 12px max(5px,env(safe-area-inset-bottom))!important;
+  border:0!important;border-radius:19px 19px 0 0!important;box-sizing:border-box!important;
+  background:#0f172a!important;color:#f8fafc!important;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .bottom-sheet-handle{
+  flex:0 0 4px!important;width:38px!important;height:4px!important;margin:0 auto 6px!important;
+}
+body[data-page="trip-options"] .trip-options-scroll{
+  display:block!important;flex:1 1 auto!important;min-height:0!important;
+  overflow-x:hidden!important;overflow-y:auto!important;
+  overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch!important;
+  padding:0 0 6px!important;
+}
+body[data-page="trip-options"] .trip-options-heading{
+  display:flex!important;flex-direction:row!important;align-items:center!important;
+  justify-content:space-between!important;gap:8px!important;
+  margin:0 0 3px!important;padding:0!important;
+}
+body[data-page="trip-options"] .trip-options-heading b{font-size:13px!important;line-height:1.35!important}
+body[data-page="trip-options"] .trip-options-heading small{
+  max-width:55%;font-size:9px!important;line-height:1.4!important;text-align:left!important;
+}
+body[data-page="trip-options"] .trip-step-back{
+  display:inline-flex!important;align-items:center!important;min-height:26px!important;
+  margin:0 0 3px!important;padding:2px 0!important;font-size:10px!important;
+}
+body[data-page="trip-options"] .passenger-map-legend{
+  display:flex!important;gap:10px!important;margin:0 0 3px!important;padding:0!important;
+  font-size:9px!important;line-height:1.3!important;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-field{
+  display:block!important;margin:0 0 5px!important;padding:0!important;border:0!important;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-field legend{
+  margin:0 0 4px!important;padding:0!important;font-size:10px!important;line-height:1.3!important;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-grid{
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  grid-auto-rows:minmax(63px,auto)!important;gap:5px!important;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-card{
+  display:grid!important;grid-template-columns:25px minmax(0,1fr)!important;
+  grid-template-rows:auto auto!important;align-items:center!important;justify-items:start!important;
+  gap:2px 5px!important;min-width:0!important;min-height:63px!important;height:auto!important;
+  padding:5px 6px!important;border-radius:11px!important;text-align:right!important;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-card .vehicle-icon{
+  grid-column:1!important;grid-row:1/3!important;width:24px!important;height:24px!important;
+  display:grid!important;place-items:center!important;font-size:17px!important;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-card .vehicle-meta{
+  grid-column:2!important;grid-row:1!important;display:flex!important;flex-direction:column!important;
+  gap:1px!important;min-width:0!important;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-card .vehicle-meta b{
+  font-size:10px!important;line-height:1.2!important;white-space:nowrap!important;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-card .vehicle-capacity{
+  font-size:8px!important;line-height:1.2!important;white-space:nowrap!important;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-card .vehicle-price{
+  grid-column:2!important;grid-row:2!important;justify-self:start!important;
+  font-size:9px!important;line-height:1.2!important;white-space:nowrap!important;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .trip-summary{
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:4px!important;margin:5px 0 2px!important;padding:6px!important;border-radius:10px!important;
+}
+body[data-page="trip-options"] .passenger-bottom-sheet .trip-summary>div{gap:2px!important}
+body[data-page="trip-options"] .passenger-bottom-sheet .trip-summary small{font-size:8px!important}
+body[data-page="trip-options"] .passenger-bottom-sheet .trip-summary b{font-size:10px!important}
+body[data-page="trip-options"] .trip-options-action-bar{
+  position:relative!important;z-index:20!important;display:flex!important;
+  flex:0 0 auto!important;flex-direction:column!important;gap:2px!important;
+  padding:5px 0 max(4px,env(safe-area-inset-bottom))!important;
+  margin:0!important;background:#0f172a!important;border-top:1px solid #334155!important;
+}
+body[data-page="trip-options"] .trip-options-action-bar .trip-submit-button{
+  position:static!important;display:flex!important;flex:0 0 auto!important;
+  width:100%!important;min-height:45px!important;height:45px!important;
+  margin:0!important;padding:7px 12px!important;font-size:13px!important;
+}
+body[data-page="trip-options"] .trip-options-action-bar .map-first-saving-note{
+  margin:1px 0 0!important;font-size:8px!important;line-height:1.3!important;
+}
+body[data-page="trip-options"] #tripMessage{
+  flex:0 0 auto!important;max-height:32px!important;overflow:auto!important;
+  margin:0!important;font-size:10px!important;line-height:1.3!important;
+}
+body[data-page="trip-options"] #tripResult{
+  flex:0 0 auto!important;max-height:62px!important;overflow:auto!important;margin:0!important;
+}
+body[data-page="trip-options"] .map-floating-status{
+  position:absolute!important;z-index:700!important;
+  top:10px!important;bottom:auto!important;left:58px!important;right:10px!important;
+  display:block!important;width:max-content!important;max-width:calc(100% - 78px)!important;
+  min-width:0!important;height:auto!important;min-height:0!important;max-height:58px!important;
+  box-sizing:border-box!important;overflow:hidden!important;overflow-wrap:anywhere!important;
+  white-space:normal!important;text-overflow:ellipsis!important;
+  padding:6px 10px!important;margin:0!important;border:1px solid #334155!important;
+  border-radius:10px!important;background:rgba(15,23,42,.92)!important;
+  color:#f8fafc!important;font-size:10px!important;font-weight:800!important;
+  line-height:1.45!important;text-align:right!important;
+  box-shadow:0 4px 14px #0005!important;pointer-events:none!important;
+  opacity:1;visibility:visible;transition:opacity .25s ease,visibility .25s ease;
+}
+body[data-page="trip-options"] .map-floating-status.is-visible{opacity:1;visibility:visible}
+html.trip-day body[data-page="trip-options"] .map-floating-status{
+  background:rgba(255,255,255,.96)!important;color:#111827!important;border-color:#dbe4ec!important;
+}
+html.trip-night body[data-page="trip-options"] .map-floating-status{
+  background:rgba(15,23,42,.94)!important;color:#f8fafc!important;border-color:#334155!important;
+}
+@media(max-height:700px){
+  body[data-page="trip-options"] #app{height:calc(100dvh - 70px - env(safe-area-inset-bottom))!important;max-height:calc(100dvh - 70px - env(safe-area-inset-bottom))!important}
+  body[data-page="trip-options"] .passenger-map-stage{flex-basis:49%!important;height:49%!important}
+  body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-grid{grid-auto-rows:minmax(56px,auto)!important}
+  body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-card{min-height:56px!important}
+  body[data-page="trip-options"] .trip-options-action-bar .trip-submit-button{min-height:42px!important;height:42px!important}
+}
+@media(max-width:360px){
+  body[data-page="trip-options"] .passenger-bottom-sheet{padding-inline:8px!important}
+  body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-grid{gap:4px!important}
+  body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-card{padding:4px!important}
+}
