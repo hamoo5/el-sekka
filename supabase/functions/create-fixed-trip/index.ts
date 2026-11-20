@@ -90,6 +90,18 @@ Deno.serve(async (req: Request) => {
     const destinationLat = Number(body.destination_lat);
     const destinationLng = Number(body.destination_lng);
     const passengerCount = Number(body.passenger_count);
+    const pickupNote = body.pickup_note == null ? null : String(body.pickup_note).trim();
+    const rawPreferences = body.ride_preferences && typeof body.ride_preferences === "object"
+      ? body.ride_preferences as Record<string, unknown>
+      : {};
+    const allowedPreferenceKeys = new Set(["quiet", "ac", "luggage"]);
+    const ridePreferences: Record<string, boolean> = { quiet: false, ac: false, luggage: false };
+    for (const [key, value] of Object.entries(rawPreferences)) {
+      if (!allowedPreferenceKeys.has(key) || typeof value !== "boolean") {
+        return json(400, { error: "invalid_ride_preferences" }, origin);
+      }
+      ridePreferences[key] = value;
+    }
     const isScheduled = body.is_scheduled === true;
     const scheduledAt = body.scheduled_at == null ? null : String(body.scheduled_at);
 
@@ -106,6 +118,9 @@ Deno.serve(async (req: Request) => {
     if (!Number.isInteger(passengerCount) || passengerCount < 1 ||
         passengerCount > vehicleCapacities[vehicleType]) {
       return json(400, { error: "invalid_passenger_count_for_vehicle" }, origin);
+    }
+    if (pickupNote !== null && pickupNote.length > 160) {
+      return json(400, { error: "pickup_note_too_long" }, origin);
     }
     if (isScheduled) {
       const timestamp = scheduledAt ? Date.parse(scheduledAt) : NaN;
@@ -169,6 +184,8 @@ Deno.serve(async (req: Request) => {
         p_is_scheduled: isScheduled,
         p_passenger_count: passengerCount,
         p_distance_km: distanceKm,
+        p_pickup_note: pickupNote,
+        p_ride_preferences: ridePreferences,
       },
     );
 
