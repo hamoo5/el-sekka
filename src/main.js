@@ -9,7 +9,7 @@ const app = document.querySelector('#app');
 let session = null;
 let profile = null;
 const PAGE_STORAGE_KEY = 'el-sekka-current-page';
-const VALID_PAGES = new Set(['home','trip','share','apply-captain','captain','captain-account','admin','trip-status','track','rewards','trips','profile']);
+const VALID_PAGES = new Set(['home','trip','trip-search','trip-options','share','apply-captain','captain','captain-account','admin','trip-status','track','rewards','trips','profile']);
 const urlTrackingToken = new URLSearchParams(window.location.search).get('token') || '';
 let publicTrackingToken = urlTrackingToken;
 try {
@@ -66,6 +66,7 @@ function applyAppTheme(){let mode='auto';try{mode=localStorage.getItem(APP_THEME
 window.setInterval(applyAppTheme,60_000);
 function layout(body) {
   applyAppTheme();
+  document.body.dataset.page=page;
   const captain=profile?.account_type==='captain'||profile?.role==='captain';
   const rider=profile?.account_type==='rider'||profile?.role==='passenger';
   app.innerHTML = `
