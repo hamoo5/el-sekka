@@ -118,7 +118,7 @@ begin
      or nullif(btrim(p_license_number),'') is null or length(btrim(p_license_number))>80
      or p_license_expiry is null or p_license_expiry<=current_date
      or p_vehicle_license_expiry is null or p_vehicle_license_expiry<=current_date
-     or p_vehicle_type not in ('private_car','taxi','suzuki','microbus','scooter','motorcycle')
+     or p_vehicle_type is null or p_vehicle_type not in ('private_car','taxi','suzuki','microbus','scooter','motorcycle')
      or nullif(btrim(p_make),'') is null or nullif(btrim(p_model),'') is null
      or p_model_year is null or p_model_year<1980 or p_model_year>extract(year from current_date)::integer+1
      or nullif(btrim(p_color),'') is null or nullif(btrim(p_plate_number),'') is null
@@ -209,6 +209,113 @@ $$;
 revoke all on function public.submit_captain_application_v2(text,text,date,text,text,text,integer,text,text,integer,boolean,boolean,boolean,boolean,text,text,text,text) from public,anon,authenticated;
 revoke all on function public.submit_captain_application_v3(text,date,text,date,date,text,text,text,text,text,text,text,text,text,integer,text,text,integer,boolean,boolean,boolean,boolean,text,text,text,text) from public,anon;
 grant execute on function public.submit_captain_application_v3(text,date,text,date,date,text,text,text,text,text,text,text,text,text,integer,text,text,integer,boolean,boolean,boolean,boolean,text,text,text,text) to authenticated;
+
+-- Enforce current document validity at the moment a captain responds to a route-sharing request,
+-- even if the scheduled daily expiry job has not run yet.
+create or replace function public.captain_reply_share_route_request(
+  p_request_id uuid,
+  p_vehicle_id uuid,
+  p_action text,
+  p_counter_price numeric default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $
+declare
+  v_id uuid := auth.uid();
+  v_request public.share_route_requests%rowtype;
+  v_vehicle public.vehicles%rowtype;
+  v_negotiation public.share_route_negotiations%rowtype;
+  v_negotiation_id uuid;
+begin
+  if v_id is null then raise exception 'login_required'; end if;
+  if p_action not in ('accept','counter') then raise exception 'invalid_action'; end if;
+  if p_action = 'counter' and (p_counter_price is null or p_counter_price < 0) then
+    raise exception 'invalid_counter_price';
+  end if;
+
+  perform public.require_captain_ready(v_id);
+  if not exists (
+    select 1 from public.captain_applications a
+    where a.user_id=v_id and a.application_status='approved'
+      and a.national_id_expiry>current_date
+      and a.license_expiry>current_date
+      and a.vehicle_license_expiry>current_date
+  ) then
+    raise exception 'captain_documents_expired_or_missing';
+  end if;
+
+  select * into v_request
+  from public.share_route_requests
+  where id = p_request_id
+  for update;
+  if not found or v_request.request_status <> 'open' then
+    raise exception 'share_request_not_available';
+  end if;
+  if v_request.requester_id = v_id then raise exception 'cannot_reply_to_own_request'; end if;
+
+  select * into v_vehicle
+  from public.vehicles
+  where id = p_vehicle_id
+    and captain_id = v_id
+    and approval_status = 'approved'
+    and is_active = true;
+  if not found then raise exception 'approved_active_vehicle_required'; end if;
+  if v_request.preferred_vehicle_type is not null
+     and v_vehicle.vehicle_type <> v_request.preferred_vehicle_type then
+    raise exception 'vehicle_type_mismatch';
+  end if;
+  if v_request.seats_requested > v_vehicle.passenger_capacity then
+    raise exception 'not_enough_vehicle_capacity';
+  end if;
+
+  select * into v_negotiation
+  from public.share_route_negotiations
+  where request_id = p_request_id and captain_id = v_id
+  for update;
+
+  if not found then
+    insert into public.share_route_negotiations (
+      request_id, requester_id, captain_id, vehicle_id, requester_offer_egp
+    ) values (
+      p_request_id, v_request.requester_id, v_id, p_vehicle_id,
+      v_request.requester_seat_price_egp
+    ) returning id into v_negotiation_id;
+
+    insert into public.share_route_offer_history(negotiation_id, offered_by, amount_egp)
+    values (v_negotiation_id, v_request.requester_id, v_request.requester_seat_price_egp);
+  else
+    if v_negotiation.negotiation_status <> 'pending' then
+      raise exception 'negotiation_not_replyable';
+    end if;
+    update public.share_route_negotiations
+    set vehicle_id = p_vehicle_id
+    where id = v_negotiation.id;
+    v_negotiation_id := v_negotiation.id;
+  end if;
+
+  if p_action = 'accept' then
+    update public.share_route_negotiations
+    set agreed_price_egp = requester_offer_egp,
+        captain_counter_offer_egp = null,
+        negotiation_status = 'accepted'
+    where id = v_negotiation_id;
+  else
+    update public.share_route_negotiations
+    set captain_counter_offer_egp = p_counter_price,
+        agreed_price_egp = null,
+        negotiation_status = 'counter_offer'
+    where id = v_negotiation_id;
+
+    insert into public.share_route_offer_history(negotiation_id, offered_by, amount_egp)
+    values (v_negotiation_id, v_id, p_counter_price);
+  end if;
+
+  return v_negotiation_id;
+end;
+$;
 
 create or replace function public.process_captain_document_expiry()
 returns void
