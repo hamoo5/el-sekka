@@ -251,3 +251,63 @@ html.trip-day .share-negotiation{background:#f2f6f8}
 .vehicle-price{font-size:10px;color:#a9b9ca;font-weight:800}
 .vehicle-price[data-cheapest="true"]{color:#b7f36b}
 .vehicle-card.selected .vehicle-price{color:#d7f5b2}
+
+
+/* Passenger booking refinements: pickup markers, destination shortcuts and clear controls */
+.pickup-marker-row,.destination-shortcuts,.ride-preference-options,.passenger-count-options{display:flex;flex-wrap:wrap;gap:8px}
+.pickup-marker-chip,.destination-chip,.ride-preference-options button,.passenger-count-options button{
+  border:1px solid #b7d9bd;border-radius:999px;background:#eaf6ed;color:#176b38;
+  padding:9px 12px;font-size:11px;font-weight:800;line-height:1.4;transition:background .15s,border-color .15s,transform .15s
+}
+.pickup-marker-chip.selected,.destination-chip.is-saved,.ride-preference-options button.selected,.passenger-count-options button.selected{
+  background:#c9ebd0;border-color:#23834b;color:#104d2b;box-shadow:inset 0 0 0 1px #23834b22
+}
+.destination-chip.is-empty{background:#f2f8f3;border-style:dashed}
+.save-place-actions.destination-save-actions{gap:8px;flex-wrap:wrap}
+.save-place-actions.destination-save-actions button{color:#176b38;background:#edf8ef;border:1px solid #c8e3ce;border-radius:10px;padding:7px 9px}
+.trip-map-details{background:#edf8ef;border:1px solid #a9d7b5;color:#176b38}
+.trip-map-details summary{color:#176b38}
+.trip-map-details summary:after{color:#176b38}
+.trip-map-details .map-helper{color:#55705c}
+.passenger-count-field,.ride-preferences{border:0;padding:0;margin:0;min-width:0}
+.passenger-count-field legend,.ride-preferences legend{font-size:13px;font-weight:800;margin-bottom:9px}
+.passenger-count-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.passenger-count-options button{border-radius:12px;padding:11px 6px;font-size:14px}
+.passenger-count-options button:disabled{opacity:.35;cursor:not-allowed}
+.passenger-count-stepper{display:flex;align-items:center;gap:12px;margin-top:9px;padding:8px 10px;border:1px solid #b7d9bd;border-radius:12px;background:#f5faf6;color:#176b38}
+.passenger-count-stepper button{width:34px;height:34px;border:0;border-radius:10px;background:#d9efde;color:#176b38;font-size:20px;font-weight:900}
+.passenger-count-stepper button:disabled{opacity:.35}
+.passenger-count-stepper b{min-width:20px;text-align:center}
+.passenger-count-stepper small{margin-right:auto;font-size:10px;color:#55705c}
+.ride-preference-options button{flex:1 1 auto;border-radius:12px}
+.trip-submit-button{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;min-height:56px;font-size:16px}
+.traffic-badge{display:inline-flex;align-items:center;border-radius:999px;background:#ffffffbd;color:#174c2c;padding:5px 9px;font-size:10px;font-weight:900;white-space:nowrap}
+.traffic-badge[data-level="peak"]{background:#fff0d9;color:#8a4b08}
+.traffic-badge[data-level="moderate"]{background:#fff7d8;color:#755b00}
+.traffic-disclaimer{margin:-10px 0 0;text-align:center;font-size:10px;color:#9aabc0}
+.vehicle-price{color:#176b38!important}
+.vehicle-card.selected .vehicle-price{color:#14532d!important}
+.save-place-actions button{color:#176b38!important}
+html.trip-day .trip-map-details{background:#edf8ef;border-color:#a9d7b5}
+html.trip-day .trip-map-details summary{color:#176b38}
+html.trip-day .traffic-disclaimer{color:#64748b}
+html.trip-day .vehicle-price,html.trip-day .vehicle-card.selected .vehicle-price{color:#14532d!important}
+html:not(.trip-day) .pickup-marker-chip,html:not(.trip-day) .destination-chip,
+html:not(.trip-day) .ride-preference-options button,html:not(.trip-day) .passenger-count-options button{
+  background:#eaf6ed;color:#176b38;border-color:#b7d9bd
+}
+html:not(.trip-day) .pickup-marker-chip.selected,html:not(.trip-day) .destination-chip.is-saved,
+html:not(.trip-day) .ride-preference-options button.selected,html:not(.trip-day) .passenger-count-options button.selected{
+  background:#c9ebd0;color:#104d2b;border-color:#23834b
+}
+html:not(.trip-day) .passenger-count-stepper{background:#172638;color:#dff5e3;border-color:#45664f}
+html:not(.trip-day) .passenger-count-stepper button{background:#294d35;color:#e7ffe9}
+html:not(.trip-day) .passenger-count-stepper small{color:#b8cbbd}
+html:not(.trip-day) .trip-map-details{background:#eaf6ed;border-color:#a9d7b5}
+html:not(.trip-day) .trip-map-details summary,html:not(.trip-day) .trip-map-details summary:after{color:#176b38}
+html:not(.trip-day) .save-place-actions.destination-save-actions button{background:#eaf6ed;color:#176b38;border-color:#b7d9bd}
+@media(max-width:390px){
+  .pickup-marker-row,.destination-shortcuts,.ride-preference-options{gap:6px}
+  .pickup-marker-chip,.destination-chip,.ride-preference-options button{padding:8px 9px;font-size:10px}
+  .traffic-badge{font-size:9px}
+}
