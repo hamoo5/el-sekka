@@ -1521,38 +1521,94 @@ async function captainSubscriptionPanel() {
 async function captainDashboardPage() {
   const docs=await captainDocumentsPanel();
   const subscription=await captainSubscriptionPanel();
+  const [{data:vehicles, error:vehicleError},{data:requests,error:requestError}]=await Promise.all([
+    supabase.from('vehicles')
+      .select('id,vehicle_type,make,model,color,plate_number,passenger_capacity')
+      .eq('captain_id',profile.id).eq('approval_status','approved').eq('is_active',true),
+    supabase.from('trip_requests')
+      .select('id,vehicle_type,origin_name,destination_name,passenger_count,fixed_fare_egp,is_scheduled,scheduled_at,created_at,pickup_note,ride_preferences')
+      .eq('request_status','searching').neq('passenger_id',profile.id)
+      .order('created_at',{ascending:true}).limit(30)
+  ]);
+  const availableVehicles=vehicles||[];
+  const requestCards=requestError
+    ? '<p class="message">تعذر تحميل الطلبات المفتوحة. تأكد من اعتماد المستندات والاشتراك النشط.</p>'
+    : (requests||[]).length
+      ? requests.map(request=>{
+          const matching=availableVehicles.filter(vehicle=>vehicle.vehicle_type===request.vehicle_type&&vehicle.passenger_capacity>=request.passenger_count);
+          const preference=request.ride_preferences||{};
+          const preferenceLabels=[
+            preference.quiet?'🤫 رحلة هادية':null,
+            preference.ac?'❄️ تكييف':null,
+            preference.luggage?'🧳 شنط':null
+          ].filter(Boolean);
+          const vehicleOptions=matching.map(vehicle=>{
+            const label=[vehicle.make,vehicle.model,vehicle.color,vehicle.plate_number].filter(Boolean).join(' · ')||'مركبة معتمدة';
+            return '<option value="'+esc(vehicle.id)+'">'+esc(label)+'</option>';
+          }).join('');
+          return `<article class="fixed-trip-card">
+            <div class="fixed-trip-card-head"><b>طلب مشوار جديد</b><strong>${Number(request.fixed_fare_egp||0).toLocaleString('ar-EG')} جنيه</strong></div>
+            <p><b>من:</b> ${esc(request.origin_name)}</p>
+            <p><b>إلى:</b> ${esc(request.destination_name)}</p>
+            <p><b>المركبة:</b> ${esc(request.vehicle_type)} · <b>الركاب:</b> ${esc(request.passenger_count)}</p>
+            ${request.is_scheduled?'<p><b>موعد محدد:</b> '+esc(request.scheduled_at?new Date(request.scheduled_at).toLocaleString('ar-EG'):'')+'</p>':'<p class="muted">مشوار فوري</p>'}
+            ${request.pickup_note?'<p><b>ملاحظة الركوب:</b> '+esc(request.pickup_note)+'</p>':''}
+            ${preferenceLabels.length?'<div class="fixed-trip-preferences">'+preferenceLabels.map(item=>'<span>'+item+'</span>').join('')+'</div>':'<small class="muted">لا توجد تفضيلات إضافية.</small>'}
+            ${matching.length?`<label>اختار مركبتك<select id="fixedVehicle-${esc(request.id)}">${vehicleOptions}</select></label>`:'<div class="notice">لا توجد مركبة معتمدة ونشطة من نفس الفئة وبسعة كافية لقبول الطلب.</div>'}
+            <button type="button" class="btn primary" data-accept-fixed-trip="${esc(request.id)}" ${matching.length?'':'disabled'}>اقبل المشوار</button>
+          </article>`;
+        }).join('')
+      : '<div class="notice">مفيش طلبات مشاوير مفتوحة حاليًا. هنظهر هنا الطلبات المناسبة لمركباتك المعتمدة.</div>';
   layout(`
     <main class="wrap narrow">
       <button type="button" class="back" id="captainHome">→ الرئيسية</button>
       <section class="hero compact"><span class="tag">مساحة الكابتن</span><h1>إدارة حسابك واشتراكك</h1><p>يمكنك استخدام السكة كراكب في أي وقت. الاشتراك مطلوب فقط لممارسة نشاط القيادة.</p></section>
       ${docs}
       ${subscription}
+      <section class="panel">
+        <div class="fixed-trip-section-head"><div><h2>طلبات المشاوير المتاحة</h2><p class="muted">اقبل الطلب المناسب لمركبتك. السعر محدد مسبقًا ولا يوجد تفاوض.</p></div><button type="button" class="btn outline" id="refreshFixedTrips">تحديث</button></div>
+        <div class="fixed-trip-list">${requestCards}</div>
+        ${vehicleError?'<p class="message">تعذر تحميل مركباتك المعتمدة.</p>':''}
+      </section>
     </main>`);
   document.getElementById('captainHome')?.addEventListener('click',()=>{page='home';render();});
+  document.getElementById('refreshFixedTrips')?.addEventListener('click',()=>captainDashboardPage());
   document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>{page=b.dataset.page;render();}));
+  document.querySelectorAll('[data-accept-fixed-trip]').forEach(button=>button.addEventListener('click',async()=>{
+    const requestId=button.dataset.acceptFixedTrip;
+    const vehicleId=document.getElementById('fixedVehicle-'+requestId)?.value;
+    if(!vehicleId)return;
+    button.disabled=true;button.textContent='جارٍ قبول المشوار...';
+    const {data,error}=await supabase.rpc('captain_accept_fixed_trip',{p_request_id:requestId,p_vehicle_id:vehicleId});
+    if(error){
+      const message=error.message||'تعذر قبول المشوار.';
+      button.disabled=false;button.textContent='اقبل المشوار';
+      alert(message.includes('active_subscription_required')?'الاشتراك غير نشط. راجع قسم الاشتراك.':message.includes('request_not_available')||message.includes('request_already_taken')?'الطلب اتقبل بواسطة كابتن آخر أو لم يعد متاحًا.':message.includes('approved_active_vehicle_required')?'المركبة غير معتمدة أو غير نشطة.':'تعذر قبول الطلب. راجع بيانات المركبة والاشتراك.');
+      return;
+    }
+    if(data===true){alert('تم قبول المشوار.');await captainDashboardPage();}
+    else{button.disabled=false;button.textContent='اقبل المشوار';alert('لم يتم قبول المشوار. حاول تحديث الطلبات.');}
+  }));
   document.getElementById('subscriptionForm')?.addEventListener('submit',async e=>{
     e.preventDefault();
-    const form=e.currentTarget, d=new FormData(form), msg=document.getElementById('subscriptionMessage'), btn=form.querySelector('button[type="submit"]');
+    const form=e.currentTarget,d=new FormData(form),msg=document.getElementById('subscriptionMessage'),btn=form.querySelector('button[type="submit"]');
     const file=d.get('payment_proof');
     if(!(file instanceof File)||!file.size){msg.textContent='اختر صورة أو ملف PDF لإثبات الدفع.';return;}
     if(file.size>5*1024*1024||!['image/jpeg','image/png','image/webp','application/pdf'].includes(file.type)){msg.textContent='الملف يجب أن يكون صورة JPG أو PNG أو WEBP أو PDF ولا يتجاوز 5 ميجابايت.';return;}
     const reference=String(d.get('payment_reference')||'').trim();
     if(!reference){msg.textContent='أدخل مرجع التحويل.';return;}
-    btn.disabled=true;
-    let uploadedPath=null;
+    btn.disabled=true;let uploadedPath=null;
     try{
       msg.textContent='جارٍ رفع إثبات الدفع بشكل خاص...';
       const ext=file.type==='application/pdf'?'pdf':file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
       uploadedPath=profile.id+'/subscription/'+crypto.randomUUID()+'.'+ext;
       const {error:uploadError}=await supabase.storage.from('captain-payment-proofs').upload(uploadedPath,file,{contentType:file.type,upsert:false});
-      if(uploadError) throw uploadError;
-      const {error:rpcError}=await supabase.rpc('submit_subscription',{
-        p_plan_days:Number(d.get('plan_days')),p_payment_reference:reference,p_proof_path:uploadedPath
-      });
-      if(rpcError) throw rpcError;
+      if(uploadError)throw uploadError;
+      const {error:rpcError}=await supabase.rpc('submit_subscription',{p_plan_days:Number(d.get('plan_days')),p_payment_reference:reference,p_proof_path:uploadedPath});
+      if(rpcError)throw rpcError;
       await captainDashboardPage();
     }catch(error){
-      if(uploadedPath) await supabase.storage.from('captain-payment-proofs').remove([uploadedPath]);
+      if(uploadedPath)await supabase.storage.from('captain-payment-proofs').remove([uploadedPath]);
       const m=error?.message||'';
       msg.textContent=m.includes('subscription_already_pending')?'لديك طلب اشتراك قيد المراجعة بالفعل.':m.includes('valid_captain_documents_required')?'يجب اعتماد طلب الكابتن وصلاحية المستندات أولاً.':m.includes('payment_proof_not_owned_or_missing')?'تعذر التحقق من إثبات الدفع. أعد المحاولة.':m||'تعذر إرسال طلب الاشتراك.';
     }finally{btn.disabled=false;}
