@@ -60,7 +60,10 @@ function savedPassengerDestinations() {
   return value && typeof value === 'object' ? value : {};
 }
 
+const APP_THEME_KEY='el-sekka-theme-mode';
+function applyAppTheme(){let mode='auto';try{mode=localStorage.getItem(APP_THEME_KEY)||'auto';}catch(_){}const day=mode==='day'||(mode==='auto'&&new Date().getHours()>=6&&new Date().getHours()<18);document.documentElement.classList.toggle('trip-day',day);document.documentElement.classList.toggle('trip-night',!day);document.body.classList.toggle('trip-day',day);document.body.classList.toggle('trip-night',!day);}
 function layout(body) {
+  applyAppTheme();
   const captain=profile?.account_type==='captain'||profile?.role==='captain';
   const rider=profile?.account_type==='rider'||profile?.role==='passenger';
   app.innerHTML = `
@@ -294,22 +297,13 @@ async function reversePlace(lat, lng) {
 }
 
 function tripForm() {
-  const types = [
-    ['private_car','🚘','ملاكي',''],
-    ['taxi','🚕','تاكسي',''],
-    ['suzuki','🚐','سوزوكي',''],
-    ['microbus','🚌','ميكروباص',''],
-    ['scooter','🛵','اسكوتر',''],
-    ['motorcycle','🏍️','موتوسيكل','']
-  ];
+  const types = [['private_car','🚘','ملاكي',''],['taxi','🚕','تاكسي',''],['suzuki','🚐','سوزوكي','']];
   layout(`
-    <main class="wrap narrow trip-page">
-      <button type="button" class="back" id="back">→ الرئيسية</button>
-      <section class="hero compact"><h1>رايح فين؟</h1><p>حدد مكان الركوب والوجهة، والسكة هتوصلك.</p></section>
-      <form class="panel form trip-panel" id="tripForm">
+    <main class="passenger-map-first"><section class="passenger-map-stage"><div id="tripMap" class="trip-map" role="application" aria-label="خريطة تحديد مكان الركوب والوجهة"></div><div class="map-floating-status" id="mapHint">حدد مكان الركوب والوجهة لعرض المسار</div><button type="button" class="map-locate-button" id="useLocation" aria-label="تحديد موقعي الحالي">◎</button></section>
+      <form class="panel form trip-panel passenger-bottom-sheet" id="tripForm"><div class="bottom-sheet-handle"></div><div class="ride-mode-switch"><button type="button" class="active" id="normalRideMode">🚖 مشوار عادي</button><button type="button" id="sharedRideMode">👥 مشوار مشترك</button></div>
         <section class="location-card">
           <label>مكان الركوب
-            <div class="input-with-action"><input id="originName" required placeholder="اكتب اسم الشارع أو المنطقة" autocomplete="off"><button class="gps-icon" type="button" id="useLocation" aria-label="تحديد موقعي الحالي" title="موقعي الحالي">◎</button></div>
+            <div class="input-with-action"><input id="originName" required placeholder="حدد مكان الركوب" autocomplete="off"></div>
             <div class="suggestions" id="originSuggestions" role="listbox"></div>
             <div class="pickup-marker-row" aria-label="علامات مكان الركوب">
               <button type="button" class="pickup-marker-chip" data-pickup-note="قدام البوابة">قدام البوابة</button>
@@ -331,13 +325,7 @@ function tripForm() {
           </label>
          </section>
 
-        <details class="trip-map-details" id="tripMapDetails">
-          <summary>عرض الخريطة وتعديل المواقع</summary>
-          <p class="map-helper">اضغط على الخريطة لتعديل مكان الركوب أو الوجهة.</p>
-          <div id="tripMap" class="trip-map" role="application" aria-label="خريطة تحديد مكان الركوب والوجهة"></div>
-          <div class="map-legend"><span>🟢 الركوب</span><span>🔴 الوجهة</span><span id="mapHint" hidden></span></div>
-        </details>
-
+        <div class="map-legend passenger-map-legend"><span>🟢 الركوب</span><span>🔴 الوجهة</span></div>
         <fieldset class="vehicle-field">
           <legend>اختار نوع المركبة</legend>
           <div class="vehicle-grid">
@@ -395,14 +383,9 @@ function tripForm() {
   try { pendingTrip=JSON.parse(sessionStorage.getItem('el-sekka-pending-trip') || 'null'); sessionStorage.removeItem('el-sekka-pending-trip'); } catch (_) {}
 
   let routeDistanceKm = null, routeDurationMinutes = null, summarySequence = 0, vehiclePriceSequence = 0;
-  const hour = new Date().getHours();
-  const isDay = hour >= 6 && hour < 18;
-  document.documentElement.classList.toggle('trip-day', isDay);
-  document.documentElement.classList.toggle('trip-night', !isDay);
-  document.body.classList.toggle('trip-day', isDay);
-  document.body.classList.toggle('trip-night', !isDay);
-  $('tripMap')?.classList.toggle('trip-map-night', !isDay);
-  $('tripMap')?.classList.toggle('trip-map-day', isDay);
+  applyAppTheme();
+  $('tripMap')?.classList.toggle('trip-map-night',document.documentElement.classList.contains('trip-night'));
+  $('tripMap')?.classList.toggle('trip-map-day',document.documentElement.classList.contains('trip-day'));
   let map = null, originMarker = null, destinationMarker = null, routeLine = null;
   const searchTimers = {origin:null,destination:null};
   const searchSequence = {origin:0,destination:0};
@@ -460,14 +443,8 @@ function tripForm() {
     note.value=parts.join('، ').slice(0,160);button.classList.add('selected');
   }));
   $('back').addEventListener('click', () => { page = 'home'; render(); });
-  $('tripMapDetails').addEventListener('toggle', () => {
-    if ($('tripMapDetails').open && map) {
-      window.setTimeout(() => {
-        map.invalidateSize({pan:false,animate:false});
-        if (origin && destination) drawRoute();
-      }, 120);
-    }
-  });
+  $('sharedRideMode').addEventListener('click',()=>{page='share';render();});
+  $('normalRideMode').addEventListener('click',()=>{$('normalRideMode').classList.add('active');$('sharedRideMode').classList.remove('active');});
 
   const updateFarePreview = async () => {
     const seq = ++summarySequence;
@@ -651,17 +628,9 @@ function tripForm() {
       // Restore any addresses selected while Leaflet was loading.
       if (origin) setPoint('origin',origin.lat,origin.lng,origin.name,true).catch(error => statusHint(error.message || 'تعذر إظهار مكان الركوب.'));
       if (destination) setPoint('destination',destination.lat,destination.lng,destination.name,true).catch(error => statusHint(error.message || 'تعذر إظهار الوجهة.'));
-      const applyMapTheme = () => {
-        const day = new Date().getHours() >= 6 && new Date().getHours() < 18;
-        document.documentElement.classList.toggle('trip-day',day);
-        document.documentElement.classList.toggle('trip-night',!day);
-        document.body.classList.toggle('trip-day',day);
-        document.body.classList.toggle('trip-night',!day);
-        mapElement.classList.toggle('trip-map-day',day);
-        mapElement.classList.toggle('trip-map-night',!day);
-      };
+      const applyMapTheme=()=>{applyAppTheme();const day=document.documentElement.classList.contains('trip-day');mapElement.classList.toggle('trip-map-day',day);mapElement.classList.toggle('trip-map-night',!day);};
       applyMapTheme();
-      window.setInterval(applyMapTheme,60_000);
+      const themeTimer=window.setInterval(applyMapTheme,60_000);activeUiTimers.push(themeTimer);
       map.on('click',event => {
         try { setPoint(activePoint,event.latlng.lat,event.latlng.lng).catch(error => statusHint(error.message || 'تعذر تحديد النقطة.')); }
         catch(error) { statusHint(error.message || 'تعذر تحديد النقطة.'); }
@@ -2154,8 +2123,13 @@ async function profilePage(){
       ${profile.account_type!=='captain'?'<button class="profile-action" id="openTrips"><span>🧾</span><b>سجل الرحلات</b><small>راجع مشاويرك السابقة والحالية</small></button>':''}
       ${profile.role==='admin'?'<button class="profile-action" id="openAdminProfile"><span>⚙️</span><b>إدارة المنصة</b><small>طلبات الكباتن والاشتراكات</small></button>':''}
     </section>
-    <section class="panel profile-section"><h2>الأمان والخصوصية</h2><p class="muted">التواصل بين أطراف الرحلة يتم داخل التطبيق. أرقام الهواتف لا تظهر للطرف الآخر.</p><button class="btn outline" id="profileLogout">تسجيل الخروج</button></section>
+    <section class="panel profile-section theme-preference-panel"><h2>مظهر التطبيق</h2><p class="muted">اختار التبديل التلقائي حسب وقت هاتفك أو ثبّت الوضع اللي يناسبك.</p><div class="theme-mode-options"><button type="button" data-theme-mode="auto">تلقائي ☀️🌙</button><button type="button" data-theme-mode="day">نهاري ☀️</button><button type="button" data-theme-mode="night">ليلي 🌙</button></div></section>
+     ${profile.account_type==='rider'?'<section class="panel profile-section"><h2>الدعوات والمكافآت</h2><p class="muted">نقاطك وخصوماتك وأيام المكافأة.</p><button class="btn outline" id="openRewardsFromProfile">🎁 افتح الدعوات والمكافآت</button></section>':''}
+     <section class="panel profile-section"><h2>الأمان والخصوصية</h2><p class="muted">التواصل بين أطراف الرحلة يتم داخل التطبيق. أرقام الهواتف لا تظهر للطرف الآخر.</p><button class="btn outline" id="profileLogout">تسجيل الخروج</button></section>
   </main>`);
+  document.querySelectorAll('[data-theme-mode]').forEach(button=>button.addEventListener('click',()=>{try{localStorage.setItem(APP_THEME_KEY,button.dataset.themeMode);}catch(_){}applyAppTheme();document.querySelectorAll('[data-theme-mode]').forEach(x=>x.classList.toggle('active',x===button));}));
+  const savedTheme=(()=>{try{return localStorage.getItem(APP_THEME_KEY)||'auto';}catch(_){return 'auto';}})();
+  document.querySelectorAll('[data-theme-mode]').forEach(button=>button.classList.toggle('active',button.dataset.themeMode===savedTheme));
   document.getElementById('openRewards')?.addEventListener('click',()=>{page='rewards';render();});
   document.getElementById('openTrips')?.addEventListener('click',()=>{page='trips';render();});
   document.getElementById('openAdminProfile')?.addEventListener('click',()=>{page='admin';render();});
