@@ -241,7 +241,7 @@ declare
   v_booking public.bookings%rowtype;
   v_departure_at timestamptz;
 begin
-  select b.*, r.departure_at
+  select b, r.departure_at
   into v_booking, v_departure_at
   from public.bookings b
   join public.rides r on r.id = b.ride_id
