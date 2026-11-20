@@ -103,6 +103,10 @@ create policy share_route_history_read_parties_admin
     )
   );
 
+-- No direct client-side writes: all mutations go through the validated RPC functions.
+revoke all on public.share_route_requests from anon, authenticated;
+revoke all on public.share_route_negotiations from anon, authenticated;
+revoke all on public.share_route_offer_history from anon, authenticated;
 grant select on public.share_route_requests to authenticated;
 grant select on public.share_route_negotiations to authenticated;
 grant select on public.share_route_offer_history to authenticated;
@@ -124,7 +128,7 @@ create or replace function public.create_share_route_request(
 returns uuid
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
 declare
   v_id uuid := auth.uid();
@@ -184,7 +188,7 @@ create or replace function public.captain_reply_share_route_request(
 returns uuid
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
 declare
   v_id uuid := auth.uid();
@@ -279,7 +283,7 @@ create or replace function public.requester_reply_share_route(
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
 declare
   v_id uuid := auth.uid();
@@ -335,7 +339,7 @@ create or replace function public.confirm_share_route_match(p_negotiation_id uui
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
 declare
   v_id uuid := auth.uid();
@@ -365,10 +369,10 @@ begin
 end;
 $$;
 
-revoke all on function public.create_share_route_request(text,text,double precision,double precision,text,double precision,double precision,text,timestamptz,integer,numeric,text) from public;
-revoke all on function public.captain_reply_share_route_request(uuid,uuid,text,numeric) from public;
-revoke all on function public.requester_reply_share_route(uuid,text,numeric) from public;
-revoke all on function public.confirm_share_route_match(uuid) from public;
+revoke all on function public.create_share_route_request(text,text,double precision,double precision,text,double precision,double precision,text,timestamptz,integer,numeric,text) from public, anon;
+revoke all on function public.captain_reply_share_route_request(uuid,uuid,text,numeric) from public, anon;
+revoke all on function public.requester_reply_share_route(uuid,text,numeric) from public, anon;
+revoke all on function public.confirm_share_route_match(uuid) from public, anon;
 
 grant execute on function public.create_share_route_request(text,text,double precision,double precision,text,double precision,double precision,text,timestamptz,integer,numeric,text) to authenticated;
 grant execute on function public.captain_reply_share_route_request(uuid,uuid,text,numeric) to authenticated;
