@@ -1057,15 +1057,15 @@ async function applyCaptainPage() {
   if (existing?.application_status === 'pending' || existing?.application_status === 'approved' || existing?.application_status === 'suspended') {
     page='home'; return render();
   }
-  layout(\`
+  layout(`
     <main class="wrap narrow">
       <button class="back" id="back">→ الرئيسية</button>
       <section class="hero compact"><span class="tag">الانضمام للكباتن</span><h1>بيانات الكابتن والمركبة</h1><p>املأ بياناتك وارفع الصور المطلوبة. الصور الشخصية وصور المركبة ستظهر للراكب بعد اعتماد الإدارة، أما بيانات الرخصة فتظل خاصة.</p></section>
       <form class="panel form" id="captainApplyForm">
         <h3>أولاً: بيانات الكابتن</h3>
-        <label>آخر 4 أرقام من الرقم القومي<input name="national_id_last4" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" minlength="4" required value="\${esc(existing?.national_id_last4||'')}" placeholder="1234"></label>
-        <label>رقم رخصة القيادة<input name="license_number" maxlength="80" required value="\${esc(existing?.license_number||'')}" placeholder="رقم الرخصة"></label>
-        <label>تاريخ انتهاء الرخصة<input name="license_expiry" type="date" required value="\${esc(existing?.license_expiry||'')}"></label>
+        <label>آخر 4 أرقام من الرقم القومي<input name="national_id_last4" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" minlength="4" required value="${esc(existing?.national_id_last4||'')}" placeholder="1234"></label>
+        <label>رقم رخصة القيادة<input name="license_number" maxlength="80" required value="${esc(existing?.license_number||'')}" placeholder="رقم الرخصة"></label>
+        <label>تاريخ انتهاء الرخصة<input name="license_expiry" type="date" required value="${esc(existing?.license_expiry||'')}"></label>
         <label>الصورة الشخصية<input name="profile_photo" type="file" accept="image/*" capture="user" required></label>
         <div class="notice">اختر صورة واضحة لوجهك، بدون مستندات أو بيانات شخصية ظاهرة في الخلفية.</div>
         <hr>
@@ -1094,7 +1094,7 @@ async function applyCaptainPage() {
         <button class="btn primary" type="submit">إرسال طلب الانضمام</button>
         <p class="message" id="applyMessage" aria-live="polite"></p>
       </form>
-    </main>\`);
+    </main>`);
   $('back')?.addEventListener('click',()=>{page='home';render();});
   const form=document.getElementById('captainApplyForm');
   const capacityByType={private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
