@@ -36,6 +36,10 @@ function savedPassengerPlaces() {
   const value = readPassengerStore('places', {});
   return value && typeof value === 'object' ? value : {};
 }
+function savedPassengerDestinations() {
+  const value = readPassengerStore('destinations', {});
+  return value && typeof value === 'object' ? value : {};
+}
 
 function layout(body) {
   app.innerHTML = `
@@ -152,13 +156,13 @@ async function home() {
       ${profile.role === 'passenger' ? await captainApplicationStatus() : ''}
       <section class="panel"><h3>اختار طريقك</h3><p class="muted">في المشوار العادي السعر يحدده النظام. وفي مشاركة الكرسي السعر بالتفاوض وموافقة الطرفين.</p></section>
     </main>`);
-  const saved = savedPassengerPlaces();
+  const saved = savedPassengerDestinations();
   const placesBox = document.getElementById('homeSavedPlaces');
-  const placeLabels = {home:'البيت',work:'الشغل'};
+  const placeLabels = {home:'البيت',work:'الشغل',metro:'أقرب مترو'};
   const placeEntries = Object.entries(saved).filter(([key,p]) => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)));
   placesBox.innerHTML = placeEntries.length
-    ? placeEntries.map(([key,p]) => `<button class="saved-place-chip" type="button" data-quick-place="${esc(key)}"><span>${key==='home'?'⌂':'▣'}</span><b>${esc(placeLabels[key] || p.label || 'مكان محفوظ')}</b><small>${esc(p.name || '')}</small></button>`).join('')
-    : '<p class="muted">احفظ البيت والشغل من صفحة الحجز لتطلب مشاويرك أسرع.</p>';
+    ? placeEntries.map(([key,p]) => `<button class="saved-place-chip" type="button" data-quick-place="${esc(key)}"><span>${key==='home'?'⌂':key==='work'?'▣':'🚇'}</span><b>${esc(placeLabels[key] || p.label || 'مكان محفوظ')}</b><small>${esc(p.name || '')}</small></button>`).join('')
+    : '<p class="muted">احفظ البيت والشغل وأقرب مترو كوجهات لتطلب مشاويرك أسرع.</p>';
   placesBox.querySelectorAll('[data-quick-place]').forEach(button => button.addEventListener('click', () => {
     sessionStorage.setItem('el-sekka-pending-trip', JSON.stringify({destination:saved[button.dataset.quickPlace]}));
     page='trip'; render();
@@ -234,13 +238,23 @@ function tripForm() {
           <label>مكان الركوب
             <div class="input-with-action"><input id="originName" required placeholder="اكتب اسم الشارع أو المنطقة" autocomplete="off"><button class="gps-icon" type="button" id="useLocation" aria-label="تحديد موقعي الحالي" title="موقعي الحالي">◎</button></div>
             <div class="suggestions" id="originSuggestions" role="listbox"></div>
-            <div class="save-place-actions"><button type="button" data-save-place="home">حفظ كـ البيت</button><button type="button" data-save-place="work">حفظ كـ الشغل</button></div>
+            <div class="pickup-marker-row" aria-label="علامات مكان الركوب">
+              <button type="button" class="pickup-marker-chip" data-pickup-note="قدام البوابة">قدام البوابة</button>
+              <button type="button" class="pickup-marker-chip" data-pickup-note="عند الصيدلية">عند الصيدلية</button>
+              <button type="button" class="pickup-marker-chip" data-pickup-note="على الناصية">على الناصية</button>
+            </div>
+            <input id="pickupNote" maxlength="160" placeholder="ملاحظة إضافية للكابتن (اختياري)" autocomplete="off">
           </label>
-          <div class="quick-place-row" id="quickPlaceRow"></div>
           <div class="location-divider"></div>
           <label>الوجهة
             <input id="destinationName" required placeholder="رايح فين؟ اكتب اسم المكان" autocomplete="off">
             <div class="suggestions" id="destinationSuggestions" role="listbox"></div>
+            <div class="destination-shortcuts" id="destinationQuickPlaceRow"></div>
+            <div class="save-place-actions destination-save-actions">
+              <button type="button" data-save-destination="home">حفظ الوجهة كـ البيت</button>
+              <button type="button" data-save-destination="work">حفظ الوجهة كـ الشغل</button>
+              <button type="button" data-save-destination="metro">حفظ محطة المترو</button>
+            </div>
           </label>
          </section>
 
@@ -261,16 +275,41 @@ function tripForm() {
           </div>
           <input type="hidden" name="vehicle_type" id="vehicleType" value="private_car">
         </fieldset>
-        <label id="passengerCountField">عدد الركاب
-          <select name="passenger_count" id="passengerCount"></select>
-        </label>
+        <fieldset class="passenger-count-field" id="passengerCountField">
+          <legend>عدد الركاب</legend>
+          <div class="passenger-count-options">
+            <button type="button" data-passengers="1">1</button>
+            <button type="button" data-passengers="2">2</button>
+            <button type="button" data-passengers="3">3</button>
+            <button type="button" data-passengers="4">4+</button>
+          </div>
+          <div class="passenger-count-stepper" id="passengerCountStepper" hidden>
+            <button type="button" id="passengerCountMinus" aria-label="تقليل عدد الركاب">−</button>
+            <b id="passengerCountValue">4</b>
+            <button type="button" id="passengerCountPlus" aria-label="زيادة عدد الركاب">+</button>
+            <small>يمكنك تحديد العدد حتى سعة المركبة</small>
+          </div>
+          <input type="hidden" name="passenger_count" id="passengerCount" value="1">
+        </fieldset>
+        <fieldset class="ride-preferences">
+          <legend>تفضيلات الرحلة</legend>
+          <div class="ride-preference-options">
+            <button type="button" data-preference="quiet" aria-pressed="false">🤫 رحلة هادية</button>
+            <button type="button" data-preference="ac" aria-pressed="false">❄️ تكييف</button>
+            <button type="button" data-preference="luggage" aria-pressed="false">🧳 شنط</button>
+          </div>
+        </fieldset>
         <label class="schedule-toggle"><input type="checkbox" id="scheduleToggle"> حجز المشوار في موعد لاحق</label>
         <label id="scheduleField" hidden>موعد المشوار
           <input type="datetime-local" id="scheduledAt">
         </label>
         <section class="trip-summary" id="tripSummary"><div><small>المسافة</small><b id="summaryDistance">—</b></div><div><small>الوقت المتوقع</small><b id="summaryDuration">—</b></div><div><small>السعر النهائي</small><b id="summaryFare">—</b></div></section>
         <div class="notice" id="pricingNotice" hidden></div>
-        <button class="btn primary" type="submit" id="sendTrip">تأكيد وطلب المشوار</button>
+        <button class="btn primary trip-submit-button" type="submit" id="sendTrip">
+          <span id="sendTripLabel">اطلب السكة الآن</span>
+          <small id="trafficBadge" class="traffic-badge"></small>
+        </button>
+        <p class="traffic-disclaimer">مؤشر الذروة تقديري حسب توقيت الطلب، وليس بيانات مرور مباشرة.</p>
         <p class="message" id="tripMessage" aria-live="polite"></p>
         <section id="tripResult" class="trip-result" hidden></section>
       </form>
@@ -294,28 +333,57 @@ function tripForm() {
   const searchTimers = {origin:null,destination:null};
   const searchSequence = {origin:0,destination:0};
   const statusHint = message => { $('mapHint').textContent = message; };
-  const savedPlaces = savedPassengerPlaces();
-  const quickPlaceRow = $('quickPlaceRow');
   const rememberedTrip = pendingTrip || readPassengerStore('last-trip');
   if (pendingTrip?.origin) setTimeout(() => setPoint('origin',pendingTrip.origin.lat,pendingTrip.origin.lng,pendingTrip.origin.name,true),250);
   if (pendingTrip?.destination) setTimeout(() => setPoint('destination',pendingTrip.destination.lat,pendingTrip.destination.lng,pendingTrip.destination.name,true),450);
 
-  const savedEntries = Object.entries(savedPlaces).filter(([key,p]) => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)));
-  quickPlaceRow.innerHTML = savedEntries.map(([key,p]) => `<button type="button" class="quick-place-chip" data-fill-place="${esc(key)}">${key==='home'?'⌂':'▣'} ${key==='home'?'البيت':key==='work'?'الشغل':esc(p.label || 'مكان محفوظ')}</button>`).join('');
-  quickPlaceRow.querySelectorAll('[data-fill-place]').forEach(button => button.addEventListener('click', () => {
-    const place = savedPlaces[button.dataset.fillPlace];
-    setPoint('origin',place.lat,place.lng,place.name,true);
-  }));
-  document.querySelectorAll('[data-save-place]').forEach(button => button.addEventListener('click', () => {
-    if (!origin) { $('tripMessage').textContent='حدد مكان الركوب أولاً ثم احفظه.'; return; }
-    const key=button.dataset.savePlace, current=savedPassengerPlaces();
-    current[key]={lat:origin.lat,lng:origin.lng,name:origin.name,label:key==='home'?'البيت':'الشغل'};
-    if(writePassengerStore('places',current)) {
-      $('tripMessage').textContent=key==='home'?'تم حفظ عنوان البيت على هذا الجهاز.':'تم حفظ عنوان الشغل على هذا الجهاز.';
-      savedPlaces[key]=current[key];
-      quickPlaceRow.innerHTML=Object.entries(current).map(([k,p])=>`<button type="button" class="quick-place-chip" data-fill-place="${esc(k)}">${k==='home'?'⌂':'▣'} ${k==='home'?'البيت':k==='work'?'الشغل':esc(p.label || 'مكان محفوظ')}</button>`).join('');
-      quickPlaceRow.querySelectorAll('[data-fill-place]').forEach(b=>b.addEventListener('click',()=>{const p=current[b.dataset.fillPlace];setPoint('origin',p.lat,p.lng,p.name,true);}));
-    } else $('tripMessage').textContent='تعذر الحفظ على الجهاز. تحقق من مساحة التخزين.';
+  const destinationLabels = {home:'البيت',work:'الشغل',metro:'أقرب مترو'};
+  const renderDestinationShortcuts = () => {
+    const current=savedPassengerDestinations(), row=$('destinationQuickPlaceRow');
+    row.innerHTML=['home','work','metro'].map(key=>{
+      const icons={home:'🏠',work:'💼',metro:'🚇'};
+      return `<button type="button" class="destination-chip ${current[key]?'is-saved':'is-empty'}" data-destination-key="${key}">${icons[key]} ${destinationLabels[key]}${current[key]?'':' · حفظ'}</button>`;
+    }).join('');
+    row.querySelectorAll('[data-destination-key]').forEach(button=>button.addEventListener('click',async()=>{
+      const key=button.dataset.destinationKey, places=savedPassengerDestinations();
+      if(places[key]){await setPoint('destination',places[key].lat,places[key].lng,places[key].name,true);$('tripMessage').textContent=`تم اختيار وجهة ${destinationLabels[key]}.`;return;}
+      if(key==='metro'&&origin){
+        button.disabled=true;$('tripMessage').textContent='بندور على أقرب محطة مترو من مكان الركوب...';
+        try{
+          const query=`[out:json][timeout:12];(nwr(around:5000,${origin.lat},${origin.lng})["station"="subway"];nwr(around:5000,${origin.lat},${origin.lng})["railway"="station"]["subway"="yes"];);out center tags;`;
+          const response=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:new URLSearchParams({data:query}),signal:AbortSignal.timeout(15000)});
+          if(!response.ok)throw new Error('خدمة محطات المترو غير متاحة الآن.');
+          const payload=await response.json();
+          const candidates=(payload.elements||[]).map(item=>{const point=item.center||item;return{lat:Number(point.lat),lng:Number(point.lon),name:item.tags?.['name:ar']||item.tags?.name||'محطة مترو'};}).filter(item=>Number.isFinite(item.lat)&&Number.isFinite(item.lng));
+          if(!candidates.length)throw new Error('ملقيناش محطة مترو مسجلة قريبة. ابحث عن المحطة واحفظها.');
+          const distance=item=>Math.hypot((item.lat-origin.lat)*111,(item.lng-origin.lng)*96);
+          candidates.sort((a,b)=>distance(a)-distance(b));
+          await setPoint('destination',candidates[0].lat,candidates[0].lng,candidates[0].name,true);
+          $('tripMessage').textContent=`أقرب محطة مترو حسب بيانات OpenStreetMap: ${candidates[0].name}.`;
+        }catch(error){$('tripMessage').textContent=error.message||'تعذر تحديد أقرب محطة. ابحث عنها واحفظها.';}
+        finally{button.disabled=false;}
+        return;
+      }
+      if(destination){
+        const current=savedPassengerDestinations();current[key]={lat:destination.lat,lng:destination.lng,name:destination.name,label:destinationLabels[key]};
+        if(writePassengerStore('destinations',current)){renderDestinationShortcuts();$('tripMessage').textContent=`تم حفظ ${destinationLabels[key]} كوجهة على هذا الجهاز.`;}
+        else $('tripMessage').textContent='تعذر الحفظ على الجهاز.';
+      }else{$('tripMessage').textContent=`حدد الوجهة أولاً، ثم اضغط ${destinationLabels[key]} لحفظها.`;$('destinationName').focus();}
+    }));
+  };
+  const saveDestination=key=>{
+    if(!destination){$('tripMessage').textContent='حدد الوجهة من البحث أو الخريطة أولاً.';return;}
+    const current=savedPassengerDestinations();current[key]={lat:destination.lat,lng:destination.lng,name:destination.name,label:destinationLabels[key]};
+    if(writePassengerStore('destinations',current)){renderDestinationShortcuts();$('tripMessage').textContent=`تم حفظ ${destinationLabels[key]} كوجهة على هذا الجهاز.`;}
+    else $('tripMessage').textContent='تعذر الحفظ على الجهاز.';
+  };
+  document.querySelectorAll('[data-save-destination]').forEach(button=>button.addEventListener('click',()=>saveDestination(button.dataset.saveDestination)));
+  renderDestinationShortcuts();
+  document.querySelectorAll('[data-pickup-note]').forEach(button=>button.addEventListener('click',()=>{
+    const note=$('pickupNote'),value=button.dataset.pickupNote;
+    const parts=note.value.split('،').map(part=>part.trim()).filter(Boolean);
+    if(!parts.includes(value))parts.push(value);
+    note.value=parts.join('، ').slice(0,160);button.classList.add('selected');
   }));
   $('back').addEventListener('click', () => { page = 'home'; render(); });
   $('tripMapDetails').addEventListener('toggle', () => {
@@ -372,18 +440,38 @@ function tripForm() {
     });
   };
 
-  const setVehicle = value => {
-    $('vehicleType').value = value;
-    document.querySelectorAll('.vehicle-card').forEach(card => card.classList.toggle('selected', card.dataset.vehicle === value));
-    const caps = {private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
-    const max = caps[value] || 1;
-    $('passengerCountField').hidden = max === 1;
-    $('passengerCount').innerHTML = Array.from({length:max},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
-    updateFarePreview();
+  const vehicleCapacities={private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
+  let currentPassengerMax=3, selectedPassengerCount=Math.max(1,Number(rememberedTrip?.passenger_count)||1);
+  const updatePassengerCountUI=()=>{
+    $('passengerCount').value=String(selectedPassengerCount);
+    document.querySelectorAll('[data-passengers]').forEach(button=>{
+      const value=Number(button.dataset.passengers);
+      button.classList.toggle('selected',value===selectedPassengerCount||(value===4&&selectedPassengerCount>=4));
+      button.disabled=value>currentPassengerMax;
+    });
+    $('passengerCountStepper').hidden=selectedPassengerCount<4;
+    $('passengerCountValue').textContent=String(selectedPassengerCount);
+    $('passengerCountMinus').disabled=selectedPassengerCount<=4;
+    $('passengerCountPlus').disabled=selectedPassengerCount>=currentPassengerMax;
   };
-  document.querySelectorAll('.vehicle-card').forEach(card => card.addEventListener('click', () => setVehicle(card.dataset.vehicle)));
-  setVehicle(rememberedTrip?.vehicle_type || 'private_car');
-  if (rememberedTrip?.passenger_count) $('passengerCount').value = String(rememberedTrip.passenger_count);
+  const setPassengerCount=value=>{selectedPassengerCount=Math.min(currentPassengerMax,Math.max(1,Number(value)||1));updatePassengerCountUI();};
+  document.querySelectorAll('[data-passengers]').forEach(button=>button.addEventListener('click',()=>setPassengerCount(Number(button.dataset.passengers))));
+  $('passengerCountMinus').addEventListener('click',()=>setPassengerCount(selectedPassengerCount-1));
+  $('passengerCountPlus').addEventListener('click',()=>setPassengerCount(selectedPassengerCount+1));
+  const selectedPreferences=new Set();
+  document.querySelectorAll('[data-preference]').forEach(button=>button.addEventListener('click',()=>{
+    const key=button.dataset.preference;if(selectedPreferences.has(key))selectedPreferences.delete(key);else selectedPreferences.add(key);
+    button.classList.toggle('selected',selectedPreferences.has(key));button.setAttribute('aria-pressed',String(selectedPreferences.has(key)));
+  }));
+  const setVehicle=value=>{
+    $('vehicleType').value=value;
+    document.querySelectorAll('.vehicle-card').forEach(card=>card.classList.toggle('selected',card.dataset.vehicle===value));
+    currentPassengerMax=vehicleCapacities[value]||1;$('passengerCountField').hidden=currentPassengerMax===1;
+    if(selectedPassengerCount>currentPassengerMax)selectedPassengerCount=currentPassengerMax;
+    updatePassengerCountUI();updateFarePreview();
+  };
+  document.querySelectorAll('.vehicle-card').forEach(card=>card.addEventListener('click',()=>setVehicle(card.dataset.vehicle)));
+  setVehicle(rememberedTrip?.vehicle_type||'private_car');
 
   const fitPoints = () => {
     if (!map) return;
@@ -579,11 +667,21 @@ function tripForm() {
     },err=>statusHint(err.code===1?'اسمح للمتصفح بالوصول إلى موقعك.':'تعذر تحديد موقعك؛ يمكنك كتابة العنوان.'),{enableHighAccuracy:true,timeout:15000});
   });
 
+  const updateTrafficBadge=()=>{
+    const now=new Date(),day=now.getDay(),hour=now.getHours(),weekday=day>=0&&day<=4;
+    const peak=weekday&&((hour>=7&&hour<10)||(hour>=15&&hour<19));
+    const moderate=weekday&&((hour>=10&&hour<12)||(hour>=13&&hour<15)||(hour>=19&&hour<21));
+    const badge=$('trafficBadge');
+    badge.textContent=peak?'🟠 وقت ذروة تقديري':moderate?'🟡 حركة متوسطة تقديريًا':'🟢 خارج أوقات الذروة';
+    badge.dataset.level=peak?'peak':moderate?'moderate':'calm';
+  };
+  updateTrafficBadge();
+  const updateTripSubmitLabel=()=>{$('sendTripLabel').textContent=$('scheduleToggle').checked?'احجز السكة في موعدك':'اطلب السكة الآن';};
   $('scheduleToggle').addEventListener('change',e=>{
     const scheduled=e.target.checked;
     $('scheduleField').hidden=!scheduled;
     $('scheduledAt').required=scheduled;
-    $('sendTrip').textContent=scheduled?'تأكيد حجز المشوار المجدول':'تأكيد وطلب المشوار';
+    updateTripSubmitLabel();
     $('pricingNotice').textContent=scheduled
       ? 'المشوار المجدول بسعر ثابت يحسبه النظام تلقائياً، مثل المشوار الفوري. لا يوجد تفاوض على السعر.'
       : 'المشوار الفوري بسعر ثابت يحسبه النظام تلقائياً. لا توجد عمولة، والدفع للكابتن نقداً.';
@@ -605,7 +703,7 @@ function tripForm() {
       if(!raw||new Date(raw).getTime()<=Date.now()){msg.textContent='اختر موعداً مستقبلياً صحيحاً.';return;}
       scheduledAt=new Date(raw).toISOString();
     }
-    button.disabled=true;button.textContent=scheduled?'جارٍ حساب السعر الثابت وإرسال الحجز...':'جارٍ حساب السعر وإرسال الطلب...';
+    button.disabled=true;$('sendTripLabel').textContent=scheduled?'جارٍ إرسال الحجز المجدول...':'جارٍ إرسال طلبك...';
     msg.textContent='بنحسب المسافة والسعر الثابت على الخادم.';
     try{
       const commonBody={
@@ -615,7 +713,13 @@ function tripForm() {
         passenger_count:Number($('passengerCount').value)
       };
       const result=await supabase.functions.invoke('create-fixed-trip',{
-        body:{...commonBody,is_scheduled:scheduled,scheduled_at:scheduledAt}
+        body:{
+          ...commonBody,
+          pickup_note:$('pickupNote').value.trim()||null,
+          ride_preferences:{quiet:selectedPreferences.has('quiet'),ac:selectedPreferences.has('ac'),luggage:selectedPreferences.has('luggage')},
+          is_scheduled:scheduled,
+          scheduled_at:scheduledAt
+        }
       });
       const {data,error}=result;
       if(error){
@@ -638,10 +742,10 @@ function tripForm() {
       });
       const nextStep=scheduled?'تم تسجيل حجزك بالموعد المحدد.':'بنبحث لك عن كابتن قريب منك الآن.';
       $('tripResult').innerHTML=`<div class="trip-success-icon">✓</div><h3>طلبك وصل بنجاح</h3><div class="fare-line"><span>السعر النهائي</span><strong>${fareLabel}</strong></div><p>${nextStep}</p>`;
-      $('tripResult').hidden=false;msg.textContent='تم إنشاء الطلب بنجاح.';button.textContent='تم إرسال الطلب';
+      $('tripResult').hidden=false;msg.textContent='تم إنشاء الطلب بنجاح.';$('sendTripLabel').textContent='تم إرسال الطلب';
     }catch(error){
       msg.textContent=error.message||'حصل خطأ غير متوقع. حاول مرة أخرى.';
-      button.disabled=false;button.textContent=$('scheduleToggle').checked?'تأكيد حجز المشوار المجدول':'تأكيد وطلب المشوار';
+      button.disabled=false;updateTripSubmitLabel();
     }
   });
 }
