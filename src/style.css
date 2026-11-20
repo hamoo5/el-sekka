@@ -1113,3 +1113,72 @@ html.trip-day .rider-search-fields :where(label,span){color:#111827!important}
 @media(min-width:430px){
  .rider-pickup-input-row .rider-use-location{min-width:5.3rem}
 }
+
+/* Premium El Sekka rider experience — day/night adaptive */
+body[data-page="trip"],body[data-page="trip-search"],body[data-page="trip-options"]{background:var(--surface-2)!important}
+body[data-page="trip"] .topbar,body[data-page="trip-search"] .topbar,body[data-page="trip-options"] .topbar{background:var(--sekka-navy)!important;min-height:62px;padding-inline:18px;border:0}
+body[data-page="trip"] .topbar .logo,body[data-page="trip-search"] .topbar .logo{width:38px;height:38px;border-radius:13px;background:linear-gradient(145deg,#10B981,#059669)!important;box-shadow:0 5px 16px #10b98155}
+body[data-page="trip"] .topbar .brand b,body[data-page="trip-search"] .topbar .brand b{font-size:17px;letter-spacing:.02em}
+body[data-page="trip"] .topbar .brand small,body[data-page="trip-search"] .topbar .brand small{font-size:9px;opacity:.78}
+.rider-start-screen{position:relative;width:min(100%,620px);min-height:calc(100dvh - 145px);padding:12px 16px 30px;gap:18px;overflow:hidden}
+.rider-search-hero{position:relative;isolation:isolate;display:flex;flex-direction:column;gap:13px;min-height:274px;padding:22px 18px 16px;border:0;border-radius:27px;overflow:visible;background:linear-gradient(132deg,#0F172A 0%,#142d4b 58%,#075e58 100%);box-shadow:0 18px 38px #0f172a25}
+.rider-search-hero:before{content:"أقرب .. أسهل .. أوفر\\A مشوارك الجاي على السكة";white-space:pre-line;display:block;color:#fff;font-size:clamp(23px,6vw,31px);font-weight:950;line-height:1.55;letter-spacing:-.7px;max-width:72%;padding-top:5px}
+.rider-search-hero:after{content:"";position:absolute;z-index:-1;width:210px;height:210px;left:-32px;top:24px;border:1px solid #10b98170;border-radius:50%;box-shadow:0 0 0 22px #10b98112,0 0 0 48px #10b9810b;background:radial-gradient(circle at 70% 45%,#10b98155,transparent 60%)}
+.rider-search-box{position:relative;z-index:2;min-height:68px;display:flex;flex-direction:row;align-items:center;gap:12px;padding:11px 13px;border:1px solid #ffffff36;border-radius:17px;background:#fff;color:#0f172a;text-align:right;box-shadow:0 10px 24px #02061735}
+.rider-search-box .rider-search-icon{width:39px;height:39px;display:grid;place-items:center;flex:0 0 39px;border-radius:12px;background:#e8f8f1;color:#059669;font-size:30px;line-height:1}
+.rider-search-box .rider-search-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px}
+.rider-search-box b{font-size:16px;color:#0f172a}
+.rider-search-box small{font-size:11px;color:#64748b}
+.rider-search-box .rider-search-arrow{width:37px;height:37px;display:grid;place-items:center;border-radius:50%;background:#10B981;color:#fff;font-size:22px}
+.rider-mode-mini{width:auto;min-height:38px;align-self:flex-start;padding:0 14px;border:1px solid #ffffff30;border-radius:30px;background:#ffffff16!important;color:#fff!important;font-size:11px}
+.rider-mode-menu{top:unset;bottom:48px;left:8px}
+.rider-saved-section{padding:0 2px}
+.rider-saved-section h2{font-size:16px;font-weight:900;letter-spacing:-.2px;margin-bottom:12px}
+.rider-saved-places{gap:9px}
+.rider-saved-place{min-height:92px;align-items:center;justify-content:center;text-align:center;padding:10px 6px;border-radius:18px;box-shadow:0 7px 18px #0f172a0a}
+.rider-saved-place span{width:35px;height:35px;display:grid;place-items:center;border-radius:12px;background:#eff6ff;color:#2563eb;font-size:21px}
+.rider-saved-place b{font-size:12px}
+.rider-saved-place small{font-size:9px;max-width:100%}
+.rider-saved-place.empty{border-style:solid;background:var(--surface)!important}
+.rider-saved-place.saved{border-color:#10b98166;background:#f0fdf8!important}
+.rider-recent-place{border:1px solid #10b98155;background:linear-gradient(110deg,#e8fff5,#f8fffc);border-radius:17px}
+.rider-start-screen:after{content:"مشاركة الطريق";display:block;margin-top:0;padding:15px 18px;border-radius:18px;background:linear-gradient(110deg,#10243d,#164b57);color:#fff;font-size:15px;font-weight:900;box-shadow:0 10px 25px #0f172a18}
+.rider-start-screen:after{content:"مشاركة الطريق  ·  وفّر مع كل كرسي فاضي  ↗"}
+.rider-search-screen{padding:10px 15px 30px;gap:0}
+.rider-search-header{padding:5px 2px 13px;margin-bottom:12px}
+.rider-search-header h1{font-size:17px;font-weight:900}
+.rider-search-fields{gap:16px;padding:17px;border-radius:22px;box-shadow:0 12px 28px #0f172a0d}
+.rider-search-fields label{font-size:11px;gap:8px}
+.rider-search-fields input{min-height:52px;border-radius:13px;font-size:13px;padding-inline:12px}
+.rider-search-saved{margin-top:20px;padding:15px;border:1px solid var(--line);border-radius:18px;background:var(--surface)}
+.rider-search-saved h2{font-size:13px;font-weight:900}
+.rider-search-saved>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.rider-search-saved button{min-height:42px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--text);font-size:11px;font-weight:800}
+.rider-save-current{margin-top:12px;padding:12px;border-radius:15px;background:var(--surface);border:1px solid var(--line)}
+.rider-save-current button{margin:7px 4px 0 0;padding:8px 12px;border:0;border-radius:20px;background:#e8f8f1;color:#047857;font-weight:800;font-size:11px}
+#riderSearchMessage{font-size:11px}
+html.trip-night .rider-search-hero{background:linear-gradient(132deg,#070f20 0%,#102440 58%,#064e48 100%)}
+html.trip-night .rider-saved-place.empty{background:#1e293b!important;border-color:#334155!important}
+html.trip-night .rider-saved-place.saved{background:#10372f!important;border-color:#10b98177!important}
+html.trip-night .rider-saved-place span{background:#172d49;color:#60a5fa}
+html.trip-night .rider-recent-place{background:#12362f;color:#f8fafc;border-color:#10b98155}
+html.trip-night .rider-recent-place small{color:#cbd5e1}
+html.trip-night .rider-search-saved{background:#1e293b;border-color:#334155}
+html.trip-night .rider-search-saved button{background:#0f172a;border-color:#334155;color:#f8fafc}
+html.trip-night .rider-save-current{background:#1e293b;border-color:#334155}
+html.trip-night .rider-save-current button{background:#123c34;color:#a7f3d0}
+html.trip-night .rider-search-header button{background:#1e293b;color:#fff}
+html.trip-night .rider-search-fields{background:#1e293b!important;border-color:#334155}
+html.trip-night .rider-search-fields input{background:#0f172a!important;border-color:#334155!important;color:#fff!important}
+html.trip-night .rider-search-fields input::placeholder{color:#94a3b8}
+html.trip-night .rider-search-suggestions{background:#0f172a!important;border-color:#334155}
+html.trip-night .rider-search-suggestions button{background:#0f172a!important;color:#f8fafc!important;border-color:#334155}
+html.trip-night .rider-search-hero:before{color:#fff}
+html.trip-day .rider-search-hero{background:linear-gradient(132deg,#0f2747 0%,#14547a 58%,#087b69 100%)}
+html.trip-day .rider-search-hero:after{border-color:#34d39988}
+@media(max-width:380px){
+ .rider-search-hero{min-height:250px;padding:18px 14px 13px}
+ .rider-search-hero:before{font-size:23px}
+ .rider-saved-place{min-height:84px}
+ .rider-search-box{min-height:62px}
+}
