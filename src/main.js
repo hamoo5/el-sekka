@@ -23,6 +23,20 @@ const esc = (v = '') => String(v).replace(/[&<>"']/g, c => ({
   '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
 }[c]));
 
+const passengerStoreKey = suffix => `el-sekka:${session?.user?.id || 'guest'}:${suffix}`;
+function readPassengerStore(suffix, fallback = null) {
+  try { const raw = localStorage.getItem(passengerStoreKey(suffix)); return raw ? JSON.parse(raw) : fallback; }
+  catch (_) { return fallback; }
+}
+function writePassengerStore(suffix, value) {
+  try { localStorage.setItem(passengerStoreKey(suffix), JSON.stringify(value)); return true; }
+  catch (_) { return false; }
+}
+function savedPassengerPlaces() {
+  const value = readPassengerStore('places', {});
+  return value && typeof value === 'object' ? value : {};
+}
+
 function layout(body) {
   app.innerHTML = `
     <header class="topbar">
@@ -128,11 +142,36 @@ async function home() {
         <button class="service" data-page="trip"><span>🚕</span><b>مشوار عادي</b><small>السعر يحسبه النظام تلقائياً</small><strong>اطلب مشوار ←</strong></button>
         <button class="service" data-page="share"><span>🛣️</span><b>مشاركة السكة</b><small>احجز كرسي أو انشر طريقك</small><strong>اكتشف الرحلات ←</strong></button>
       </section>
+      <section class="panel passenger-shortcuts">
+        <div class="section-head"><div><h3>مشاويرك السريعة</h3><p class="muted">أماكنك المحفوظة وآخر مشوار في متناول إيدك.</p></div></div>
+        <div id="homeSavedPlaces" class="saved-place-list"></div>
+        <div id="repeatLastTrip"></div>
+      </section>
       ${profile.role === 'captain' ? '<section class="panel"><h2>مساحة الكابتن</h2><p class="muted">إدارة المركبة والرحلات والحجوزات والاشتراك.</p><button class="btn primary" data-page="captain">لوحة الكابتن</button></section>' + await captainDocumentsPanel() : ''}
       ${profile.role === 'admin' ? '<section class="panel"><h2>إدارة المنصة</h2><p class="muted">مراجعة طلبات الكباتن والاشتراكات وإدارة التشغيل.</p><button class="btn primary" data-page="admin">مراجعة الطلبات والاشتراكات</button></section>' : ''}
       ${profile.role === 'passenger' ? await captainApplicationStatus() : ''}
       <section class="panel"><h3>اختار طريقك</h3><p class="muted">في المشوار العادي السعر يحدده النظام. وفي مشاركة الكرسي السعر بالتفاوض وموافقة الطرفين.</p></section>
     </main>`);
+  const saved = savedPassengerPlaces();
+  const placesBox = document.getElementById('homeSavedPlaces');
+  const placeLabels = {home:'البيت',work:'الشغل'};
+  const placeEntries = Object.entries(saved).filter(([key,p]) => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)));
+  placesBox.innerHTML = placeEntries.length
+    ? placeEntries.map(([key,p]) => `<button class="saved-place-chip" type="button" data-quick-place="${esc(key)}"><span>${key==='home'?'⌂':'▣'}</span><b>${esc(placeLabels[key] || p.label || 'مكان محفوظ')}</b><small>${esc(p.name || '')}</small></button>`).join('')
+    : '<p class="muted">احفظ البيت والشغل من صفحة الحجز لتطلب مشاويرك أسرع.</p>';
+  placesBox.querySelectorAll('[data-quick-place]').forEach(button => button.addEventListener('click', () => {
+    sessionStorage.setItem('el-sekka-pending-trip', JSON.stringify({destination:saved[button.dataset.quickPlace]}));
+    page='trip'; render();
+  }));
+  const lastTrip = readPassengerStore('last-trip');
+  const repeatBox = document.getElementById('repeatLastTrip');
+  if (lastTrip?.origin && lastTrip?.destination) {
+    repeatBox.innerHTML = `<button class="repeat-trip-card" type="button" id="repeatLastTripButton"><span>↻</span><b>كرر آخر مشوار</b><small>${esc(lastTrip.origin.name)} ← ${esc(lastTrip.destination.name)}</small></button>`;
+    document.getElementById('repeatLastTripButton').addEventListener('click', () => {
+      sessionStorage.setItem('el-sekka-pending-trip', JSON.stringify(lastTrip));
+      page='trip'; render();
+    });
+  }
   app.querySelectorAll('[data-page]').forEach(b => b.addEventListener('click', () => { page = b.dataset.page; render(); }));
 }
 
@@ -195,7 +234,9 @@ function tripForm() {
           <label>مكان الركوب
             <div class="input-with-action"><input id="originName" required placeholder="اكتب اسم الشارع أو المنطقة" autocomplete="off"><button class="gps-icon" type="button" id="useLocation" aria-label="تحديد موقعي الحالي" title="موقعي الحالي">◎</button></div>
             <div class="suggestions" id="originSuggestions" role="listbox"></div>
+            <div class="save-place-actions"><button type="button" data-save-place="home">حفظ كـ البيت</button><button type="button" data-save-place="work">حفظ كـ الشغل</button></div>
           </label>
+          <div class="quick-place-row" id="quickPlaceRow"></div>
           <div class="location-divider"></div>
           <label>الوجهة
             <input id="destinationName" required placeholder="رايح فين؟ اكتب اسم المكان" autocomplete="off">
@@ -237,6 +278,9 @@ function tripForm() {
 
   let origin = null, destination = null, activePoint = 'origin';
   const $ = id => document.getElementById(id);
+  let pendingTrip = null;
+  try { pendingTrip=JSON.parse(sessionStorage.getItem('el-sekka-pending-trip') || 'null'); sessionStorage.removeItem('el-sekka-pending-trip'); } catch (_) {}
+
   let routeDistanceKm = null, routeDurationMinutes = null, summarySequence = 0;
   const hour = new Date().getHours();
   const isDay = hour >= 6 && hour < 18;
@@ -250,6 +294,29 @@ function tripForm() {
   const searchTimers = {origin:null,destination:null};
   const searchSequence = {origin:0,destination:0};
   const statusHint = message => { $('mapHint').textContent = message; };
+  const savedPlaces = savedPassengerPlaces();
+  const quickPlaceRow = $('quickPlaceRow');
+  if (pendingTrip?.origin) setTimeout(() => setPoint('origin',pendingTrip.origin.lat,pendingTrip.origin.lng,pendingTrip.origin.name,true),250);
+  if (pendingTrip?.destination) setTimeout(() => setPoint('destination',pendingTrip.destination.lat,pendingTrip.destination.lng,pendingTrip.destination.name,true),450);
+  if (pendingTrip?.vehicle_type) setTimeout(() => setVehicle(pendingTrip.vehicle_type),500);
+
+  const savedEntries = Object.entries(savedPlaces).filter(([key,p]) => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)));
+  quickPlaceRow.innerHTML = savedEntries.map(([key,p]) => `<button type="button" class="quick-place-chip" data-fill-place="${esc(key)}">${key==='home'?'⌂':'▣'} ${key==='home'?'البيت':key==='work'?'الشغل':esc(p.label || 'مكان محفوظ')}</button>`).join('');
+  quickPlaceRow.querySelectorAll('[data-fill-place]').forEach(button => button.addEventListener('click', () => {
+    const place = savedPlaces[button.dataset.fillPlace];
+    setPoint('origin',place.lat,place.lng,place.name,true);
+  }));
+  document.querySelectorAll('[data-save-place]').forEach(button => button.addEventListener('click', () => {
+    if (!origin) { $('tripMessage').textContent='حدد مكان الركوب أولاً ثم احفظه.'; return; }
+    const key=button.dataset.savePlace, current=savedPassengerPlaces();
+    current[key]={lat:origin.lat,lng:origin.lng,name:origin.name,label:key==='home'?'البيت':'الشغل'};
+    if(writePassengerStore('places',current)) {
+      $('tripMessage').textContent=key==='home'?'تم حفظ عنوان البيت على هذا الجهاز.':'تم حفظ عنوان الشغل على هذا الجهاز.';
+      savedPlaces[key]=current[key];
+      quickPlaceRow.innerHTML=Object.entries(current).map(([k,p])=>`<button type="button" class="quick-place-chip" data-fill-place="${esc(k)}">${k==='home'?'⌂':'▣'} ${k==='home'?'البيت':k==='work'?'الشغل':esc(p.label || 'مكان محفوظ')}</button>`).join('');
+      quickPlaceRow.querySelectorAll('[data-fill-place]').forEach(b=>b.addEventListener('click',()=>{const p=current[b.dataset.fillPlace];setPoint('origin',p.lat,p.lng,p.name,true);}));
+    } else $('tripMessage').textContent='تعذر الحفظ على الجهاز. تحقق من مساحة التخزين.';
+  }));
   $('back').addEventListener('click', () => { page = 'home'; render(); });
   $('tripMapDetails').addEventListener('toggle', () => {
     if ($('tripMapDetails').open && map) {
@@ -535,6 +602,12 @@ function tripForm() {
       const fare=Number(fareRaw), distance=Number(distanceRaw);
       const fareLabel=Number.isFinite(fare)?`${fare.toLocaleString('ar-EG')} جنيه`:'—';
       const distanceLabel=Number.isFinite(distance)?`${distance.toFixed(1)} كم`:'غير متاحة';
+      writePassengerStore('last-trip',{
+        origin:{lat:origin.lat,lng:origin.lng,name:origin.name},
+        destination:{lat:destination.lat,lng:destination.lng,name:destination.name},
+        vehicle_type:$('vehicleType').value,
+        passenger_count:Number($('passengerCount').value)
+      });
       const nextStep=scheduled?'تم تسجيل حجزك بالموعد المحدد.':'بنبحث لك عن كابتن قريب منك الآن.';
       $('tripResult').innerHTML=`<div class="trip-success-icon">✓</div><h3>طلبك وصل بنجاح</h3><div class="fare-line"><span>السعر النهائي</span><strong>${fareLabel}</strong></div><p>${nextStep}</p>`;
       $('tripResult').hidden=false;msg.textContent='تم إنشاء الطلب بنجاح.';button.textContent='تم إرسال الطلب';
