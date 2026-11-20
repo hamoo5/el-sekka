@@ -527,3 +527,28 @@ body{padding-bottom:82px}
 }
 .panel:not(.first-trip-free-card):not(.post-trial-subscription-notice) p:not(.muted):not(.message),.fixed-trip-card p:not(.muted),.trip-history-card p:not(.muted){color:#1f2937}
 .panel:not(.first-trip-free-card):not(.post-trial-subscription-notice) .muted,.fixed-trip-card .muted,.trip-history-card .muted{color:#4b5563}
+
+/* Final contrast fixes: dark passenger service cards, auth toggle, and alerts. */
+.service{
+  background:linear-gradient(145deg,#1a2b40,#131e2e);
+  color:#ffffff;
+}
+.service :is(b,strong){color:#ffffff}
+.service strong{color:#b7f36b}
+.service small{color:#d1dbe7}
+html.trip-day .service{
+  background:linear-gradient(145deg,#ffffff,#f4f8fa);
+  color:#111827;
+}
+html.trip-day .service :is(b,strong){color:#111827}
+html.trip-day .service strong{color:#176b38}
+html.trip-day .service small{color:#64748b}
+#authModeToggle{color:#111827}
+.message,.place-status.error,.error-message,.alert-error,.notice.error,.notice.warning{
+  color:#DC2626;
+}
+html.trip-day .message,html.trip-day .place-status.error,
+html.trip-day .error-message,html.trip-day .alert-error,
+html.trip-day .notice.error,html.trip-day .notice.warning{
+  color:#DC2626;
+}
