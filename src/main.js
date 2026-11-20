@@ -307,7 +307,7 @@ function riderStartPage(){
  document.getElementById('openRiderSearch')?.addEventListener('click',()=>{page='trip-search';render();});
  document.getElementById('riderModeMini')?.addEventListener('click',()=>{document.getElementById('riderModeMenu').hidden=!document.getElementById('riderModeMenu').hidden;});
  document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{const d=readRiderDraft();d.mode=b.dataset.mode;saveRiderDraft(d);render();}));
- document.querySelectorAll('[data-saved-place]').forEach(b=>b.addEventListener('click',()=>{const place=places[b.dataset.savedPlace];if(!place){page='trip-search';render();return;}const d=readRiderDraft();d.destination=place;d.mode=d.mode||'normal';saveRiderDraft(d);page='trip-options';render();}));
+ document.querySelectorAll('[data-saved-place]').forEach(b=>b.addEventListener('click',()=>{const place=places[b.dataset.savedPlace];if(!place){page='trip-search';render();return;}const d=readRiderDraft();d.destination=place;d.mode=d.mode||'normal';saveRiderDraft(d);page=readRiderDraft().mode==='shared'?'share':'trip-options';render();}));
  document.getElementById('continueLastTrip')?.addEventListener('click',()=>{page='trip-options';render();});
 }
 function riderSearchPage(){
@@ -315,11 +315,11 @@ function riderSearchPage(){
  layout(`<main class="rider-search-screen"><header class="rider-search-header"><button type="button" id="searchBack" aria-label="رجوع">←</button><h1>حدد مشوارك</h1></header><section class="rider-search-fields"><label><span class="pickup-dot"></span>مكان الركوب<input id="searchOrigin" autocomplete="off" placeholder="حدد مكان الركوب" value="${esc(draft.origin?.name||'')}" /><div class="rider-search-suggestions" id="searchOriginSuggestions"></div></label><label><span class="destination-dot"></span>الوجهة<input id="searchDestination" autocomplete="off" placeholder="إلى أين تتجه؟" value="${esc(draft.destination?.name||'')}" /><div class="rider-search-suggestions" id="searchDestinationSuggestions"></div></label><button type="button" id="searchUseLocation" class="rider-use-location">◎ استخدام موقعي الحالي</button></section><section class="rider-search-saved"><h2>أماكن محفوظة</h2><div>${['home','work','metro'].map(k=>`<button type="button" data-search-place="${k}">${({home:'🏠 البيت',work:'💼 الشغل',metro:'🚇 المترو'})[k]}</button>`).join('')}</div></section><p id="riderSearchMessage" class="message" aria-live="polite"></p></main>`);
  const originInput=document.getElementById('searchOrigin'),destInput=document.getElementById('searchDestination');
  const setDraftPoint=(key,p)=>{const d=readRiderDraft();d[key]=p;saveRiderDraft(d);};
- const bind=(key,input,box)=>{let timer=null,seq=0;input.addEventListener('input',()=>{const d=readRiderDraft();delete d[key];saveRiderDraft(d);const q=input.value.trim(),n=++seq;clearTimeout(timer);if(q.length<3){box.hidden=true;box.innerHTML='';return;}box.hidden=false;box.innerHTML='<div class="suggestion-loading">جارٍ البحث عن العناوين...</div>';timer=setTimeout(async()=>{try{const rows=await searchPlaces(q);if(n!==seq)return;box.innerHTML=rows.map((p,i)=>`<button type="button" data-result="${i}">${esc(p.name)}</button>`).join('')||'<p>لا توجد نتائج مناسبة.</p>';box.querySelectorAll('[data-result]').forEach(b=>b.addEventListener('click',()=>{const p=rows[Number(b.dataset.result)];setDraftPoint(key,p);input.value=p.name;box.hidden=true;if(key==='destination'){const d=readRiderDraft();if(!d.origin){document.getElementById('riderSearchMessage').textContent='حدد مكان الركوب أولاً.';return;}page='trip-options';render();}}));}catch(e){box.innerHTML='<p>تعذر البحث الآن، حاول مرة أخرى.</p>';}} ,650);});};
+ const bind=(key,input,box)=>{let timer=null,seq=0;input.addEventListener('input',()=>{const d=readRiderDraft();delete d[key];saveRiderDraft(d);const q=input.value.trim(),n=++seq;clearTimeout(timer);if(q.length<3){box.hidden=true;box.innerHTML='';return;}box.hidden=false;box.innerHTML='<div class="suggestion-loading">جارٍ البحث عن العناوين...</div>';timer=setTimeout(async()=>{try{const rows=await searchPlaces(q);if(n!==seq)return;box.innerHTML=rows.map((p,i)=>`<button type="button" data-result="${i}">${esc(p.name)}</button>`).join('')||'<p>لا توجد نتائج مناسبة.</p>';box.querySelectorAll('[data-result]').forEach(b=>b.addEventListener('click',()=>{const p=rows[Number(b.dataset.result)];setDraftPoint(key,p);input.value=p.name;box.hidden=true;if(key==='destination'){const d=readRiderDraft();if(!d.origin){document.getElementById('riderSearchMessage').textContent='حدد مكان الركوب أولاً.';return;}page=d.mode==='shared'?'share':'trip-options';render();}}));}catch(e){box.innerHTML='<p>تعذر البحث الآن، حاول مرة أخرى.</p>';}} ,650);});};
  bind('origin',originInput,document.getElementById('searchOriginSuggestions'));bind('destination',destInput,document.getElementById('searchDestinationSuggestions'));
  document.getElementById('searchBack').addEventListener('click',()=>{page='trip';render();});
  document.getElementById('searchUseLocation').addEventListener('click',()=>{if(!navigator.geolocation)return;const m=document.getElementById('riderSearchMessage');m.textContent='جارٍ تحديد موقعك...';navigator.geolocation.getCurrentPosition(async pos=>{const name=await reversePlace(pos.coords.latitude,pos.coords.longitude);const p={lat:pos.coords.latitude,lng:pos.coords.longitude,name};setDraftPoint('origin',p);originInput.value=name;m.textContent='تم تحديد مكان الركوب.';},()=>m.textContent='تعذر تحديد الموقع. اكتب العنوان يدويًا.');});
- document.querySelectorAll('[data-search-place]').forEach(b=>b.addEventListener('click',()=>{const p=places[b.dataset.searchPlace];if(!p){document.getElementById('riderSearchMessage').textContent='المكان غير محفوظ بعد.';return;}setDraftPoint('destination',p);destInput.value=p.name;page='trip-options';render();}));
+ document.querySelectorAll('[data-search-place]').forEach(b=>b.addEventListener('click',()=>{const p=places[b.dataset.searchPlace];if(!p){document.getElementById('riderSearchMessage').textContent='المكان غير محفوظ بعد.';return;}setDraftPoint('destination',p);destInput.value=p.name;page=readRiderDraft().mode==='shared'?'share':'trip-options';render();}));
 }
 
 function tripForm() {
@@ -327,30 +327,11 @@ function tripForm() {
   layout(`
     <main class="passenger-map-first"><section class="passenger-map-stage"><div id="tripMap" class="trip-map" role="application" aria-label="خريطة تحديد مكان الركوب والوجهة"></div><div class="map-floating-status" id="mapHint">حدد مكان الركوب والوجهة لعرض المسار</div><button type="button" class="map-locate-button" id="useLocation" aria-label="تحديد موقعي الحالي">◎</button></section>
       <form class="panel form trip-panel passenger-bottom-sheet" id="tripForm"><div class="bottom-sheet-handle"></div><div class="ride-mode-switch"><button type="button" class="active" id="normalRideMode">🚖 مشوار عادي</button><button type="button" id="sharedRideMode">👥 مشوار مشترك</button></div>
-        <section class="location-card">
-          <label>مكان الركوب
-            <div class="input-with-action"><input id="originName" required placeholder="حدد مكان الركوب" autocomplete="off"></div>
-            <div class="suggestions" id="originSuggestions" role="listbox"></div>
-            <div class="pickup-marker-row" aria-label="علامات مكان الركوب">
-              <button type="button" class="pickup-marker-chip" data-pickup-note="قدام البوابة">قدام البوابة</button>
-              <button type="button" class="pickup-marker-chip" data-pickup-note="عند الصيدلية">عند الصيدلية</button>
-              <button type="button" class="pickup-marker-chip" data-pickup-note="على الناصية">على الناصية</button>
-            </div>
-            <input id="pickupNote" maxlength="160" placeholder="ملاحظة إضافية للكابتن (اختياري)" autocomplete="off">
-          </label>
-          <div class="location-divider"></div>
-          <label>الوجهة
-            <input id="destinationName" required placeholder="رايح فين؟ اكتب اسم المكان" autocomplete="off">
-            <div class="suggestions" id="destinationSuggestions" role="listbox"></div>
-            <div class="destination-shortcuts" id="destinationQuickPlaceRow"></div>
-            <div class="save-place-actions destination-save-actions" hidden>
-              <button type="button" data-save-destination="home">حفظ الوجهة كـ البيت</button>
-              <button type="button" data-save-destination="work">حفظ الوجهة كـ الشغل</button>
-              <button type="button" data-save-destination="metro">حفظ محطة المترو</button>
-            </div>
-          </label>
-         </section>
-
+        <button type="button" class="trip-step-back" id="tripOptionsBack">← تعديل العناوين</button>
+        <section class="location-card" hidden>
+          <label>مكان الركوب<input id="originName" required autocomplete="off"><div class="suggestions" id="originSuggestions" role="listbox"></div><div class="pickup-marker-row"><button type="button" data-pickup-note="قدام البوابة">قدام البوابة</button><button type="button" data-pickup-note="عند الصيدلية">عند الصيدلية</button><button type="button" data-pickup-note="على الناصية">على الناصية</button></div><input id="pickupNote" maxlength="160" autocomplete="off"></label>
+          <label>الوجهة<input id="destinationName" required autocomplete="off"><div class="suggestions" id="destinationSuggestions" role="listbox"></div><div id="destinationQuickPlaceRow"></div><div class="save-place-actions destination-save-actions" hidden><button type="button" data-save-destination="home">البيت</button><button type="button" data-save-destination="work">الشغل</button><button type="button" data-save-destination="metro">المترو</button></div></label>
+        </section>
         <div class="map-legend passenger-map-legend"><span>🟢 الركوب</span><span>🔴 الوجهة</span></div>
         <fieldset class="vehicle-field">
           <legend>اختار نوع المركبة</legend>
@@ -418,9 +399,12 @@ function tripForm() {
   const searchTimers = {origin:null,destination:null};
   const searchSequence = {origin:0,destination:0};
   const statusHint = message => { $('mapHint').textContent = message; };
-  const rememberedTrip = pendingTrip || readPassengerStore('last-trip');
+  const riderDraft = readRiderDraft();
+  const rememberedTrip = pendingTrip || riderDraft || readPassengerStore('last-trip');
   if (pendingTrip?.origin) setTimeout(() => setPoint('origin',pendingTrip.origin.lat,pendingTrip.origin.lng,pendingTrip.origin.name,true),250);
   if (pendingTrip?.destination) setTimeout(() => setPoint('destination',pendingTrip.destination.lat,pendingTrip.destination.lng,pendingTrip.destination.name,true),450);
+  if (!pendingTrip?.origin && riderDraft.origin) setTimeout(() => setPoint('origin',riderDraft.origin.lat,riderDraft.origin.lng,riderDraft.origin.name,true),300);
+  if (!pendingTrip?.destination && riderDraft.destination) setTimeout(() => setPoint('destination',riderDraft.destination.lat,riderDraft.destination.lng,riderDraft.destination.name,true),550);
 
   const destinationLabels = {home:'البيت',work:'الشغل',metro:'أقرب مترو'};
   const renderDestinationShortcuts = () => {
@@ -600,6 +584,7 @@ function tripForm() {
     if (!Number.isFinite(place.lat) || !Number.isFinite(place.lng)) return;
     const isOrigin = point === 'origin';
     if (isOrigin) origin = place; else destination = place;
+    const draftNow=readRiderDraft();draftNow[isOrigin?'origin':'destination']=place;saveRiderDraft(draftNow);
     // Keep the selected address even if Leaflet is still loading.
     if (map && window.L && typeof window.L.marker === 'function') {
       const marker = isOrigin ? originMarker : destinationMarker;
@@ -627,6 +612,7 @@ function tripForm() {
         $(isOrigin ? 'originName' : 'destinationName').value = label;
       }
     }
+    const savedDraft=readRiderDraft();savedDraft[isOrigin?'origin':'destination']=place;saveRiderDraft(savedDraft);
     if (moveMap && map) map.setView([place.lat,place.lng],15);
     if (!map) return;
     if (origin && destination) await drawRoute();
