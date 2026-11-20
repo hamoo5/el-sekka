@@ -203,3 +203,5 @@ html.trip-day .share-negotiation{background:#f2f6f8}
 #captainApplyForm hr{border:0;border-top:1px solid var(--line,#ddd);margin:20px 0}
 #captainApplyForm h3{margin:8px 0}
 @media(max-width:420px){.review-photos{gap:6px}}
+
+.review-avatar{width:88px;height:88px;object-fit:cover;border-radius:50%;border:2px solid var(--line,#ddd);margin:10px 0}
