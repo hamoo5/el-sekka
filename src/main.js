@@ -921,13 +921,13 @@ async function tripStatusPage(tripId){
   const isCaptain=trip.accepted_captain_id===profile.id;
   const isPassenger=trip.passenger_id===profile.id;
   const active=['accepted','in_progress'].includes(trip.request_status);
-  const [{data:captain},{data:passenger},{data:vehicle},{data:location}]=await Promise.all([
-    trip.accepted_captain_id?supabase.from('profiles').select('display_name').eq('id',trip.accepted_captain_id).maybeSingle():Promise.resolve({data:null}),
-    supabase.from('profiles').select('display_name').eq('id',trip.passenger_id).maybeSingle(),
+  const [{data:counterpartyName},{data:vehicle},{data:location}]=await Promise.all([
+    trip.accepted_captain_id?supabase.rpc('get_trip_counterparty_name',{p_trip_id:trip.id}):Promise.resolve({data:null}),
     trip.accepted_vehicle_id?supabase.from('vehicles').select('make,model,color,plate_number').eq('id',trip.accepted_vehicle_id).maybeSingle():Promise.resolve({data:null}),
     active&&trip.accepted_captain_id?supabase.from('driver_locations').select('latitude,longitude,accuracy_meters,updated_at').eq('captain_id',trip.accepted_captain_id).eq('trip_id',trip.id).maybeSingle():Promise.resolve({data:null})
   ]);
-  const partnerName=isCaptain?(passenger?.display_name||'الراكب'):(captain?.display_name||'الكابتن');
+  const partnerName=counterpartyName||'الطرف الآخر';
+  const captainName=isCaptain?(profile.display_name||'أنت'):partnerName;
   const preferences=trip.ride_preferences||{};
   const preferenceLabels=[preferences.quiet?'🤫 رحلة هادية':null,preferences.ac?'❄️ تكييف':null,preferences.luggage?'🧳 شنط':null].filter(Boolean);
   const statusText=tripStatusLabel(trip.request_status);
@@ -942,7 +942,7 @@ async function tripStatusPage(tripId){
         <p class="muted">عدد الركاب: ${esc(trip.passenger_count)} · المركبة: ${esc(trip.vehicle_type)}</p>
         ${trip.pickup_note?'<p><b>ملاحظة الركوب:</b> '+esc(trip.pickup_note)+'</p>':''}
         ${preferenceLabels.length?'<div class="fixed-trip-preferences">'+preferenceLabels.map(x=>'<span>'+x+'</span>').join('')+'</div>':''}
-        ${active?'<div class="driver-summary"><b>الكابتن: '+esc(captain?.display_name||'بانتظار بيانات الكابتن')+'</b><small>المركبة: '+esc([vehicle?.make,vehicle?.model,vehicle?.color].filter(Boolean).join(' ')||'—')+' · اللوحة: '+esc(vehicle?.plate_number||'—')+'</small></div>':''}
+        ${active?'<div class="driver-summary"><b>الكابتن: '+esc(captainName||'بانتظار بيانات الكابتن')+'</b><small>المركبة: '+esc([vehicle?.make,vehicle?.model,vehicle?.color].filter(Boolean).join(' ')||'—')+' · اللوحة: '+esc(vehicle?.plate_number||'—')+'</small></div>':''}
         ${trip.request_status==='searching'?'<div class="notice">طلبك ظاهر للكباتن المعتمدين. هنحدث الحالة هنا عند قبول كابتن.</div>':''}
         ${trip.request_status==='completed'?'<div class="notice">وصلت بالسلامة. انتهت مشاركة الموقع والمحادثة.</div>':''}
         ${trip.request_status==='cancelled'?'<div class="notice">تم إلغاء الرحلة.</div>':''}
