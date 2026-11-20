@@ -476,3 +476,29 @@ html.trip-day .first-trip-free-card h2{color:#176b38}
 html.trip-day .first-trip-free-card p{color:#315c3b}
 html.trip-day .subscription-early-details{background:#f0f8ef;border-color:#b9d8bc}
 html.trip-day .subscription-early-details summary{color:#176b38}
+
+
+/* Role workspaces and mobile-first global navigation */
+body{padding-bottom:82px}
+.app-bottom-nav{position:fixed;z-index:1000;inset:auto 0 0;display:flex;justify-content:space-around;align-items:stretch;gap:2px;padding:8px max(8px,env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));background:var(--surface,#fff);border-top:1px solid var(--line,#dce3e8);box-shadow:0 -8px 24px #00000012}
+.app-bottom-nav button{flex:1;min-width:0;border:0;background:transparent;color:var(--muted,#718096);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 2px;border-radius:12px;cursor:pointer}
+.app-bottom-nav button span{font-size:20px;line-height:1.2}.app-bottom-nav button small{font-size:10px;font-weight:750}
+.app-bottom-nav button.active{color:var(--primary,#176b48);background:var(--surface-2,#edf7f0)}
+.page-workspace{padding-bottom:18px}
+.profile-hero{display:flex;align-items:center;gap:16px;padding:22px 4px 18px}
+.profile-avatar{flex:0 0 68px;width:68px;height:68px;border-radius:22px;display:grid;place-items:center;background:linear-gradient(145deg,#176b48,#6da85c);color:#fff;font-size:30px;font-weight:900;box-shadow:0 8px 22px #176b4828}
+.profile-hero h1{margin:4px 0;font-size:clamp(22px,5vw,30px)}.profile-hero p{margin:3px 0;color:var(--muted,#718096);overflow-wrap:anywhere;font-size:13px}
+.profile-role-pill,.trip-role-pill{display:inline-flex;padding:5px 10px;border-radius:99px;background:var(--surface-2,#edf7f0);color:var(--primary,#176b48);font-size:11px;font-weight:800}
+.profile-section{margin:12px 0}.profile-info-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line,#e5eaf0);font-size:13px}
+.profile-info-row:last-of-type{border-bottom:0}.profile-info-row span{color:var(--muted,#718096)}.profile-info-row b{text-align:left;overflow-wrap:anywhere;max-width:65%}
+.profile-actions-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.profile-action{min-width:0;text-align:right;border:1px solid var(--line,#e1e8e4);border-radius:16px;background:var(--surface,#fff);padding:15px;display:flex;flex-direction:column;gap:7px;color:inherit;cursor:pointer}
+.profile-action span{font-size:24px}.profile-action b{font-size:14px}.profile-action small{color:var(--muted,#718096);font-size:11px;line-height:1.6}
+.trip-history-list{display:grid;gap:12px}.trip-history-card{background:var(--surface,#fff);border:1px solid var(--line,#e1e8e4);border-radius:16px;padding:15px;box-shadow:0 5px 18px #00000008}
+.trip-history-top,.trip-history-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.trip-history-top>b{font-size:12px}
+.trip-history-route{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px;margin:14px 0}
+.trip-history-route p{display:flex;flex-direction:column;gap:5px;margin:0;min-width:0}.trip-history-route p:last-child{text-align:left}
+.trip-history-route small,.trip-history-meta{color:var(--muted,#718096);font-size:11px}.trip-history-route strong{font-size:13px;overflow-wrap:anywhere}
+.trip-history-route>span{font-size:19px;color:var(--primary,#176b48)}.trip-history-meta{padding:10px 0;border-top:1px solid var(--line,#e5eaf0);margin-bottom:10px}
+.empty-state{text-align:center;padding:30px 18px}.empty-state>div{font-size:38px}.empty-state h3{margin:8px 0}
+@media(min-width:760px){.app-bottom-nav{left:50%;right:auto;transform:translateX(-50%);width:min(620px,100%);border:1px solid var(--line,#dce3e8);border-bottom:0;border-radius:18px 18px 0 0}.profile-actions-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
