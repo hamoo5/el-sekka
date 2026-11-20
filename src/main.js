@@ -9,7 +9,7 @@ const app = document.querySelector('#app');
 let session = null;
 let profile = null;
 const PAGE_STORAGE_KEY = 'el-sekka-current-page';
-const VALID_PAGES = new Set(['home','trip','share','apply-captain','captain','admin','trip-status','track','rewards','trips','profile']);
+const VALID_PAGES = new Set(['home','trip','share','apply-captain','captain','captain-account','admin','trip-status','track','rewards','trips','profile']);
 const urlTrackingToken = new URLSearchParams(window.location.search).get('token') || '';
 let publicTrackingToken = urlTrackingToken;
 try {
@@ -27,6 +27,7 @@ let publicTrackingMap = null;
 let publicTrackingMarker = null;
 let captainLocationWatchId = null;
 let preserveCaptainSubscriptionPanel = true;
+let selectedAuthRole = (()=>{try{return sessionStorage.getItem('el-sekka-auth-role')||'';}catch(_){return '';}})();
 let page = (() => {
   try {
     const saved = sessionStorage.getItem(PAGE_STORAGE_KEY);
@@ -60,27 +61,28 @@ function savedPassengerDestinations() {
 }
 
 function layout(body) {
+  const captain=profile?.account_type==='captain'||profile?.role==='captain';
+  const rider=profile?.account_type==='rider'||profile?.role==='passenger';
   app.innerHTML = `
     <header class="topbar">
-      <div class="logo">س</div>
-      <div class="brand"><b>السكة</b><small>مشوارك.. على طريقك</small></div>
-      <div class="grow"></div>
+      <div class="logo">س</div><div class="brand"><b>السكة</b><small>مشوارك.. على طريقك</small></div><div class="grow"></div>
       ${session ? '<button class="btn ghost" id="logout">خروج</button>' : ''}
     </header>
     ${body}
-    ${session && profile && page !== 'track' ? `<nav class="app-bottom-nav" aria-label="التنقل الرئيسي">
-      <button type="button" data-nav-page="home" class="${page==='home'?'active':''}"><span>⌂</span><small>الراكب</small></button>
-      ${profile.role==='captain'?`<button type="button" data-nav-page="captain" class="${page==='captain'?'active':''}"><span>🚘</span><small>الكابتن</small></button>`:''}
-      <button type="button" data-nav-page="trips" class="${page==='trips'||page==='trip-status'?'active':''}"><span>🧾</span><small>رحلاتي</small></button>
+    ${session && profile && page !== 'track' ? captain ? `<nav class="app-bottom-nav captain-nav" aria-label="تنقل الكابتن">
+      <button type="button" data-nav-page="captain" class="${page==='captain'?'active':''}"><span>📍</span><small>طلبات المشاوير</small></button>
+      <button type="button" data-nav-page="captain-account" class="${page==='captain-account'?'active':''}"><span>💳</span><small>اشتراكي ومستنداتي</small></button>
+      <button type="button" data-nav-page="profile" class="${page==='profile'?'active':''}"><span>👤</span><small>حسابي</small></button>
+    </nav>` : rider ? `<nav class="app-bottom-nav rider-nav" aria-label="تنقل الراكب">
+      <button type="button" data-nav-page="home" class="${page==='home'?'active':''}"><span>🚖</span><small>اطلب مشوار</small></button>
+      <button type="button" data-nav-page="trips" class="${page==='trips'||page==='trip-status'?'active':''}"><span>📋</span><small>مشاويري</small></button>
       <button type="button" data-nav-page="profile" class="${page==='profile'||page==='rewards'?'active':''}"><span>👤</span><small>حسابي</small></button>
-      ${profile.role==='admin'?`<button type="button" data-nav-page="admin" class="${page==='admin'?'active':''}"><span>⚙️</span><small>الإدارة</small></button>`:''}
-    </nav>` : ''}
+    </nav>` : `<nav class="app-bottom-nav"><button type="button" data-nav-page="admin" class="${page==='admin'?'active':''}"><span>⚙️</span><small>الإدارة</small></button><button type="button" data-nav-page="profile"><span>👤</span><small>حسابي</small></button></nav>` : ''}
     <footer>السكة © 2026 · منصة تنقل ومشاركة طريق</footer>`;
   document.querySelectorAll('[data-nav-page]').forEach(button=>button.addEventListener('click',()=>{page=button.dataset.navPage;render();}));
   document.querySelector('#logout')?.addEventListener('click', async () => {
-    await supabase.auth.signOut();
-    session = null; profile = null; page = 'home';
-    try { sessionStorage.removeItem(PAGE_STORAGE_KEY); } catch (_) {}
+    await supabase.auth.signOut();session=null;profile=null;page='home';selectedAuthRole='';
+    try{sessionStorage.removeItem(PAGE_STORAGE_KEY);sessionStorage.removeItem('el-sekka-auth-role');}catch(_){}
     render();
   });
 }
@@ -102,59 +104,86 @@ function setup() {
 }
 
 function auth() {
-  layout(`
-    <main class="wrap narrow">
-      <section class="hero compact"><span class="tag">أهلاً بك في السكة</span><h1>حسابك على السكة</h1><p>سجّل الدخول أو أنشئ حساباً جديداً.</p></section>
-      <form class="panel form" id="authForm">
-        <label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email" placeholder="name@example.com"></label>
-        <label id="referralCodeField" hidden>كود دعوة (اختياري)<input name="referral_code" maxlength="10" value="${esc(new URLSearchParams(window.location.search).get('ref') || '')}" placeholder="SEKKA-XXXX" autocomplete="off"></label>
-        <label>كلمة المرور<input name="password" type="password" minlength="6" required autocomplete="current-password" placeholder="••••••••"></label>
-        <button class="btn primary" type="submit" id="authSubmit">تسجيل الدخول</button>
-        <button class="btn outline" type="button" id="authModeToggle">إنشاء حساب جديد</button>
-        <p id="msg" class="message"></p>
-      </form>
+  if(!selectedAuthRole){
+    layout(`<main class="wrap narrow role-choice-screen">
+      <section class="hero compact"><span class="tag">أهلاً بك في السكة</span><h1>اختار نوع حسابك</h1><p>اختيارك ثابت لهذا الحساب، وكل نوع له تطبيقه ومساحته الخاصة.</p></section>
+      <section class="role-choice-grid">
+        <button type="button" class="role-choice-card rider-choice" data-select-role="rider"><span>👤</span><b>دخول / تسجيل كـ راكب</b><small>اطلب مشوارك وتابع رحلاتك بسهولة.</small></button>
+        <button type="button" class="role-choice-card captain-choice" data-select-role="captain"><span>🚗</span><b>دخول / تسجيل كـ كابتن</b><small>استقبل الطلبات وأدر مركبتك واشتراكك.</small></button>
+      </section>
     </main>`);
-  let signupMode = false;
-  const form = document.querySelector('#authForm');
-  const referralField = document.querySelector('#referralCodeField');
-  const submitButton = document.querySelector('#authSubmit');
-  const modeToggle = document.querySelector('#authModeToggle');
-  form.addEventListener('submit', async e => {
-    e.preventDefault();
-    const d = new FormData(form);
-    await authAction(signupMode ? 'signup' : 'signin', d.get('email'), d.get('password'), signupMode ? d.get('referral_code') : '');
+    document.querySelectorAll('[data-select-role]').forEach(btn=>btn.addEventListener('click',()=>{
+      selectedAuthRole=btn.dataset.selectRole;
+      try{sessionStorage.setItem('el-sekka-auth-role',selectedAuthRole);}catch(_){}
+      render();
+    }));
+    return;
+  }
+  const roleLabel=selectedAuthRole==='captain'?'كابتن':'راكب';
+  layout(`<main class="wrap narrow">
+    <button type="button" class="back" id="changeAuthRole">← تغيير نوع الحساب</button>
+    <section class="hero compact"><span class="tag">السكة · حساب ${roleLabel}</span><h1>${selectedAuthRole==='captain'?'مساحة الكابتن':'مساحة الراكب'}</h1><p>سجّل الدخول أو أنشئ حساباً مستقلاً لهذا الدور.</p></section>
+    <form class="panel form" id="authForm">
+      <label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email" placeholder="name@example.com"></label>
+      <label id="referralCodeField" hidden>كود دعوة (اختياري)<input name="referral_code" maxlength="10" value="${esc(new URLSearchParams(window.location.search).get('ref') || '')}" placeholder="SEKKA-XXXX" autocomplete="off"></label>
+      <label>كلمة المرور<input name="password" type="password" minlength="6" required autocomplete="current-password" placeholder="••••••••"></label>
+      <button class="btn primary" type="submit" id="authSubmit">تسجيل الدخول</button>
+      <button class="btn outline" type="button" id="authModeToggle">إنشاء حساب جديد</button>
+      <p id="msg" class="message" role="status" aria-live="polite"></p>
+    </form>
+  </main>`);
+  let signupMode=false;
+  const form=document.querySelector('#authForm'),referralField=document.querySelector('#referralCodeField');
+  const submitButton=document.querySelector('#authSubmit'),modeToggle=document.querySelector('#authModeToggle');
+  document.getElementById('changeAuthRole')?.addEventListener('click',()=>{
+    selectedAuthRole='';try{sessionStorage.removeItem('el-sekka-auth-role');}catch(_){}render();
   });
-  modeToggle.addEventListener('click', () => {
-    signupMode = !signupMode;
-    referralField.hidden = !signupMode;
-    submitButton.textContent = signupMode ? 'إنشاء الحساب' : 'تسجيل الدخول';
-    modeToggle.textContent = signupMode ? 'لديك حساب؟ تسجيل الدخول' : 'إنشاء حساب جديد';
-    form.querySelector('[name="password"]').autocomplete = signupMode ? 'new-password' : 'current-password';
-    document.querySelector('#msg').textContent = '';
+  form.addEventListener('submit',async e=>{
+    e.preventDefault();const d=new FormData(form);
+    await authAction(signupMode?'signup':'signin',d.get('email'),d.get('password'),signupMode?d.get('referral_code'):'');
+  });
+  modeToggle.addEventListener('click',()=>{
+    signupMode=!signupMode;referralField.hidden=!signupMode;
+    submitButton.textContent=signupMode?'إنشاء الحساب':'تسجيل الدخول';
+    modeToggle.textContent=signupMode?'لديك حساب؟ تسجيل الدخول':'إنشاء حساب جديد';
+    form.querySelector('[name="password"]').autocomplete=signupMode?'new-password':'current-password';
+    document.querySelector('#msg').textContent='';
   });
 }
 
-async function authAction(mode, email, password, referralCode = '') {
-  const msg = document.querySelector('#msg');
-  msg.textContent = 'جارٍ التنفيذ...';
-  const result = mode === 'signup'
-    ? await supabase.auth.signUp({ email, password, options: { data: { referral_code: String(referralCode || '').trim().toUpperCase() || null } } })
-    : await supabase.auth.signInWithPassword({ email, password });
-  if (result.error) { msg.textContent = result.error.message; return; }
-  if (mode === 'signup' && !result.data.session) {
-    msg.textContent = 'تم إنشاء الحساب. راجع بريدك لتأكيد التسجيل إذا طُلب ذلك.';
+async function authAction(mode,email,password,referralCode='') {
+  const msg=document.querySelector('#msg'),cleanEmail=String(email||'').trim().toLowerCase();
+  if(!cleanEmail||!password){msg.textContent='أدخل البريد الإلكتروني وكلمة المرور.';return;}
+  msg.textContent='جارٍ التحقق من نوع الحساب...';
+  const {data:mismatch,error:roleCheckError}=await supabase.rpc('check_signup_email_role',{p_email:cleanEmail,p_expected_role:selectedAuthRole});
+  if(roleCheckError){msg.textContent='تعذر التحقق من نوع الحساب حالياً. حاول مرة أخرى.';return;}
+  if(mismatch){
+    msg.textContent=selectedAuthRole==='rider'
+      ?'هذا البريد الإلكتروني مسجل كحساب كابتن ولا يمكن استخدامه كراكب، يرجى التسجيل ببريد إلكتروني منفصل.'
+      :'هذا البريد الإلكتروني مسجل كحساب راكب ولا يمكن استخدامه ككابتن، يرجى التسجيل ببريد إلكتروني منفصل.';
     return;
   }
-  session = result.data.session;
+  msg.textContent='جارٍ التنفيذ...';
+  const result=mode==='signup'
+    ?await supabase.auth.signUp({email:cleanEmail,password,options:{data:{account_role:selectedAuthRole,referral_code:String(referralCode||'').trim().toUpperCase()||null}}})
+    :await supabase.auth.signInWithPassword({email:cleanEmail,password});
+  if(result.error){msg.textContent=result.error.message.includes('already registered')?'هذا البريد الإلكتروني مستخدم بالفعل. سجّل الدخول أو استخدم بريداً آخر.':result.error.message;return;}
+  if(mode==='signup'&&!result.data.session){msg.textContent='تم إنشاء حساب '+(selectedAuthRole==='captain'?'الكابتن':'الراكب')+'. راجع بريدك لتأكيد التسجيل، ثم ارجع لنفس نوع الحساب لتسجيل الدخول.';return;}
+  session=result.data.session;
   await loadProfile();
 }
 
 async function loadProfile() {
   const { data, error } = await supabase.from('profiles')
-    .select('id,display_name,role,is_blocked,is_vip,referral_code,points,captain_reward_days_balance,captain_referral_progress,referred_by,referral_discount_trips_used,referral_discount_trips_reserved,discounted_trips_count')
+    .select('id,display_name,role,account_type,is_blocked,is_vip,referral_code,points,captain_reward_days_balance,captain_referral_progress,referred_by,referral_discount_trips_used,referral_discount_trips_reserved,discounted_trips_count')
     .eq('id', session.user.id).maybeSingle();
   if (error) console.error(error);
   profile = data;
+  if(!profile){await supabase.auth.signOut();session=null;render();return;}
+  const actualRole=profile.account_type||(profile.role==='captain'?'captain':profile.role==='admin'?'admin':'rider');
+  if(selectedAuthRole&&actualRole!=='admin'&&actualRole!==selectedAuthRole){await supabase.auth.signOut();session=null;profile=null;document.getElementById('msg')?.replaceChildren(document.createTextNode(selectedAuthRole==='rider'?'هذا البريد الإلكتروني مسجل كحساب كابتن ولا يمكن استخدامه كراكب، يرجى التسجيل ببريد إلكتروني منفصل.':'هذا البريد الإلكتروني مسجل كحساب راكب ولا يمكن استخدامه ككابتن، يرجى التسجيل ببريد إلكتروني منفصل.'));return;}
+  profile.account_type=actualRole;
+  page=actualRole==='captain'?'captain':actualRole==='admin'?'admin':'home';
   if (profile?.role === 'captain') {
     const {error: statusError} = await supabase.rpc('process_my_captain_document_status');
     if (statusError) console.warn('Captain status refresh failed:',statusError.message);
@@ -197,7 +226,6 @@ async function home() {
         <div id="homeSavedPlaces" class="saved-place-list"></div>
         <div id="repeatLastTrip"></div>
       </section>
-      ${profile.role === 'passenger' ? await captainApplicationStatus() : ''}
       <section class="panel"><h3>اختار طريقك</h3><p class="muted">في المشوار العادي السعر يحدده النظام. وفي مشاركة الكرسي السعر بالتفاوض وموافقة الطرفين.</p></section>
     </main>`);
   const saved = savedPassengerDestinations();
@@ -1931,24 +1959,16 @@ async function captainDashboardPage() {
         }).join('')
       : '<div class="notice">مفيش طلبات مشاوير مفتوحة حاليًا. هنظهر هنا الطلبات المناسبة لمركباتك المعتمدة.</div>';
   const retainedSubscriptionPanel=preserveCaptainSubscriptionPanel?document.getElementById('captainSubscriptionPanel'):null;
+  const captainAccountPage=page==='captain-account';
   layout(`
-    <main class="wrap narrow">
-      <button type="button" class="back" id="captainHome">→ الرئيسية</button>
-      <section class="hero compact"><span class="tag">مساحة الكابتن</span><h1>إدارة حسابك واشتراكك</h1><p>يمكنك استخدام السكة كراكب في أي وقت. الاشتراك مطلوب فقط لممارسة نشاط القيادة.</p></section>
-      ${firstTripOffer}
-      ${showFirstTripOffer?requestsSection:''}
-      ${postTrialNotice}
-      ${showPostTrialSubscription?subscription:''}
-      ${docs}
-      ${!showPostTrialSubscription&&!showFirstTripOffer?subscription:''}
-      <section class="panel">
-        <div class="fixed-trip-section-head"><div><h2>رحلاتك الحالية</h2><p class="muted">تابع الرحلات المقبولة وابدأها أو أنهها من شاشة الرحلة.</p></div></div>
-        <div class="fixed-trip-list">${activeTripError?'<p class="message">تعذر تحميل رحلاتك الحالية.</p>':activeTripCards}</div>
-      </section>
-      ${showFirstTripOffer?'':requestsSection}
+    <main class="wrap narrow captain-workspace">
+      <section class="hero compact"><span class="tag">${captainAccountPage?'حساب الكابتن':'مركز تشغيل الكابتن'}</span><h1>${captainAccountPage?'اشتراكي ومستنداتي':'طلبات المشاوير'}</h1><p>${captainAccountPage?'تابع اعتماد مستنداتك واشتراكك لتظل جاهزاً لاستقبال الطلبات.':'راجع الطلبات المناسبة لمركبتك وتابع رحلاتك الحالية.'}</p></section>
+      ${captainAccountPage?`${postTrialNotice}${showPostTrialSubscription?subscription:''}${docs}${!showPostTrialSubscription&&!showFirstTripOffer?subscription:''}${showFirstTripOffer?'<section class="panel notice">يمكنك تفعيل الاشتراك مبكراً إذا رغبت، لكن أول مشوار تجريبي متاح لك مجاناً.</section>':''}`: `${firstTripOffer}${showFirstTripOffer?requestsSection:''}
+      <section class="panel"><div class="fixed-trip-section-head"><div><h2>رحلاتك الحالية</h2><p class="muted">تابع الرحلات المقبولة وابدأها أو أنهها من شاشة الرحلة.</p></div></div><div class="fixed-trip-list">${activeTripError?'<p class="message">تعذر تحميل رحلاتك الحالية.</p>':activeTripCards}</div></section>
+      ${showFirstTripOffer?'':requestsSection}`}
     </main>`);
   if(retainedSubscriptionPanel){const freshPanel=document.getElementById('captainSubscriptionPanel');if(freshPanel)freshPanel.replaceWith(retainedSubscriptionPanel);}
-  document.getElementById('captainHome')?.addEventListener('click',()=>{page='home';render();});
+  document.getElementById('captainHome')?.addEventListener('click',()=>{page='captain';render();});
   document.getElementById('refreshFixedTrips')?.addEventListener('click',()=>captainDashboardPage());
   document.querySelectorAll('[data-captain-open-trip]').forEach(button=>button.addEventListener('click',()=>{currentTripId=button.dataset.captainOpenTrip;page='trip-status';render();}));
   document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>{page=b.dataset.page;render();}));
@@ -2121,7 +2141,7 @@ async function profilePage(){
     supabase.from('captain_subscriptions').select('expires_at,payment_status').eq('captain_id',profile.id).eq('payment_status','approved').order('expires_at',{ascending:false}).limit(1).maybeSingle()
   ]):[{data:null},{data:null}];
   const name=profile.display_name||'مستخدم السكة';
-  const roleLabel=profile.role==='admin'?'مدير المنصة':profile.role==='captain'?'راكب وكابتن':'راكب';
+  const roleLabel=profile.role==='admin'?'مدير المنصة':profile.account_type==='captain'?'كابتن':'راكب';
   layout(`<main class="wrap narrow page-workspace">
     <section class="profile-hero"><div class="profile-avatar">${esc(name.slice(0,1))}</div><div><span class="tag">حسابي الشخصي</span><h1>${esc(name)}</h1><p>${esc(session?.user?.email||'')}</p><span class="profile-role-pill">${roleLabel}</span></div></section>
     <section class="panel profile-section"><h2>بيانات الحساب</h2>
@@ -2130,19 +2150,16 @@ async function profilePage(){
       <div class="profile-info-row"><span>نوع الحساب</span><b>${roleLabel}</b></div>
       ${profile.is_blocked?'<div class="notice">الحساب موقوف حاليًا. تواصل مع الإدارة للمراجعة.</div>':''}
     </section>
-    ${profile.role==='captain'?'<section class="panel profile-section"><h2>حالة الكابتن</h2><div class="profile-info-row"><span>طلب الانضمام</span><b>'+esc(captainApp?.application_status==='approved'?'معتمد':captainApp?.application_status==='pending'?'قيد المراجعة':captainApp?.application_status==='suspended'?'موقوف':'غير مكتمل')+'</b></div><div class="profile-info-row"><span>الاشتراك</span><b>'+esc(activeSubscription?.expires_at&&new Date(activeSubscription.expires_at)>new Date()?'نشط حتى '+new Date(activeSubscription.expires_at).toLocaleDateString('ar-EG'):'لا يوجد اشتراك نشط')+'</b></div><button class="btn primary" id="openCaptainSpace">فتح مساحة الكابتن</button></section>':''}
+    ${profile.account_type==='captain'?'<section class="panel profile-section"><h2>حالة الكابتن</h2><div class="profile-info-row"><span>طلب الانضمام</span><b>'+esc(captainApp?.application_status==='approved'?'معتمد':captainApp?.application_status==='pending'?'قيد المراجعة':captainApp?.application_status==='suspended'?'موقوف':'غير مكتمل')+'</b></div><div class="profile-info-row"><span>الاشتراك</span><b>'+esc(activeSubscription?.expires_at&&new Date(activeSubscription.expires_at)>new Date()?'نشط حتى '+new Date(activeSubscription.expires_at).toLocaleDateString('ar-EG'):'لا يوجد اشتراك نشط')+'</b></div></section>':''}
     <section class="profile-actions-grid">
       <button class="profile-action" id="openRewards"><span>🎁</span><b>النقاط والمكافآت</b><small>الدعوات والخصومات وأيام المكافأة</small></button>
       <button class="profile-action" id="openTrips"><span>🧾</span><b>سجل الرحلات</b><small>راجع مشاويرك السابقة والحالية</small></button>
-      ${profile.role==='passenger'?'<button class="profile-action" id="applyCaptainProfile"><span>🚘</span><b>انضم ككابتن</b><small>قدّم بياناتك ومركبتك للانضمام</small></button>':''}
       ${profile.role==='admin'?'<button class="profile-action" id="openAdminProfile"><span>⚙️</span><b>إدارة المنصة</b><small>طلبات الكباتن والاشتراكات</small></button>':''}
     </section>
     <section class="panel profile-section"><h2>الأمان والخصوصية</h2><p class="muted">التواصل بين أطراف الرحلة يتم داخل التطبيق. أرقام الهواتف لا تظهر للطرف الآخر.</p><button class="btn outline" id="profileLogout">تسجيل الخروج</button></section>
   </main>`);
-  document.getElementById('openCaptainSpace')?.addEventListener('click',()=>{page='captain';render();});
   document.getElementById('openRewards')?.addEventListener('click',()=>{page='rewards';render();});
   document.getElementById('openTrips')?.addEventListener('click',()=>{page='trips';render();});
-  document.getElementById('applyCaptainProfile')?.addEventListener('click',()=>{page='apply-captain';render();});
   document.getElementById('openAdminProfile')?.addEventListener('click',()=>{page='admin';render();});
   document.getElementById('profileLogout')?.addEventListener('click',async()=>{await supabase.auth.signOut();});
 }
@@ -2204,8 +2221,16 @@ function render() {
   if (!supabase) return setup();
   if (page === 'track' && publicTrackingToken) return publicTrackingPage(publicTrackingToken);
   if (!session) return auth();
+  if(profile&&profile.role!=='admin'){
+    const captain=profile.account_type==='captain';
+    const captainOnly=['captain','captain-account'];
+    const riderOnly=['home','trip','share','trips','rewards','apply-captain'];
+    if(captain&&riderOnly.includes(page))page='captain';
+    if(!captain&&captainOnly.includes(page))page='home';
+  }
   if (page === 'trip-status') return tripStatusPage(currentTripId);
-  if (page === 'home') return home();
+  if (page === 'captain-account') return captainDashboardPage();
+  if (page === 'home') return profile?.account_type==='captain'?(page='captain',captainDashboardPage()):home();
   if (page === 'rewards') return rewardsPage();
   if (page === 'trips') return tripsPage();
   if (page === 'profile') return profilePage();
@@ -2213,7 +2238,7 @@ function render() {
   if (page === 'share') return shareHome();
   if (page === 'apply-captain') return applyCaptainPage();
   if (page === 'admin') return profile?.role === 'admin' ? adminApplicationsPage() : (page='home',home());
-  if (page === 'captain') return profile?.role === 'captain' ? captainDashboardPage() : (page='home',home());
+  if (page === 'captain') return profile?.account_type === 'captain' ? captainDashboardPage() : (page='home',home());
   page = 'home'; home();
 }
 
