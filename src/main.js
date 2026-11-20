@@ -174,7 +174,7 @@ async function home() {
   layout(`
     <main class="wrap">
       <section class="welcome">
-        <div><span class="tag">لوحة ${role}</span><h1>أهلاً ${esc(profile.display_name || 'بك')} 👋</h1><p>اختار الخدمة المناسبة لمشوارك.</p></div>
+        <div><span class="tag">لوحة ${role}</span><h1>أهلاً ${esc(profile.display_name || 'بك')} 👋</h1><p>اختر الخدمة المناسبة لمشوارك.</p></div>
         <div class="avatar">${esc((profile.display_name || 'س').slice(0,1))}</div>
       </section>
       <section class="cards">
@@ -188,7 +188,7 @@ async function home() {
         <div id="homeSavedPlaces" class="saved-place-list"></div>
         <div id="repeatLastTrip"></div>
       </section>
-      ${profile.role === 'captain' ? '<section class="panel"><h2>مساحة الكابتن</h2><p class="muted">إدارة المركبة والرحلات والحجوزات والاشتراك.</p><button class="btn primary" data-page="captain">لوحة الكابتن</button></section>' + await captainDocumentsPanel() : ''}
+      ${profile.role === 'captain' ? '<section class="panel"><h2>مساحة الكابتن</h2><p class="muted">إدارة المركبة والرحلات والحجوزات والاشتراك.</p><button class="btn primary" data-page="captain">لوحة الكابتن</button></section>' : ''}
       ${profile.role === 'admin' ? '<section class="panel"><h2>إدارة المنصة</h2><p class="muted">مراجعة طلبات الكباتن والاشتراكات وإدارة التشغيل.</p><button class="btn primary" data-page="admin">مراجعة الطلبات والاشتراكات</button></section>' : ''}
       ${profile.role === 'passenger' ? await captainApplicationStatus() : ''}
       <section class="panel"><h3>اختار طريقك</h3><p class="muted">في المشوار العادي السعر يحدده النظام. وفي مشاركة الكرسي السعر بالتفاوض وموافقة الطرفين.</p></section>
@@ -1827,23 +1827,31 @@ async function captainSubscriptionPanel() {
       <label>مدة الاشتراك
         <select name="plan_days" required><option value="30">30 يومًا — 150 جنيه</option><option value="90">90 يومًا — 400 جنيه</option></select>
       </label>
+      <div class="subscription-transfer-box">
+        <div><b>بيانات التحويل</b><p>فودافون كاش / إنستا باي</p><strong id="subscriptionTransferNumber" dir="ltr">01010530716</strong></div>
+        <button type="button" class="btn outline" id="copySubscriptionNumber">نسخ الرقم</button>
+        <small>حوّل قيمة الباقة المختارة: 150 جنيه لـ30 يومًا أو 400 جنيه لـ90 يومًا.</small>
+      </div>
       <label>رقم مرجع التحويل<input name="payment_reference" required maxlength="120" placeholder="رقم العملية أو مرجع التحويل"></label>
       <label>إثبات الدفع (صورة أو PDF)<input name="payment_proof" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
       <p class="muted">ارفع إثبات التحويل بعد الدفع خارج التطبيق. لا توجد مدفوعات إلكترونية داخل السكة.</p>
       <button class="btn primary" type="submit">إرسال طلب الاشتراك</button>
       <p class="message" id="subscriptionMessage" aria-live="polite"></p>
     </form>`;
-  const documentsNotice=documentsReady?'':'<div class="notice">لن تتمكن من تقديم اشتراك قبل مراجعة الإدارة واعتماد المستندات وصلاحيتها.</div>';
-  return '<section class="panel"><h2>اشتراك الكابتن</h2>'+status+documentsNotice+history+form+'</section>';
+  return '<section class="panel"><h2>اشتراك الكابتن</h2>'+status+history+form+'</section>';
 }
 
 async function captainDashboardPage() {
   const docs=await captainDocumentsPanel();
   const subscription=await captainSubscriptionPanel();
+  const {count:completedTripsCount,error:completedTripsCountError}=await supabase
+    .from('trip_requests').select('id',{count:'exact',head:true})
+    .eq('accepted_captain_id',profile.id).eq('request_status','completed');
+  const trialEligible=!completedTripsCountError&&(completedTripsCount||0)===0;
   const [{data:vehicles, error:vehicleError},{data:requests,error:requestError},{data:activeTrips,error:activeTripError}]=await Promise.all([
     supabase.from('vehicles')
-      .select('id,vehicle_type,make,model,color,plate_number,passenger_capacity')
-      .eq('captain_id',profile.id).eq('approval_status','approved').eq('is_active',true),
+      .select('id,vehicle_type,make,model,color,plate_number,passenger_capacity,is_active')
+      .eq('captain_id',profile.id).eq('approval_status','approved'),
     supabase.from('trip_requests')
       .select('id,vehicle_type,origin_name,destination_name,passenger_count,fixed_fare_egp,is_scheduled,scheduled_at,created_at,pickup_note,ride_preferences')
       .eq('request_status','searching').neq('passenger_id',profile.id)
@@ -1853,7 +1861,10 @@ async function captainDashboardPage() {
       .eq('accepted_captain_id',profile.id).in('request_status',['accepted','in_progress'])
       .order('created_at',{ascending:false}).limit(10)
   ]);
-  const availableVehicles=vehicles||[];
+  const availableVehicles=(vehicles||[]).filter(vehicle=>vehicle.is_active||trialEligible);
+  const trialNotice=trialEligible
+    ? '<div class="notice">متاح لك مشوار تجريبي مجاني واحد قبل الاشتراك المدفوع، بشرط إكماله. بعد إكماله يلزم اشتراك نشط لقبول رحلات أخرى.</div>'
+    : '';
   const activeTripCards=(activeTrips||[]).map(trip=>`<article class="fixed-trip-card active-captain-trip">
     <div class="fixed-trip-card-head"><b>${trip.request_status==='in_progress'?'رحلة جارية':'رحلة مقبولة'}</b><strong>${Number(trip.fixed_fare_egp||0).toLocaleString('ar-EG')} جنيه</strong></div>
     <p><b>من:</b> ${esc(trip.origin_name)}</p><p><b>إلى:</b> ${esc(trip.destination_name)}</p>
@@ -1882,7 +1893,7 @@ async function captainDashboardPage() {
             ${request.is_scheduled?'<p><b>موعد محدد:</b> '+esc(request.scheduled_at?new Date(request.scheduled_at).toLocaleString('ar-EG'):'')+'</p>':'<p class="muted">مشوار فوري</p>'}
             ${request.pickup_note?'<p><b>ملاحظة الركوب:</b> '+esc(request.pickup_note)+'</p>':''}
             ${preferenceLabels.length?'<div class="fixed-trip-preferences">'+preferenceLabels.map(item=>'<span>'+item+'</span>').join('')+'</div>':'<small class="muted">لا توجد تفضيلات إضافية.</small>'}
-            ${matching.length?`<label>اختار مركبتك<select id="fixedVehicle-${esc(request.id)}">${vehicleOptions}</select></label>`:'<div class="notice">لا توجد مركبة معتمدة ونشطة من نفس الفئة وبسعة كافية لقبول الطلب.</div>'}
+            ${matching.length?`<label>اختر مركبتك<select id="fixedVehicle-${esc(request.id)}">${vehicleOptions}</select></label>`:'<div class="notice">لا توجد مركبة معتمدة ونشطة من نفس الفئة وبسعة كافية لقبول الطلب.</div>'}
             <button type="button" class="btn primary" data-accept-fixed-trip="${esc(request.id)}" ${matching.length?'':'disabled'}>اقبل المشوار</button>
           </article>`;
         }).join('')
@@ -1892,6 +1903,7 @@ async function captainDashboardPage() {
       <button type="button" class="back" id="captainHome">→ الرئيسية</button>
       <section class="hero compact"><span class="tag">مساحة الكابتن</span><h1>إدارة حسابك واشتراكك</h1><p>يمكنك استخدام السكة كراكب في أي وقت. الاشتراك مطلوب فقط لممارسة نشاط القيادة.</p></section>
       ${docs}
+      ${trialNotice}
       ${subscription}
       <section class="panel">
         <div class="fixed-trip-section-head"><div><h2>رحلاتك الحالية</h2><p class="muted">تابع الرحلات المقبولة وابدأها أو أنهها من شاشة الرحلة.</p></div></div>
@@ -1922,6 +1934,13 @@ async function captainDashboardPage() {
     if(data===true){alert('تم قبول المشوار.');await captainDashboardPage();}
     else{button.disabled=false;button.textContent='اقبل المشوار';alert('لم يتم قبول المشوار. حاول تحديث الطلبات.');}
   }));
+  document.getElementById('copySubscriptionNumber')?.addEventListener('click',async()=>{
+    const number=document.getElementById('subscriptionTransferNumber')?.textContent?.trim();
+    if(!number)return;
+    const button=document.getElementById('copySubscriptionNumber');
+    try{await navigator.clipboard.writeText(number);button.textContent='تم النسخ ✓';}
+    catch(_){window.prompt('انسخ رقم التحويل:',number);}
+  });
   document.getElementById('subscriptionForm')?.addEventListener('submit',async e=>{
     e.preventDefault();
     const form=e.currentTarget,d=new FormData(form),msg=document.getElementById('subscriptionMessage'),btn=form.querySelector('button[type="submit"]');
