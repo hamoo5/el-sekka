@@ -378,3 +378,11 @@ html:not(.trip-day) .chat-quick-replies button{background:#eaf6ed;color:#176b38;
   .trip-chat-messages{max-height:300px}
   #activeTripMap,#publicTrackMap{height:250px}
 }
+
+
+/* Passenger night-mode contrast and quieter destination-save controls */
+html:not(.trip-day) .vehicle-card.selected .vehicle-price{color:#d7f5b2!important}
+html:not(.trip-day) .passenger-count-options button[data-passengers="4"]{
+  background:#fff!important;color:#176b38!important;border-color:#fff!important
+}
+.destination-save-actions[hidden]{display:none!important}
