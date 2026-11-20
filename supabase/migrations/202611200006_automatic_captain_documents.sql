@@ -50,6 +50,9 @@ create table if not exists public.captain_document_notifications (
   unique (user_id, notification_type, document_type, expires_on)
 );
 
+create unique index if not exists captain_document_notifications_dedupe_idx
+  on public.captain_document_notifications(user_id,notification_type,document_type,coalesce(expires_on,'infinity'::date));
+
 alter table public.captain_document_notifications enable row level security;
 drop policy if exists captain_document_notifications_owner_read on public.captain_document_notifications;
 create policy captain_document_notifications_owner_read on public.captain_document_notifications
