@@ -224,7 +224,7 @@ returns uuid
 language plpgsql
 security definer
 set search_path = pg_catalog, public
-as $
+as $$
 declare
   v_id uuid := auth.uid();
   v_request public.share_route_requests%rowtype;
@@ -318,7 +318,7 @@ begin
 
   return v_negotiation_id;
 end;
-$;
+$$;
 
 create or replace function public.process_captain_document_expiry()
 returns void
