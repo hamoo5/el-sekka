@@ -2219,12 +2219,14 @@ function render() {
   if (!supabase) return setup();
   if (page === 'track' && publicTrackingToken) return publicTrackingPage(publicTrackingToken);
   if (!session) return auth();
-  if(profile&&profile.role!=='admin'){
-    const captain=profile.account_type==='captain';
-    const captainOnly=['captain','captain-account','apply-captain'];
-    const riderOnly=['home','trip','share','trips'];
-    if(captain&&riderOnly.includes(page))page='captain';
-    if(!captain&&captainOnly.includes(page))page='home';
+  if(profile){
+    const type=profile.account_type||(profile.role==='captain'?'captain':profile.role==='admin'?'admin':'rider');
+    const allowed=type==='admin'
+      ?['admin','profile']
+      :type==='captain'
+        ?['captain','captain-account','apply-captain','profile','rewards','trip-status']
+        :['home','trip','share','trips','profile','rewards','trip-status'];
+    if(!allowed.includes(page))page=type==='admin'?'admin':type==='captain'?'captain':'home';
   }
   if (page === 'trip-status') return tripStatusPage(currentTripId);
   if (page === 'captain-account') return captainDashboardPage();
@@ -2235,8 +2237,8 @@ function render() {
   if (page === 'trip') return tripForm();
   if (page === 'share') return shareHome();
   if (page === 'apply-captain') return applyCaptainPage();
-  if (page === 'admin') return profile?.role === 'admin' ? adminApplicationsPage() : (page='home',home());
-  if (page === 'captain') return profile?.account_type === 'captain' ? captainDashboardPage() : (page='home',home());
+  if (page === 'admin') return profile?.role === 'admin' ? adminApplicationsPage() : (page='home',render());
+  if (page === 'captain') return profile?.account_type === 'captain' ? captainDashboardPage() : (page='home',render());
   page = 'home'; home();
 }
 
