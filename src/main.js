@@ -9,7 +9,7 @@ const app = document.querySelector('#app');
 let session = null;
 let profile = null;
 const PAGE_STORAGE_KEY = 'el-sekka-current-page';
-const VALID_PAGES = new Set(['home','trip','share','apply-captain','captain','admin','trip-status','track','rewards']);
+const VALID_PAGES = new Set(['home','trip','share','apply-captain','captain','admin','trip-status','track','rewards','trips','profile']);
 const urlTrackingToken = new URLSearchParams(window.location.search).get('token') || '';
 let publicTrackingToken = urlTrackingToken;
 try {
@@ -68,7 +68,15 @@ function layout(body) {
       ${session ? '<button class="btn ghost" id="logout">خروج</button>' : ''}
     </header>
     ${body}
+    ${session && profile && page !== 'track' ? `<nav class="app-bottom-nav" aria-label="التنقل الرئيسي">
+      <button type="button" data-nav-page="home" class="${page==='home'?'active':''}"><span>⌂</span><small>الراكب</small></button>
+      ${profile.role==='captain'?`<button type="button" data-nav-page="captain" class="${page==='captain'?'active':''}"><span>🚘</span><small>الكابتن</small></button>`:''}
+      <button type="button" data-nav-page="trips" class="${page==='trips'||page==='trip-status'?'active':''}"><span>🧾</span><small>رحلاتي</small></button>
+      <button type="button" data-nav-page="profile" class="${page==='profile'||page==='rewards'?'active':''}"><span>👤</span><small>حسابي</small></button>
+      ${profile.role==='admin'?`<button type="button" data-nav-page="admin" class="${page==='admin'?'active':''}"><span>⚙️</span><small>الإدارة</small></button>`:''}
+    </nav>` : ''}
     <footer>السكة © 2026 · منصة تنقل ومشاركة طريق</footer>`;
+  document.querySelectorAll('[data-nav-page]').forEach(button=>button.addEventListener('click',()=>{page=button.dataset.navPage;render();}));
   document.querySelector('#logout')?.addEventListener('click', async () => {
     await supabase.auth.signOut();
     session = null; profile = null; page = 'home';
@@ -175,7 +183,7 @@ async function home() {
   layout(`
     <main class="wrap">
       <section class="welcome">
-        <div><span class="tag">لوحة ${role}</span><h1>أهلاً ${esc(profile.display_name || 'بك')} 👋</h1><p>اختر الخدمة المناسبة لمشوارك.</p></div>
+        <div><span class="tag">مساحة الراكب</span><h1>أهلاً ${esc(profile.display_name || 'بك')} 👋</h1><p>اختار مشوارك أو شارك طريقك بسهولة وأمان.</p></div>
         <div class="avatar">${esc((profile.display_name || 'س').slice(0,1))}</div>
       </section>
       <section class="cards">
@@ -189,8 +197,6 @@ async function home() {
         <div id="homeSavedPlaces" class="saved-place-list"></div>
         <div id="repeatLastTrip"></div>
       </section>
-      ${profile.role === 'captain' ? '<section class="panel"><h2>مساحة الكابتن</h2><p class="muted">إدارة المركبة والرحلات والحجوزات والاشتراك.</p><button class="btn primary" data-page="captain">لوحة الكابتن</button></section>' : ''}
-      ${profile.role === 'admin' ? '<section class="panel"><h2>إدارة المنصة</h2><p class="muted">مراجعة طلبات الكباتن والاشتراكات وإدارة التشغيل.</p><button class="btn primary" data-page="admin">مراجعة الطلبات والاشتراكات</button></section>' : ''}
       ${profile.role === 'passenger' ? await captainApplicationStatus() : ''}
       <section class="panel"><h3>اختار طريقك</h3><p class="muted">في المشوار العادي السعر يحدده النظام. وفي مشاركة الكرسي السعر بالتفاوض وموافقة الطرفين.</p></section>
     </main>`);
@@ -2089,6 +2095,58 @@ function disposeLiveUi(){
   if(captainLocationWatchId!==null&&navigator.geolocation){navigator.geolocation.clearWatch(captainLocationWatchId);captainLocationWatchId=null;}
 }
 
+
+async function tripsPage(){
+  const [{data:asPassenger,error:passengerError},{data:asCaptain,error:captainError}]=await Promise.all([
+    supabase.from('trip_requests').select('id,origin_name,destination_name,request_status,fixed_fare_egp,created_at,is_scheduled,scheduled_at').eq('passenger_id',profile.id).order('created_at',{ascending:false}).limit(30),
+    supabase.from('trip_requests').select('id,origin_name,destination_name,request_status,fixed_fare_egp,created_at,is_scheduled,scheduled_at').eq('accepted_captain_id',profile.id).order('created_at',{ascending:false}).limit(30)
+  ]);
+  const rows=[...(asPassenger||[]).map(x=>({...x,tripRole:'راكب'})),...(asCaptain||[]).map(x=>({...x,tripRole:'كابتن'}))].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const cards=rows.map(trip=>`<article class="trip-history-card">
+    <div class="trip-history-top"><span class="trip-role-pill">${trip.tripRole}</span><b>${esc(tripStatusLabel(trip.request_status))}</b></div>
+    <div class="trip-history-route"><p><small>من</small><strong>${esc(trip.origin_name||'—')}</strong></p><span>←</span><p><small>إلى</small><strong>${esc(trip.destination_name||'—')}</strong></p></div>
+    <div class="trip-history-meta"><span>${Number(trip.fixed_fare_egp||0).toLocaleString('ar-EG')} جنيه</span><span>${new Date(trip.created_at).toLocaleDateString('ar-EG')}</span><span>${trip.is_scheduled?'مجدول':'فوري'}</span></div>
+    <button type="button" class="btn outline" data-history-trip="${esc(trip.id)}">تفاصيل الرحلة</button>
+  </article>`).join('');
+  layout(`<main class="wrap narrow page-workspace"><section class="hero compact"><span class="tag">سجلّك على السكة</span><h1>رحلاتي</h1><p>كل مشاويرك، سواء كنت راكب أو كابتن، في مكان واحد.</p></section>
+    ${passengerError||captainError?'<section class="panel"><p class="message">تعذر تحميل بعض الرحلات. حاول تحديث الصفحة.</p></section>':''}
+    <section class="trip-history-list">${cards||'<section class="panel empty-state"><div>🧭</div><h3>لسه مفيش رحلات</h3><p class="muted">أول مشوار ليك هيظهر هنا وتقدر ترجع لتفاصيله في أي وقت.</p><button class="btn primary" id="startFirstRide">اطلب مشوار</button></section>'}</section></main>`);
+  document.querySelectorAll('[data-history-trip]').forEach(button=>button.addEventListener('click',()=>{currentTripId=button.dataset.historyTrip;page='trip-status';render();}));
+  document.getElementById('startFirstRide')?.addEventListener('click',()=>{page='trip';render();});
+}
+
+async function profilePage(){
+  const [{data:captainApp},{data:activeSubscription}]=profile.role==='captain'?await Promise.all([
+    supabase.from('captain_applications').select('application_status').eq('user_id',profile.id).maybeSingle(),
+    supabase.from('captain_subscriptions').select('expires_at,payment_status').eq('captain_id',profile.id).eq('payment_status','approved').order('expires_at',{ascending:false}).limit(1).maybeSingle()
+  ]):[{data:null},{data:null}];
+  const name=profile.display_name||'مستخدم السكة';
+  const roleLabel=profile.role==='admin'?'مدير المنصة':profile.role==='captain'?'راكب وكابتن':'راكب';
+  layout(`<main class="wrap narrow page-workspace">
+    <section class="profile-hero"><div class="profile-avatar">${esc(name.slice(0,1))}</div><div><span class="tag">حسابي الشخصي</span><h1>${esc(name)}</h1><p>${esc(session?.user?.email||'')}</p><span class="profile-role-pill">${roleLabel}</span></div></section>
+    <section class="panel profile-section"><h2>بيانات الحساب</h2>
+      <div class="profile-info-row"><span>الاسم الظاهر</span><b>${esc(name)}</b></div>
+      <div class="profile-info-row"><span>البريد الإلكتروني</span><b dir="ltr">${esc(session?.user?.email||'—')}</b></div>
+      <div class="profile-info-row"><span>نوع الحساب</span><b>${roleLabel}</b></div>
+      ${profile.is_blocked?'<div class="notice">الحساب موقوف حاليًا. تواصل مع الإدارة للمراجعة.</div>':''}
+    </section>
+    ${profile.role==='captain'?'<section class="panel profile-section"><h2>حالة الكابتن</h2><div class="profile-info-row"><span>طلب الانضمام</span><b>'+esc(captainApp?.application_status==='approved'?'معتمد':captainApp?.application_status==='pending'?'قيد المراجعة':captainApp?.application_status==='suspended'?'موقوف':'غير مكتمل')+'</b></div><div class="profile-info-row"><span>الاشتراك</span><b>'+esc(activeSubscription?.expires_at&&new Date(activeSubscription.expires_at)>new Date()?'نشط حتى '+new Date(activeSubscription.expires_at).toLocaleDateString('ar-EG'):'لا يوجد اشتراك نشط')+'</b></div><button class="btn primary" id="openCaptainSpace">فتح مساحة الكابتن</button></section>':''}
+    <section class="profile-actions-grid">
+      <button class="profile-action" id="openRewards"><span>🎁</span><b>النقاط والمكافآت</b><small>الدعوات والخصومات وأيام المكافأة</small></button>
+      <button class="profile-action" id="openTrips"><span>🧾</span><b>سجل الرحلات</b><small>راجع مشاويرك السابقة والحالية</small></button>
+      ${profile.role==='passenger'?'<button class="profile-action" id="applyCaptainProfile"><span>🚘</span><b>انضم ككابتن</b><small>قدّم بياناتك ومركبتك للانضمام</small></button>':''}
+      ${profile.role==='admin'?'<button class="profile-action" id="openAdminProfile"><span>⚙️</span><b>إدارة المنصة</b><small>طلبات الكباتن والاشتراكات</small></button>':''}
+    </section>
+    <section class="panel profile-section"><h2>الأمان والخصوصية</h2><p class="muted">التواصل بين أطراف الرحلة يتم داخل التطبيق. أرقام الهواتف لا تظهر للطرف الآخر.</p><button class="btn outline" id="profileLogout">تسجيل الخروج</button></section>
+  </main>`);
+  document.getElementById('openCaptainSpace')?.addEventListener('click',()=>{page='captain';render();});
+  document.getElementById('openRewards')?.addEventListener('click',()=>{page='rewards';render();});
+  document.getElementById('openTrips')?.addEventListener('click',()=>{page='trips';render();});
+  document.getElementById('applyCaptainProfile')?.addEventListener('click',()=>{page='apply-captain';render();});
+  document.getElementById('openAdminProfile')?.addEventListener('click',()=>{page='admin';render();});
+  document.getElementById('profileLogout')?.addEventListener('click',async()=>{await supabase.auth.signOut();});
+}
+
 async function rewardsPage() {
   const [{data:profileRow,error:profileError},{data:invites,error:invitesError},{data:myReferral,error:myReferralError},{data:pointsRows},{data:rewardRows}] = await Promise.all([
     supabase.from('profiles').select('referral_code,points,captain_reward_days_balance,captain_referral_progress,discounted_trips_count,role').eq('id',profile.id).single(),
@@ -2149,6 +2207,8 @@ function render() {
   if (page === 'trip-status') return tripStatusPage(currentTripId);
   if (page === 'home') return home();
   if (page === 'rewards') return rewardsPage();
+  if (page === 'trips') return tripsPage();
+  if (page === 'profile') return profilePage();
   if (page === 'trip') return tripForm();
   if (page === 'share') return shareHome();
   if (page === 'apply-captain') return applyCaptainPage();
