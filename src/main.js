@@ -185,7 +185,7 @@ async function sharePage(){
     if(!vehicle)throw Error('اختار المركبة التي ستتحرك بها.');
     const maxSeats=({private_car:3,suzuki:6,microbus:13})[vehicle.vehicle_type]||13;
     if(!Number.isInteger(Number(v('seats')))||Number(v('seats'))<1||Number(v('seats'))>maxSeats)throw Error('عدد المقاعد أكبر من سعة المركبة. الحد الأقصى '+maxSeats+' مقاعد.');
-    if(!Number.isFinite(Number(v('seat_price)))||Number(v('seat_price'))<0)throw Error('اكتب سعرًا صحيحًا للمقعد.');
+    if(!Number.isFinite(Number(v('seat_price')))||Number(v('seat_price'))<0)throw Error('اكتب سعرًا صحيحًا للمقعد.');
     const routeRes=await fetch('https://router.project-osrm.org/route/v1/driving/'+coords[0]+','+coords[1]+';'+coords[2]+','+coords[3]+'?overview=full&geometries=geojson');
     if(!routeRes.ok)throw Error('تعذر حساب الطريق. حاول مرة أخرى.');
     const routeData=await routeRes.json(),route=routeData.routes?.[0];
