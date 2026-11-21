@@ -114,7 +114,7 @@ async function groupPage(){
   box.querySelectorAll('[data-group-action]').forEach(btn=>btn.onclick=async()=>{
    const vehicle=box.querySelector('[data-vehicle-for="'+btn.dataset.groupKey+'"]')?.value;if(!vehicle)return;
    let price=null;
-   if(btn.dataset.groupAction==='counter'){const raw=prompt('اكتب السعر المقترح للمقعد لكل راكب بالجنيه:');if(raw===null)return;price=Number(raw);if(!Number.isFinite(price)||price<0){alert('أدخل سعرًا صحيحًا.');return;}}
+   if(btn.dataset.groupAction==='counter'){const raw=prompt('اكتب إجمالي تكلفة المشوار للمجموعة بالجنيه؛ سيتم تقسيمها تلقائيًا على إجمالي المقاعد:');if(raw===null)return;price=Number(raw);if(!Number.isFinite(price)||price<0){alert('أدخل سعرًا صحيحًا.');return;}}
    busyButton(btn,true);
    try{const {data,error}=await db.rpc('captain_reply_share_route_group',{p_request_ids:btn.dataset.requestIds.split(','),p_vehicle_id:vehicle,p_action:btn.dataset.groupAction,p_counter_price:price});if(error)throw error;alert('تم إرسال الرد على '+(data||btn.dataset.requestIds.split(',').length)+' طلب. كل راكب سيؤكد العرض من حسابه.');await groupPage();}
    catch(err){alert(err.message||'تعذر إرسال الرد. تأكد من سعة المركبة وتقارب الطلبات.');busyButton(btn,false);}
