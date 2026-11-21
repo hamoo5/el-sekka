@@ -2118,10 +2118,17 @@ async function captainDocumentsPanel() {
   const labels={national_id:'بطاقة الرقم القومي',driver_license:'رخصة القيادة',vehicle_license:'رخصة السيارة'};
   const dates=data?'<ul><li>بطاقة الرقم القومي: '+esc(data.national_id_expiry||'غير مسجل')+'</li><li>رخصة القيادة: '+esc(data.license_expiry||'غير مسجل')+'</li><li>رخصة السيارة: '+esc(data.vehicle_license_expiry||'غير مسجل')+'</li></ul>':'';
   const alerts=(notices||[]).map(n=>'<div class="notice">'+esc(n.message)+'</div>').join('');
-  const status=data?.application_status==='suspended'
-    ? '<p class="notice">نشاط القيادة موقوف لحين تحديث المستندات ومراجعتها.</p>'
-    : data?.application_status==='pending' ? '<p class="notice">مستنداتك قيد مراجعة الإدارة. لن يتم تفعيل استقبال الرحلات قبل اعتماد الطلب.</p>'
-    : data?.application_status==='approved' ? '<p class="muted">مستنداتك معتمدة. سيصلك تنبيه قبل انتهاء أي مستند بـ30 يوماً.</p>' : '<p class="muted">تعذر قراءة حالة المستندات حالياً.</p>';
+  const status=error
+    ? '<p class="notice">تعذر تحميل حالة المستندات حالياً. تحقق من اتصالك وحاول تحديث الصفحة، أو اضغط تحديث المستندات للمحاولة مرة أخرى.</p>'
+    : !data
+      ? '<p class="muted">لا يوجد طلب كابتن مسجل على هذا الحساب حالياً. يمكنك التقديم أو استكمال بياناتك من زر تحديث المستندات.</p>'
+      : data.application_status==='suspended'
+        ? '<p class="notice">نشاط القيادة موقوف لحين تحديث المستندات ومراجعتها.</p>'
+        : data.application_status==='pending'
+          ? '<p class="notice">مستنداتك قيد مراجعة الإدارة. لن يتم تفعيل استقبال الرحلات قبل اعتماد الطلب.</p>'
+          : data.application_status==='approved'
+            ? '<p class="muted">مستنداتك معتمدة. سيصلك تنبيه قبل انتهاء أي مستند بـ30 يوماً.</p>'
+            : '<p class="muted">حالة الطلب غير معروفة حالياً. حدّث الصفحة أو اضغط تحديث المستندات للمحاولة مرة أخرى.</p>';
   return '<section class="panel"><h2>صلاحية مستندات الكابتن</h2>'+status+(error?'':dates)+alerts+'<button class="btn outline" data-page="apply-captain">تحديث المستندات</button></section>';
 }
 
