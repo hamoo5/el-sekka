@@ -133,23 +133,18 @@ async function captainHome(){
    <div class="ride-top"><h2>اشتراكك نشط</h2><span class="pill">مفعّل</span></div>
    <p>الباقة: ${activeSubscription.plan_days===90?'3 شهور':'شهر واحد'} · ${money(activeSubscription.amount_egp)}</p>
    <p>ينتهي الاشتراك: <b>${date(activeSubscription.expires_at)}</b></p>
-   <details class="subscription-details"><summary>تجديد الاشتراك</summary>${subscriptionForm}</details>
-  </section>`;
- }else if(pendingSubscription){
-  subscriptionPanel=`<section class="panel subscription-panel">
-   <div class="ride-top"><h2>طلب الاشتراك قيد المراجعة</h2><span class="pill">بانتظار الاعتماد</span></div>
-   <p>استلمنا طلبك وسيتم تفعيل الاشتراك بعد مراجعة إثبات الدفع. لا تحتاج إلى إرسال طلب آخر الآن.</p>
+   ${pendingSubscription?'<p class="notice">يوجد طلب تجديد قيد المراجعة بالفعل.</p>':`<details class="subscription-details"><summary>تجديد الاشتراك</summary>${subscriptionForm}</details>`}
   </section>`;
  }else if(completedTrips===0){
   subscriptionPanel=`<section class="panel trial-panel">
    <h2>🎁 مشوارك الأول مجاني 100%</h2>
    <p>اقبل أول طلب من قائمة المشاوير المتاحة بالأسفل وجرّب السكة مجاناً بدون اشتراك!</p>
-   <details class="subscription-details"><summary>تفعيل الاشتراك مبكراً (اختياري)</summary>${subscriptionForm}</details>
+   <details class="subscription-details"><summary>تفعيل الاشتراك مبكراً (اختياري)</summary>${pendingSubscription?'<p class="notice">طلب الاشتراك الذي أرسلته قيد المراجعة. لن تحتاج إلى إرسال طلب آخر.</p>':subscriptionForm}</details>
   </section>`;
  }else{
   subscriptionPanel=`<section class="panel subscription-panel">
    <div class="notice success">أتممت مشوارك التجريبي بنجاح! فعّل اشتراكك الشهري الآن (150 ج / شهر أو 400 ج / 3 شهور) لمواصلة استقبال الطلبات.</div>
-   <details class="subscription-details" open><summary>تقديم / تجديد الاشتراك</summary>${subscriptionForm}</details>
+   <details class="subscription-details" open><summary>تقديم / تجديد الاشتراك</summary>${pendingSubscription?'<p class="notice">طلب الاشتراك قيد المراجعة بالفعل. سيتم تفعيل الاشتراك بعد اعتماد الإدارة.</p>':subscriptionForm}</details>
   </section>`;
  }
  const requestsHtml=(requests||[]).map(r=>`<article class="request"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><p>${r.passenger_count} ركاب · ${money(r.fixed_fare_egp)}</p><p class="muted">${date(r.scheduled_at)}</p><button class="btn primary" data-accept="${r.id}">قبول الرحلة</button></article>`).join('')||'<p>لا توجد طلبات مفتوحة حاليًا.</p>';
