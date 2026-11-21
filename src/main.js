@@ -10,13 +10,15 @@ let session = null, profile = null, view = 'home', authRole = 'rider', authMode 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = v => Number(v || 0).toLocaleString('ar-EG') + ' ج.م';
 const date = v => v ? new Date(v).toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'}) : 'فوري';
+const localDateValue = (d=new Date()) => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+const localDateTimeValue = (d=new Date()) => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
 const notice = (msg, type='info') => { const el=document.querySelector('#notice'); if(el){el.textContent=msg;el.className='notice '+type;} };
 const busyButton = (button, yes) => { if(button){button.disabled=yes;button.dataset.old ||= button.textContent;button.textContent=yes?'جارٍ التنفيذ…':button.dataset.old;} };
 
 function shell(content){
  root.innerHTML=`<header class="top"><a class="brand" href="#" data-view="home"><span class="mark">س</span><span><b>السكة</b><small>مشاركة الطريق.. على السكة</small></span></a><div class="top-actions">${session?'<span class="user-tag">'+esc(profile?.display_name||session.user.email)+'</span><button class="btn outline" id="logout">خروج</button>':''}</div></header>
  ${content}
- ${session?'<nav class="bottom"><button data-view="home">الرئيسية</button><button data-view="share">جاي في سكتك</button><button data-view="group">مشوارنا واحد</button><button data-view="lines">خطوط السكة</button><button data-view="trips">حجوزاتي</button><button data-view="account">حسابي</button></nav>':''}
+ ${session?'<nav class="bottom" aria-label="التنقل الرئيسي"><button data-view="home">الرئيسية</button><button data-view="share">جاي في سكتك</button><button data-view="group">مشوارنا واحد</button><button data-view="lines">خطوط السكة</button><button data-view="trips">حجوزاتي</button><button data-view="account">حسابي</button></nav>':''}
  <footer>السكة · منصة تنقّل ومشاركة طريق</footer>`;
  root.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();view=b.dataset.view;render();}));
  document.querySelector('#logout')?.addEventListener('click',async()=>{await db.auth.signOut();session=null;profile=null;view='home';render();});
@@ -299,7 +301,7 @@ async function groupPage(){
  const form=document.querySelector('#groupRequestForm');
  attachCoordinatePicker('groupRouteMap',form);
  const dt=form.querySelector('[name="departure_at"]');
- dt.value=new Date(Date.now()+60*60*1000-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
+ dt.value=localDateTimeValue(new Date(Date.now()+60*60*1000));
  form.onsubmit=async e=>{
   e.preventDefault();const fd=new FormData(form),v=k=>String(fd.get(k)||'').trim(),btn=form.querySelector('button[type="submit"]');busyButton(btn,true);
   try{
@@ -372,7 +374,7 @@ async function linesPage(){
    ${input('محطة البداية','origin_name','text',true,'اسم أول محطة')}
    ${input('محطة النهاية','destination_name','text',true,'اسم آخر محطة')}
    ${input('وصف الخط','description','text',false,'المناطق التي يمر بها الخط')}
-   <textarea name="stops" required hidden></textarea><div class="line-stop-map-tools"><label>اسم المحطة<input name="map_stop_name" type="text" placeholder="اسم المحطة المحددة أو اكتبه"></label><button type="button" class="btn outline" id="stopCurrentLocation">موقعي الحالي</button><button type="button" class="btn primary" id="addMapStop" disabled>إضافة المحطة</button></div><div id="lineStopsMap" class="picker-map"></div><p class="map-status" data-stop-map-status>اضغط على الخريطة لتحديد المحطات بالترتيب: البداية ثم المحطات الوسطى ثم النهاية.</p><div id="lineStopsList" class="stop-list"><p class="muted">لم تضف محطات بعد.</p></div>
+   <textarea name="stops" hidden></textarea><div class="line-stop-map-tools"><label>اسم المحطة<input name="map_stop_name" type="text" placeholder="اسم المحطة المحددة أو اكتبه"></label><button type="button" class="btn outline" id="stopCurrentLocation">موقعي الحالي</button><button type="button" class="btn primary" id="addMapStop" disabled>إضافة المحطة</button></div><div id="lineStopsMap" class="picker-map"></div><p class="map-status" data-stop-map-status>اضغط على الخريطة لتحديد المحطات بالترتيب: البداية ثم المحطات الوسطى ثم النهاية.</p><div id="lineStopsList" class="stop-list"><p class="muted">لم تضف محطات بعد.</p></div>
    <fieldset class="days-field"><legend>أيام تشغيل الخط</legend>${dayNames.map((d,i)=>'<label class="check"><input type="checkbox" name="days" value="'+i+'" '+(i<5?'checked':'')+'> '+d+'</label>').join('')}</fieldset>
    ${input('ميعاد التحرك','departure_time','time',true)}
    ${input('عدد المقاعد في الرحلة','seats','number',true,'حسب سعة المركبة')}
@@ -425,7 +427,7 @@ async function linesPage(){
   const lineSchedules=(schedules||[]).filter(s=>s.line_id===line.id),lineStops=(stops||[]).filter(s=>s.line_id===line.id);
   return `<section class="panel"><h2>${esc(line.title)}</h2><h3>${esc(line.origin_name)} ← ${esc(line.destination_name)}</h3><p>${esc(line.description||'خط معتمد من السكة')}</p><p class="muted">المحطات: ${lineStops.map(s=>esc(s.stop_name)).join(' ← ')}</p>${lineSchedules.map(s=>{
    const pickup=lineStops.filter(x=>x.can_pickup),dropoff=lineStops.filter(x=>x.can_dropoff);
-   return `<form class="line-book-form" data-line-schedule="${s.id}" data-time="${String(s.departure_time).slice(0,5)}"><div class="ride-top"><b>ميعاد ${String(s.departure_time).slice(0,5)}</b><span class="pill">${s.seats_total} مقعد</span></div><p>أيام التشغيل: ${(s.service_days||[]).map(d=>dayNames[d]).join('، ')} · ${money(s.seat_price_egp)} للمقعد</p><label>تاريخ الرحلة<input type="date" name="run_date" min="${new Date().toISOString().slice(0,10)}" max="${new Date(Date.now()+90*86400000).toISOString().slice(0,10)}" required></label><label>محطة الركوب<select name="pickup_stop" required>${pickup.map(x=>'<option value="'+x.id+'">'+esc(x.stop_name)+'</option>').join('')}</select></label><label>محطة النزول<select name="dropoff_stop" required>${dropoff.map(x=>'<option value="'+x.id+'">'+esc(x.stop_name)+'</option>').join('')}</select></label><p class="line-availability" data-line-availability>حدد التاريخ ومحطتي الركوب والنزول لمعرفة المقاعد المتاحة على الجزء المطلوب.</p><label>عدد المقاعد<select name="seats">${Array.from({length:Math.min(13,s.seats_total)},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('')}</select></label><button class="btn primary full" type="submit">احجز في الخط</button><p class="notice" role="status"></p></form>`;
+   return `<form class="line-book-form" data-line-schedule="${s.id}" data-time="${String(s.departure_time).slice(0,5)}"><div class="ride-top"><b>ميعاد ${String(s.departure_time).slice(0,5)}</b><span class="pill">${s.seats_total} مقعد إجمالي</span></div><p>أيام التشغيل: ${(s.service_days||[]).map(d=>dayNames[d]).join('، ')} · ${money(s.seat_price_egp)} للمقعد</p><label>تاريخ الرحلة<input type="date" name="run_date" min="${localDateValue()}" max="${localDateValue(new Date(Date.now()+90*86400000))}" required></label><label>محطة الركوب<select name="pickup_stop" required>${pickup.map(x=>'<option value="'+x.id+'">'+esc(x.stop_name)+'</option>').join('')}</select></label><label>محطة النزول<select name="dropoff_stop" required>${dropoff.map(x=>'<option value="'+x.id+'">'+esc(x.stop_name)+'</option>').join('')}</select></label><p class="line-availability" data-line-availability>حدد التاريخ ومحطتي الركوب والنزول لمعرفة المقاعد المتاحة على الجزء المطلوب.</p><label>عدد المقاعد<select name="seats">${Array.from({length:Math.min(13,s.seats_total)},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('')}</select></label><button class="btn primary full" type="submit">احجز في الخط</button><p class="notice" role="status"></p></form>`;
   }).join('')||'<p class="muted">لا توجد مواعيد نشطة لهذا الخط.</p>'}</section>`;
  }).join('');
  async function refreshLineAvailability(form){
