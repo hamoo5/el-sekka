@@ -2011,8 +2011,9 @@ function shareHome() {
     window.__sekkaAvailableRides=rides;
     if(!isCaptain)renderRiderShareRoutes(rides);
     if(!rides.length){
-      host.innerHTML=riderCurrentLocation&&hasFarRides&&!showFarRides
-        ?'<p class="muted">لا توجد خطوط قريبة خلال 10 كم. اضغط «عرض الخطوط الأبعد» لاستكشاف باقي الخطوط.</p>'
+      // The location status above already explains the empty nearby state; avoid showing a duplicate message.
+      host.innerHTML=riderCurrentLocation&&!showFarRides
+        ?''
         :'<p class="muted">لا توجد خطوط متاحة حالياً. ارجع لاحقاً لاكتشاف خطوط جديدة.</p>';
       return;
     }
