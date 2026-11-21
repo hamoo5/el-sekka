@@ -87,7 +87,7 @@ function layout(body) {
       <button type="button" data-nav-page="profile" class="${page==='profile'?'active':''}"><span>👤</span><small>حسابي</small></button>
     </nav>` : rider ? `<nav class="app-bottom-nav rider-nav" aria-label="تنقل الراكب">
       <button type="button" data-nav-page="share" class="${page==='share'?'active':''}"><span>🗺️</span><small>الخطوط المتاحة</small></button>
-      <button type="button" data-nav-page="trips" class="${page==='trips'||page==='trip-status'?'active':''}"><span>📋</span><small>مشاويري</small></button>
+      <button type="button" data-nav-page="trips" class="${page==='trips'||page==='trip-status'?'active':''}"><span>📋</span><small>حجوزاتي</small></button>
       <button type="button" data-nav-page="profile" class="${page==='profile'||page==='rewards'?'active':''}"><span>👤</span><small>حسابي</small></button>
     </nav>` : `<nav class="app-bottom-nav"><button type="button" data-nav-page="admin" class="${page==='admin'?'active':''}"><span>⚙️</span><small>الإدارة</small></button><button type="button" data-nav-page="profile"><span>👤</span><small>حسابي</small></button></nav>` : ''}
     <footer>السكة © 2026 · منصة تنقل ومشاركة طريق${!session && !selectedAuthRole ? '<a class="admin-entry-link" id="adminEntry" href="#">دخول الإدارة</a>' : ''}</footer>`;
@@ -2585,22 +2585,14 @@ function disposeLiveUi(){
 
 
 async function tripsPage(){
-  const {data:rows,error}=await supabase.from('trip_requests')
-    .select('id,origin_name,destination_name,request_status,fixed_fare_egp,created_at,is_scheduled,scheduled_at')
-    .eq('passenger_id',profile.id).order('created_at',{ascending:false}).limit(40);
-  const cards=(rows||[]).map(trip=>`<article class="trip-history-card">
-    <div class="trip-history-top"><span class="trip-role-pill">راكب</span><b>${esc(tripStatusLabel(trip.request_status))}</b></div>
-    <div class="trip-history-route"><p><small>من</small><strong>${esc(trip.origin_name||'—')}</strong></p><span>←</span><p><small>إلى</small><strong>${esc(trip.destination_name||'—')}</strong></p></div>
-    <div class="trip-history-meta"><span>${Number(trip.fixed_fare_egp||0).toLocaleString('ar-EG')} جنيه</span><span>${new Date(trip.created_at).toLocaleDateString('ar-EG')}</span><span>${trip.is_scheduled?'مجدول':'فوري'}</span></div>
-    <button type="button" class="btn outline" data-history-trip="${esc(trip.id)}">تفاصيل الرحلة</button>
-  </article>`).join('');
-  layout(`<main class="wrap narrow page-workspace"><section class="hero compact"><span class="tag">سجلّك على السكة</span><h1>مشاويري</h1><p>كل المشاوير التي طلبتها من حساب الراكب في مكان واحد.</p></section>
-    ${error?'<section class="panel"><p class="message">تعذر تحميل الرحلات. حاول تحديث الصفحة.</p></section>':''}
-    <section class="trip-history-list">${cards||'<section class="panel empty-state"><div>🧭</div><h3>لسه مفيش مشاوير</h3><p class="muted">أول مشوار تطلبه هيظهر هنا وتقدر ترجع لتفاصيله في أي وقت.</p><button class="btn primary" id="startFirstRide">اطلب مشوار</button></section>'}</section></main>`);
-  document.querySelectorAll('[data-history-trip]').forEach(button=>button.addEventListener('click',()=>{currentTripId=button.dataset.historyTrip;page='trip-status';render();}));
-  document.getElementById('startFirstRide')?.addEventListener('click',()=>{page='trip';render();});
+  const {data:bookings,error}=await supabase.from('bookings').select('id,ride_id,pickup_name,dropoff_name,seats_requested,agreed_price_egp,quoted_fare_egp,passenger_offer_egp,booking_status,created_at').eq('passenger_id',profile.id).order('created_at',{ascending:false}).limit(40);
+  const rideIds=[...new Set((bookings||[]).map(row=>row.ride_id))];
+  let ridesById=new Map();
+  if(rideIds.length){const result=await supabase.from('rides').select('id,origin_name,destination_name,departure_at').in('id',rideIds);if(!result.error)ridesById=new Map((result.data||[]).map(row=>[row.id,row]));}
+  const cards=(bookings||[]).map(booking=>{const ride=ridesById.get(booking.ride_id);return `<article class="trip-history-card"><div class="trip-history-top"><span class="trip-role-pill">حجز خط</span><b>${esc(shareStatus(booking.booking_status))}</b></div><div class="trip-history-route"><p><small>الركوب</small><strong>${esc(booking.pickup_name||'—')}</strong></p><span>←</span><p><small>النزول</small><strong>${esc(booking.dropoff_name||'—')}</strong></p></div><div class="trip-history-meta"><span>${Number(booking.agreed_price_egp??booking.quoted_fare_egp??booking.passenger_offer_egp??0).toLocaleString('ar-EG')} جنيه للكرسي</span><span>${Number(booking.seats_requested||1)} كرسي</span><span>${ride?.departure_at?new Date(ride.departure_at).toLocaleString('ar-EG'):'موعد غير متاح'}</span></div><small class="muted">${ride?esc(ride.origin_name)+' ← '+esc(ride.destination_name):'تفاصيل الخط غير متاحة'}</small></article>`;}).join('');
+  layout(`<main class="wrap narrow page-workspace"><section class="hero compact"><span class="tag">حجوزاتك على السكة</span><h1>حجوزاتي</h1><p>تابع طلبات حجز المقاعد ومواعيد الخطوط وحالة كل حجز.</p></section>${error?'<section class="panel"><p class="message">تعذر تحميل الحجوزات. حاول تحديث الصفحة.</p></section>':''}<section class="trip-history-list">${cards||'<section class="panel empty-state"><div>🧭</div><h3>لسه مفيش حجوزات</h3><p class="muted">استكشف الخطوط المتاحة واختار خطًا يناسب طريقك وموعدك.</p><button class="btn primary" id="startFirstRide">الخطوط المتاحة</button></section>'}</section></main>`);
+  document.getElementById('startFirstRide')?.addEventListener('click',()=>{page='share';render();});
 }
-
 async function profilePage(){
   const [{data:captainApp},{data:activeSubscription}]=(profile.account_type==='captain'||profile.role==='captain')?await Promise.all([
     supabase.from('captain_applications').select('application_status').eq('user_id',profile.id).maybeSingle(),
