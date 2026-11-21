@@ -1169,7 +1169,7 @@ function shareHome() {
         <h2>انشر كراسي متاحة بمركبتك</h2>
         <p class="muted">انشر خطًا من مكان لمكان. النظام يحسب مسار قيادة تقريبيًا ويحفظه، ثم يطابق طلبات الركاب على الخط بحد انحراف 500 متر.</p>
         <form id="captainSeatOfferForm" class="form">
-          <label>المركبة<select id="seatOfferVehicle" required><option value="">جارٍ تحميل المركبات...</option></select></label>
+          <label>المركبة<select id="seatOfferVehicle"><option value="">جارٍ تحميل المركبات...</option></select></label><p id="seatOfferVehicleStatus" class="notice" role="status" hidden></p>
           <label>نوع العرض<select id="seatOfferMode"><option value="live_share">فوري</option><option value="scheduled_share">مجدول</option></select></label>
           <label>بداية الخط (شارع أو معلم واضح)<input id="seatOfferOrigin" required maxlength="180" placeholder="مثال: حدائق المعادي"></label>
           <label>نهاية الخط (شارع أو معلم واضح)<input id="seatOfferDestination" required maxlength="180" placeholder="مثال: التجمع الخامس"></label>
@@ -1580,16 +1580,50 @@ function shareHome() {
   }
 
   async function loadCaptainSeatVehicles(){
-    const select=$('seatOfferVehicle'); if(!select)return;
-    const {data,error}=await supabase.from('vehicles')
-      .select('id,vehicle_type,make,model,passenger_capacity')
-      .eq('captain_id',profile.id).eq('approval_status','approved').eq('is_active',true)
-      .in('vehicle_type',sharedVehicleTypes);
-    if(error||!data?.length){select.innerHTML='<option value="">لا توجد مركبات مشاركة معتمدة ونشطة (ملاكي فقط)</option>';return;}
-    const eligible=data.filter(v=>v.vehicle_type==='private_car'&&Number(v.passenger_capacity)>=1&&Number(v.passenger_capacity)<=3);
-    if(!eligible.length){select.innerHTML='<option value="">لا توجد مركبة ملاكي معتمدة ونشطة بسعة حتى 3 ركاب</option>';return;}
-    select.innerHTML=eligible.map(v=>`<option value="${v.id}">${esc([v.make,v.model].filter(Boolean).join(' ')||'ملاكي')} · ${v.passenger_capacity} مقعد</option>`).join('');
-    $('seatOfferSeats').max=String(Math.min(3,Math.max(...eligible.map(v=>v.passenger_capacity))));
+    const select=$('seatOfferVehicle'),status=$('seatOfferVehicleStatus'); if(!select)return;
+    select.disabled=true;
+    const [{data:vehicles,error:vehicleError},{data:subscriptions,error:subscriptionError}]=await Promise.all([
+      supabase.from('vehicles')
+        .select('id,vehicle_type,make,model,passenger_capacity,is_active')
+        .eq('captain_id',profile.id).eq('approval_status','approved')
+        .in('vehicle_type',sharedVehicleTypes),
+      supabase.from('captain_subscriptions')
+        .select('payment_status,starts_at,expires_at')
+        .eq('captain_id',profile.id).order('created_at',{ascending:false}).limit(5)
+    ]);
+    if(vehicleError){
+      select.innerHTML='<option value="">تعذر تحميل المركبات</option>';
+      if(status){status.hidden=false;status.textContent='تعذر تحميل بيانات المركبة. حدّث الصفحة وحاول مرة أخرى.';}
+      return;
+    }
+    const eligible=(vehicles||[]).filter(v=>v.vehicle_type==='private_car'&&Number(v.passenger_capacity)>=1&&Number(v.passenger_capacity)<=3);
+    if(!eligible.length){
+      select.innerHTML='<option value="">لا توجد مركبة ملاكي معتمدة بسعة حتى 3 ركاب</option>';
+      if(status){status.hidden=false;status.textContent='لا توجد مركبة ملاكي معتمدة ومطابقة لشروط مشاركة الطريق.';}
+      return;
+    }
+    const activeVehicles=eligible.filter(v=>v.is_active===true);
+    if(activeVehicles.length){
+      select.innerHTML='<option value="">اختر مركبتك</option>'+activeVehicles.map(v=>`<option value="${v.id}">${esc([v.make,v.model].filter(Boolean).join(' ')||'ملاكي')} · ${v.passenger_capacity} مقعد</option>`).join('');
+      select.disabled=false;
+      if(status){status.hidden=true;status.textContent='';}
+      $('seatOfferSeats').max=String(Math.min(3,Math.max(...activeVehicles.map(v=>v.passenger_capacity))));
+      return;
+    }
+    select.innerHTML='<option value="">'+esc([eligible[0].make,eligible[0].model].filter(Boolean).join(' ')||'ملاكي')+' — غير مفعّلة حالياً</option>';
+    const now=Date.now();
+    const activeSubscription=(subscriptions||[]).some(s=>s.payment_status==='approved'&&s.starts_at&&s.expires_at&&new Date(s.starts_at).getTime()<=now&&new Date(s.expires_at).getTime()>now);
+    const pendingSubscription=(subscriptions||[]).some(s=>s.payment_status==='submitted');
+    if(status){
+      status.hidden=false;
+      status.textContent=subscriptionError
+        ?'المركبة معتمدة، لكن تعذر التحقق من الاشتراك. حدّث الصفحة أو راجع حسابك.'
+        :activeSubscription
+          ?'مركبتك معتمدة، لكن حالة تفعيلها غير متزامنة مع الاشتراك. لن نفعّلها تلقائياً؛ راجع حسابك أو تواصل مع الإدارة.'
+          :pendingSubscription
+            ?'مركبتك الملاكي معتمدة، لكن طلب اشتراكك ما زال قيد المراجعة. نشر خطوط السير يتاح بعد اعتماد الاشتراك وتفعيله.'
+            :'مركبتك الملاكي معتمدة، لكن نشر خطوط السير يتطلب اشتراك كابتن نشطاً. راجع قسم اشتراكي ومستنداتي.';
+    }
   }
   $('seatOfferMode')?.addEventListener('change',()=>{
     const scheduled=$('seatOfferMode').value==='scheduled_share';
@@ -1663,6 +1697,10 @@ function shareHome() {
     e.preventDefault();
     const msg=$('seatOfferMessage'),btn=e.currentTarget.querySelector('button[type="submit"]');
     const mode=$('seatOfferMode').value;
+    if(!$('seatOfferVehicle')?.value){
+      msg.textContent=$('seatOfferVehicleStatus')?.textContent||'لا توجد مركبة مفعّلة لنشر خط السير.';
+      return;
+    }
     const originName=$('seatOfferOrigin').value.trim(),destinationName=$('seatOfferDestination').value.trim();
     const departure=mode==='scheduled_share'?new Date($('seatOfferDeparture').value):new Date(Date.now()+60000);
     if(!originName||!destinationName){msg.textContent='اكتب بداية الخط ونهايته.';return;}
