@@ -1805,7 +1805,7 @@ function shareHome() {
     host.innerHTML=data.map(ride=>'<article class="share-item captain-own-route-card"><b>'+esc(ride.origin_name)+' ← '+esc(ride.destination_name)+'</b><small>'+new Date(ride.departure_at).toLocaleString('ar-EG')+' · الحالة: '+esc(shareStatus(ride.ride_status))+'</small><p>المتاح: '+Number(ride.available_seats||0)+' من '+Number(ride.seat_capacity||0)+' مقعد · '+Number(ride.seat_price_egp||0).toLocaleString('ar-EG')+' جنيه للكرسي</p>'+(ride.route_distance_m?'<small>طول المسار '+(ride.route_distance_m/1000).toFixed(1)+' كم</small>':'')+(['open','full'].includes(ride.ride_status)?'<button type="button" class="btn ghost" data-cancel-share-ride="'+ride.id+'">إلغاء الخط</button>':'')+'</article>').join('');
     host.querySelectorAll('[data-cancel-share-ride]').forEach(button=>button.addEventListener('click',async()=>{
       const rideId=button.dataset.cancelShareRide;
-      if(!window.confirm('هل تريد إلغاء هذا الخط؟ لا يمكن إلغاؤه إذا كانت عليه حجوزات نشطة.'))return;
+      if(!window.confirm('هل تريد إلغاء هذا الخط؟ سيتم إلغاء الحجوزات التي لم تبدأ وإبلاغ الركاب من خلال حالة الحجز. لا يمكن الإلغاء إذا بدأت رحلة أحد الركاب.'))return;
       button.disabled=true;
       const {error}=await supabase.rpc('captain_cancel_shared_ride',{p_ride_id:rideId});
       if(error){alert(shareError(error));button.disabled=false;return;}
@@ -1882,7 +1882,7 @@ function shareError(error) {
   if(code.includes('pickup_dropoff_off_route')) return 'نقطة الركوب أو النزول أبعد من 500 متر عن خط الكابتن. اختار نقطة أقرب للمسار.';
   if(code.includes('ride_route_geometry_missing')) return 'مسار الطريق غير محفوظ لهذا العرض، لذلك لا يمكن الحجز عليه حالياً.';
   if(code.includes('not_enough_seats_on_route_segment')) return 'المقاعد المتاحة على الجزء الذي اخترته لا تكفي. حدّث الطلب أو اختار عدد كراسي أقل.';
-  if(code.includes('ride_has_active_bookings')) return 'لا يمكن إلغاء الخط الآن لوجود حجوزات نشطة. عالج طلبات الركاب أولاً.';
+  if(code.includes('ride_has_started_bookings')) return 'لا يمكن إلغاء الخط لأن رحلة أحد الركاب بدأت بالفعل.';
   if(code.includes('ride_not_cancellable')) return 'هذا الخط بدأ أو أُلغي بالفعل ولا يمكن إلغاؤه.';
   if(code.includes('ride_not_found')) return 'الخط غير موجود أو لا تملك صلاحية إدارته.';
   if(code.includes('account_not_allowed')) return 'الحساب غير مسموح له باستخدام الخدمة.';
