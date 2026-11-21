@@ -1667,6 +1667,9 @@ function shareError(error) {
   if(code.includes('does not exist')||code.includes('schema cache')) return 'وظائف مشاركة الطريق الجديدة لم تُفعّل بعد على قاعدة البيانات.';
   if(code.includes('approved_active_vehicle_required')) return 'لازم تختار مركبة معتمدة ونشطة.';
   if(code.includes('not_enough_vehicle_capacity')) return 'عدد الكراسي المطلوبة أكبر من سعة مركبتك.';
+  if(code.includes('pickup_dropoff_off_route')) return 'نقطة الركوب أو النزول أبعد من 500 متر عن خط الكابتن. اختار نقطة أقرب للمسار.';
+  if(code.includes('ride_route_geometry_missing')) return 'مسار الطريق غير محفوظ لهذا العرض، لذلك لا يمكن الحجز عليه حالياً.';
+  if(code.includes('not_enough_seats_on_route_segment')) return 'المقاعد المتاحة على الجزء الذي اخترته لا تكفي. حدّث الطلب أو اختار عدد كراسي أقل.';
   if(code.includes('account_not_allowed')) return 'الحساب غير مسموح له باستخدام الخدمة.';
   return code||'حدث خطأ غير متوقع. حاول مرة أخرى.';
 }
