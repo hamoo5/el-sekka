@@ -1253,8 +1253,8 @@ async function publicTrackingPage(token){
 
 function shareHome() {
   const isCaptain = profile?.role === 'captain';
-  const sharedVehicleTypes=['private_car'];
-  const types = [['private_car','ملاكي']];
+  const sharedVehicleTypes=['private_car','suzuki','microbus'];
+  const types = [['private_car','ملاكي'],['suzuki','سوزوكي'],['microbus','ميكروباص']];
   layout(`
     <main class="wrap narrow">
       <button type="button" class="back" id="back">→ الرئيسية</button>
@@ -1262,7 +1262,7 @@ function shareHome() {
         <span class="tag">${isCaptain?"مساحة الكابتن · إدارة خطوطك":"مساحة الراكب · اكتشف طريقك"}</span>
         <h1>${isCaptain?"انشر خطك واستقبل الحجوزات":"اختار خط سير يناسب مشوارك"}</h1>
         <p>${isCaptain?"حدد طريقك ومواعيدك وعدد المقاعد، وتابع طلبات الركاب من مكان واحد.":"شوف الخطوط المتاحة على الخريطة، واختار مكان ركوب ونزول على نفس الطريق."}</p>
-        <div class="share-hero-points"><span>🗺️ خريطة فعلية</span><span>🚗 ملاكي فقط</span><span>🛡️ حجز آمن داخل التطبيق</span></div>
+        <div class="share-hero-points"><span>🗺️ خريطة فعلية</span><span>🚘 ملاكي · سوزوكي · ميكروباص</span><span>🛡️ حجز آمن داخل التطبيق</span></div>
       </section>
       <details class="panel share-rule">
         <summary><b>كيف تعمل مشاركة الطريق؟</b></summary>
@@ -1305,7 +1305,7 @@ function shareHome() {
         <h2>انشر كراسي متاحة بمركبتك</h2>
         <p class="muted">انشر خطًا من مكان لمكان. النظام يحسب مسار قيادة تقريبيًا ويحفظه، ثم يطابق طلبات الركاب على الخط بحد انحراف 500 متر.</p>
         <form id="captainSeatOfferForm" class="form">
-          <input id="seatOfferVehicle" type="hidden" value=""><div class="vehicle-summary" id="seatOfferVehicleSummary"><b>مركبتك المسجلة</b><span id="seatOfferVehicleStatus" class="notice" role="status">جارٍ تحميل بيانات مركبتك...</span></div>
+          <div class="vehicle-summary" id="seatOfferVehicleSummary"><b>اختار مركبتك المعتمدة</b><select id="seatOfferVehicle"><option value="">جارٍ تحميل المركبات...</option></select><span id="seatOfferVehicleStatus" class="notice" role="status">جارٍ تحميل بيانات مركبتك...</span></div>
           <label>نوع العرض<select id="seatOfferMode"><option value="live_share">فوري</option><option value="scheduled_share">مجدول</option></select></label>
           <label>بداية الخط (شارع أو معلم واضح)<input id="seatOfferOrigin" required maxlength="180" placeholder="مثال: حدائق المعادي"></label>
           <label>نهاية الخط (شارع أو معلم واضح)<input id="seatOfferDestination" required maxlength="180" placeholder="مثال: التجمع الخامس"></label>
@@ -1327,7 +1327,7 @@ function shareHome() {
       </section>` : ''}
       ${isCaptain ? '<section class="panel" hidden><h2>متابعة تفاوضاتك ككابتن</h2><div id="shareCaptainNegotiations" class="share-list">جارٍ تحميل التفاوضات...</div></section>' : ''}
       <section class="panel"><h2>حجوزات الكراسي الحالية</h2><div id="legacyShareBookings" class="share-list">جارٍ تحميل الحجوزات...</div></section>
-      ${isCaptain?'<section class="panel captain-own-routes-panel"><div class="share-section-heading"><div><span class="tag">لوحة الكابتن</span><h2>خطوطي المنشورة</h2><p class="muted">تابع العروض التي نشرتها والمقاعد المتاحة فيها.</p></div><span class="share-section-icon">🛣️</span></div><div id="captainOwnShareRides" class="share-list">جارٍ تحميل خطوطك...</div></section>':'<section class="panel rider-route-discovery"><div class="share-section-heading"><div><span class="tag">اكتشف الطريق</span><h2>الخطوط المتاحة حولك</h2><p class="muted">المسارات الحقيقية المنشورة من الكباتن، مع نقاط البداية والنهاية.</p></div><span class="share-section-icon">🧭</span></div><div id="riderShareMap" class="trip-map rider-share-map" role="application" aria-label="خريطة خطوط مشاركة الطريق"></div><div class="map-legend"><span>🟢 بداية الخط</span><span>🔴 نهاية الخط</span><span>🟩 مسار الكابتن</span></div><div id="shareAvailableRides" class="share-list rider-share-list">جارٍ تحميل الخطوط المتاحة...</div></section>'}
+      ${isCaptain?'<section class="panel captain-own-routes-panel"><div class="share-section-heading"><div><span class="tag">لوحة الكابتن</span><h2>خطوطي المنشورة</h2><p class="muted">تابع العروض التي نشرتها والمقاعد المتاحة فيها.</p></div><span class="share-section-icon">🛣️</span></div><div id="captainOwnShareRides" class="share-list">جارٍ تحميل خطوطك...</div></section>':'<section class="panel rider-route-discovery"><div class="share-section-heading"><div><span class="tag">اكتشف الطريق</span><h2>الخطوط المتاحة حولك</h2><p class="muted">المسارات الحقيقية المنشورة من الكباتن، مع نقاط البداية والنهاية.</p></div><span class="share-section-icon">🧭</span></div><div id="riderShareMap" class="trip-map rider-share-map" role="application" aria-label="خريطة خطوط مشاركة الطريق"></div><div class="map-legend"><span>🟢 بداية الخط</span><span>🔴 نهاية الخط</span><span>🟩 مسار الكابتن</span></div><button type="button" class="btn outline" id="sortRidesNearMe">📍 ترتيب الخطوط حسب موقعي</button><p id="rideLocationStatus" class="muted" aria-live="polite">اعرض الأقرب إليك باستخدام موقع هاتفك.</p><div id="shareAvailableRides" class="share-list rider-share-list">جارٍ تحميل الخطوط المتاحة...</div></section>'}
       <section class="panel" hidden>        <h2>طلباتي وردود الكباتن</h2>
         <div id="shareMyRequests" class="share-list">جارٍ تحميل طلباتك...</div>
       </section>
@@ -1436,7 +1436,7 @@ function shareHome() {
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initializeShareMap,{once:true});
   else window.requestAnimationFrame(initializeShareMap);
-  const shareVehicleCapacity = {private_car:3};
+  const shareVehicleCapacity = {private_car:3,suzuki:6,microbus:13};
   const updateShareVehicleOptions = () => {
     const select = $('shareVehicle');
     const seats = Math.max(1, Number.parseInt($('shareSeats').value, 10) || 1);
@@ -1470,7 +1470,7 @@ function shareHome() {
     if(!shareOriginPoint){msg.textContent='اختار مكان البداية من اقتراحات البحث أو من الخريطة.';btn.disabled=false;return;}
     if(!shareDestinationPoint){msg.textContent='اختار الوجهة من اقتراحات البحث أو من الخريطة.';btn.disabled=false;return;}
     if(shareOriginPoint.lat===shareDestinationPoint.lat&&shareOriginPoint.lng===shareDestinationPoint.lng){msg.textContent='مكان البداية والوجهة متطابقان.';btn.disabled=false;return;}
-    if (!Number.isInteger(seats) || seats < 1 || seats > 3 ||
+    if (!Number.isInteger(seats) || seats < 1 || seats > 13 ||
         (selectedVehicle && (shareVehicleCapacity[selectedVehicle] || 0) < seats)) {
       msg.textContent='نوع المركبة المختار لا يستوعب عدد الكراسي. عدّل العدد أو اختر مركبة مناسبة.';
       btn.disabled=false; updateShareVehicleOptions(); return;
@@ -1637,7 +1637,7 @@ function shareHome() {
 
   async function loadLegacyShareBookings(){
     const host=$('legacyShareBookings'); if(!host)return;
-    const columns='id,ride_id,passenger_id,pickup_name,dropoff_name,seats_requested,passenger_offer_egp,captain_counter_offer_egp,agreed_price_egp,booking_status,created_at,pickup_route_offset_m,dropoff_route_offset_m';
+    const columns='id,ride_id,passenger_id,pickup_name,dropoff_name,seats_requested,passenger_offer_egp,quoted_fare_egp,captain_counter_offer_egp,agreed_price_egp,booking_status,created_at,pickup_route_offset_m,dropoff_route_offset_m';
     let bs=[];
     if(isCaptain){
       const [{data:asRequester,error:e1},{data:rides,error:e2}]=await Promise.all([
@@ -1675,15 +1675,13 @@ function shareHome() {
         ?'<p class="muted">وصول الكابتن المتوقع: '+pickupEta.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})+' تقريبًا، حسب زمن الطريق التقديري وليس المرور الحي.</p><button class="btn outline" data-pickup-reminder="'+b.id+'" data-pickup-eta="'+pickupEta.getTime()+'">تفعيل تنبيه قبل الوصول بـ10 دقائق</button>':'';
 
       let actions='';
-      if(requester&&b.booking_status==='counter_offer') actions=
-        '<div class="share-actions"><button class="btn primary" data-b-accept="'+b.id+'">قبول سعر الكابتن</button><input id="b-offer-'+b.id+'" type="number" min="0" step="0.5" placeholder="سعرك الجديد"><button class="btn outline" data-b-counter="'+b.id+'">سعر مقابل</button><button class="btn ghost" data-b-cancel="'+b.id+'">إلغاء الحجز</button></div>';
+      if(requester&&b.booking_status==='counter_offer') actions='<div class="share-actions"><button class="btn primary" data-b-accept="'+b.id+'">مراجعة السعر السابق</button><button class="btn ghost" data-b-cancel="'+b.id+'">إلغاء الحجز</button></div>';
       else if(requester&&b.booking_status==='accepted') actions='<div class="share-actions"><button class="btn primary" data-b-confirm="'+b.id+'">تأكيد حجز الكرسي</button><button class="btn ghost" data-b-cancel="'+b.id+'">إلغاء الحجز</button></div>';
       else if(requester&&['pending','confirmed'].includes(b.booking_status)) actions='<button class="btn ghost" data-b-cancel="'+b.id+'">إلغاء الحجز</button>';
-      else if(!requester&&b.booking_status==='pending') actions=
-        '<div class="share-actions"><button class="btn primary" data-b-captain-accept="'+b.id+'">قبول عرض الراكب</button><input id="b-counter-'+b.id+'" type="number" min="0" step="0.5" placeholder="سعرك المقابل"><button class="btn outline" data-b-captain-counter="'+b.id+'">سعر مقابل</button><button class="btn ghost" data-b-reject="'+b.id+'">رفض</button></div>';
+      else if(!requester&&b.booking_status==='pending') actions='<div class="share-actions"><button class="btn primary" data-b-captain-accept="'+b.id+'">قبول الحجز بالسعر الثابت</button><button class="btn ghost" data-b-reject="'+b.id+'">رفض</button></div>';
       return '<article class="share-item"><b>'+esc(b.pickup_name)+' ← '+esc(b.dropoff_name)+'</b>'+
         '<small>'+b.seats_requested+' كرسي · '+(requester?'طلب أرسلته':'طلب على عرضك')+' · '+new Date(b.created_at).toLocaleString('ar-EG')+'</small>'+
-        '<p>عرض الراكب: '+Number(b.passenger_offer_egp).toLocaleString('ar-EG')+' جنيه · '+(b.captain_counter_offer_egp==null?'لا يوجد سعر مقابل':'سعر الكابتن: '+Number(b.captain_counter_offer_egp).toLocaleString('ar-EG')+' جنيه')+' · الحالة: '+shareStatus(b.booking_status)+'</p>'+actions+reminderAction+'</article>';
+        '<p>السعر الثابت للكرسي: '+Number(b.agreed_price_egp??b.quoted_fare_egp??b.passenger_offer_egp).toLocaleString('ar-EG')+' جنيه · الحالة: '+shareStatus(b.booking_status)+'</p>'+actions+reminderAction+'</article>';
     }).join('');
     const call=async(id,fn,args)=>{const {error}=await supabase.rpc(fn,args);if(error){alert(shareError(error));return;}await loadLegacyShareBookings();};
     host.querySelectorAll('[data-pickup-reminder]').forEach(button=>button.addEventListener('click',async()=>{
@@ -1708,7 +1706,6 @@ function shareHome() {
       button.disabled=true;
     }));
     host.querySelectorAll('[data-b-accept]').forEach(b=>b.addEventListener('click',()=>call(b.dataset.bAccept,'passenger_reply_booking',{p_booking_id:b.dataset.bAccept,p_action:'accept',p_new_offer:null})));
-    host.querySelectorAll('[data-b-counter]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.bCounter,price=Number($('b-offer-'+id).value);if(!Number.isFinite(price)||price<0){alert('اكتب سعراً صحيحاً.');return;}call(id,'passenger_reply_booking',{p_booking_id:id,p_action:'counter',p_new_offer:price});}));
     host.querySelectorAll('[data-b-cancel]').forEach(b=>b.addEventListener('click',async buttonEvent=>{
       const button=buttonEvent.currentTarget,id=button.dataset.bCancel;
       if(!window.confirm('هل تريد إلغاء هذا الحجز؟ سيتم تحرير المقاعد المحجوزة إذا لم تكن الرحلة قد بدأت.'))return;
@@ -1719,7 +1716,6 @@ function shareHome() {
     }));
     host.querySelectorAll('[data-b-confirm]').forEach(b=>b.addEventListener('click',()=>call(b.dataset.bConfirm,'confirm_seat_booking',{p_booking_id:b.dataset.bConfirm})));
     host.querySelectorAll('[data-b-captain-accept]').forEach(b=>b.addEventListener('click',()=>call(b.dataset.bCaptainAccept,'captain_reply_booking',{p_booking_id:b.dataset.bCaptainAccept,p_action:'accept',p_counter_price:null})));
-    host.querySelectorAll('[data-b-captain-counter]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.bCaptainCounter,price=Number($('b-counter-'+id).value);if(!Number.isFinite(price)||price<0){alert('اكتب سعراً صحيحاً.');return;}call(id,'captain_reply_booking',{p_booking_id:id,p_action:'counter',p_counter_price:price});}));
     host.querySelectorAll('[data-b-reject]').forEach(b=>b.addEventListener('click',()=>call(b.dataset.bReject,'captain_reply_booking',{p_booking_id:b.dataset.bReject,p_action:'reject',p_counter_price:null})));
   }
 
@@ -1727,35 +1723,33 @@ function shareHome() {
 
   async function loadCaptainSeatVehicles(){
     const vehicleInput=$('seatOfferVehicle'),status=$('seatOfferVehicleStatus'); if(!vehicleInput)return;
-    vehicleInput.value='';
     const {data:vehicles,error}=await supabase.from('vehicles')
       .select('id,vehicle_type,make,model,passenger_capacity,is_active')
       .eq('captain_id',profile.id).eq('approval_status','approved')
-      .eq('vehicle_type','private_car').order('created_at',{ascending:false});
+      .in('vehicle_type',sharedVehicleTypes).order('created_at',{ascending:false});
     if(error){
-      if(status){status.textContent='تعذر تحميل بيانات مركبتك. حدّث الصفحة وحاول مرة أخرى.';status.className='notice error';}
+      vehicleInput.innerHTML='<option value="">تعذر تحميل المركبات</option>';
+      if(status){status.textContent='تعذر تحميل بيانات المركبات. حدّث الصفحة وحاول مرة أخرى.';status.className='notice error';}
       return;
     }
-    const eligible=(vehicles||[]).filter(v=>Number(v.passenger_capacity)>=1&&Number(v.passenger_capacity)<=3);
-    if(!eligible.length){      if(status){status.textContent='لا توجد سيارة ملاكي معتمدة مرتبطة بحسابك. راجع بيانات المركبة.';status.className='notice';}
-      return;
-    }
-    const active=eligible.filter(v=>v.is_active===true);
+    const active=(vehicles||[]).filter(v=>v.is_active===true&&Number(v.passenger_capacity)>=1&&Number(v.passenger_capacity)<=13);
+    const labels={private_car:'ملاكي',suzuki:'سوزوكي',microbus:'ميكروباص'};
     if(!active.length){
-      if(status){status.textContent='سيارتك الملاكي معتمدة، لكن غير مفعّلة حالياً. يلزم تفعيلها من الإدارة قبل نشر الخط.';status.className='notice';}
+      vehicleInput.innerHTML='<option value="">لا توجد مركبة مناسبة</option>';
+      if(status){status.textContent='لا توجد مركبة مشاركة معتمدة ونشطة (ملاكي أو سوزوكي أو ميكروباص).';status.className='notice';}
       return;
     }
-    if(active.length>1){
-      if(status){status.textContent='يوجد أكثر من سيارة ملاكي نشطة على حسابك. راجع الإدارة لتحديد المركبة الأساسية.';status.className='notice';}
-      return;
-    }
-    const vehicle=active[0];
-    vehicleInput.value=vehicle.id;
-    const capacity=Math.min(3,Number(vehicle.passenger_capacity));
-    const seatInput=$('seatOfferSeats');
-    seatInput.max=String(capacity);
-    if(Number(seatInput.value)>capacity)seatInput.value=String(capacity);
-    if(status){status.textContent=[vehicle.make,vehicle.model].filter(Boolean).join(' ')+' · ملاكي · '+capacity+' مقعد متاح كحد أقصى';status.className='notice success';}
+    vehicleInput.innerHTML=active.map(v=>'<option value="'+esc(v.id)+'">'+esc([v.make,v.model].filter(Boolean).join(' ')||labels[v.vehicle_type]||v.vehicle_type)+' · '+labels[v.vehicle_type]+' · '+Number(v.passenger_capacity)+' مقعد</option>').join('');
+    const updateCapacity=()=>{
+      const vehicle=active.find(v=>v.id===vehicleInput.value)||active[0];
+      const capacity=Math.min(13,Number(vehicle.passenger_capacity));
+      const seatInput=$('seatOfferSeats');
+      seatInput.max=String(capacity);
+      if(Number(seatInput.value)>capacity)seatInput.value=String(capacity);
+      if(status){status.textContent='المركبة المختارة: '+(labels[vehicle.vehicle_type]||vehicle.vehicle_type)+' · السعة المسجلة '+capacity+' مقعد';status.className='notice success';}
+    };
+    vehicleInput.addEventListener('change',updateCapacity);
+    updateCapacity();
   }
   $('seatOfferMode')?.addEventListener('change',()=>{
     const scheduled=$('seatOfferMode').value==='scheduled_share';
@@ -1957,23 +1951,24 @@ function shareHome() {
     if(error){host.textContent='تعذر تحميل عروض الكراسي.';return;}
     // The database trigger guarantees that every newly published ride uses a shared-service vehicle.
     // Do not query vehicles here: rider RLS intentionally limits direct vehicle reads to owners/admins.
-    const rides=(data||[]).filter(r=>r.captain_id!==profile.id);
+    const rides=(data||[]).filter(r=>r.captain_id!==profile.id);\n    window.__sekkaAvailableRides=rides;
     if(!isCaptain)renderRiderShareRoutes(rides);
     if(!rides.length){host.innerHTML='<p class="muted">لا توجد خطوط متاحة حالياً. ارجع لاحقاً لاكتشاف خطوط جديدة.</p>';return;}
     host.innerHTML=rides.map(r=>`<article class="share-item rider-route-card">
       <div class="rider-route-card-head"><span class="route-car-icon">🚗</span><div><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><small>${r.ride_mode==='live_share'?'رحلة فورية':'رحلة مجدولة'} · ${new Date(r.departure_at).toLocaleString('ar-EG')}</small></div></div>
       <div class="rider-route-card-meta"><span>💺 ${r.available_seats} مقعد متاح</span><strong>${Number(r.seat_price_egp).toLocaleString('ar-EG')} جنيه <small>للكرسي</small></strong></div>
       ${r.route_distance_m?'<p class="muted">مسار قيادة: '+(r.route_distance_m/1000).toFixed(1)+' كم · زمن تقديري '+Math.round((r.route_duration_seconds||0)/60)+' دقيقة</p>':'<p class="muted">مسار الطريق التفصيلي غير متاح لهذا العرض.</p>'}
-      <div class="share-actions"><input type="number" min="1" max="${r.available_seats}" value="1" id="ride-seats-${r.id}" aria-label="عدد الكراسي">
-      <input type="number" min="0" step="0.5" value="${Number(r.seat_price_egp)}" id="ride-offer-${r.id}" aria-label="عرضك للكرسي"></div>
-      <div class="share-actions"><input id="ride-pickup-${r.id}" placeholder="مكان صعودك" value="${esc(r.origin_name)}">
-      <input id="ride-dropoff-${r.id}" placeholder="مكان نزولك" value="${esc(r.destination_name)}"></div>
-      <button class="btn primary" data-book-share-ride="${r.id}">طلب الكراسي والتفاوض</button>
+      <div class="share-actions"><label>عدد الكراسي<input type="number" min="1" max="${r.available_seats}" value="1" id="ride-seats-${r.id}"></label>
+      <div class="fixed-fare-note">السعر ثابت: ${Number(r.seat_price_egp).toLocaleString('ar-EG')} جنيه للكرسي</div></div>
+      <div class="share-actions"><input id="ride-pickup-${r.id}" placeholder="مكان صعودك (على الخط)" value="${esc(r.origin_name)}">
+      <input id="ride-dropoff-${r.id}" placeholder="مكان نزولك (بعد الركوب على الخط)" value="${esc(r.destination_name)}"></div>
+      <button class="btn primary" data-book-share-ride="${r.id}">إرسال طلب حجز بالسعر المعلن</button>
     </article>`).join('');
     host.querySelectorAll('[data-book-share-ride]').forEach(b=>b.addEventListener('click',async()=>{
       const id=b.dataset.bookShareRide;
-      const seats=Number($('ride-seats-'+id).value),offer=Number($('ride-offer-'+id).value);
-      if(!Number.isInteger(seats)||seats<1||!Number.isFinite(offer)||offer<0){alert('راجع عدد الكراسي والسعر.');return;}
+      const ride=(window.__sekkaAvailableRides||[]).find(item=>item.id===id);
+      const seats=Number($('ride-seats-'+id).value),offer=Number(ride?.seat_price_egp);
+      if(!ride||!Number.isInteger(seats)||seats<1||seats>Number(ride.available_seats)||!Number.isFinite(offer)||offer<0){alert('راجع عدد الكراسي المتاحة.');return;}
       b.disabled=true;
       try{
         const pickupName=$('ride-pickup-'+id).value.trim();
@@ -1988,7 +1983,7 @@ function shareHome() {
           p_dropoff_lat:dropoff.lat,p_dropoff_lng:dropoff.lng
         });
         if(error)throw error;
-        b.textContent='تم إرسال طلبك للكابتن';b.disabled=true;await loadLegacyShareBookings();
+        b.textContent='تم إرسال طلبك بالسعر المعلن';b.disabled=true;await loadLegacyShareBookings();
       }catch(error){alert(shareError(error));b.disabled=false;return;}
       b.textContent='تم إرسال طلبك';b.disabled=true;
     }));
