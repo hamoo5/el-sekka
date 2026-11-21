@@ -1616,3 +1616,6 @@ body[data-page="trip-options"] .map-locate-button{
   }
   body[data-page="trip-options"] .map-locate-button{top:104px!important;left:10px!important}
 }
+
+/* Captain route map and recognizable nearby places */
+#seatOfferMap{height:320px!important;margin:8px 0 4px}.sekka-poi-icon{background:#fff;border:2px solid #263445;border-radius:50%;display:grid;place-items:center;box-shadow:0 2px 9px #0008}.sekka-poi-icon span{font-size:17px;line-height:1}.map-pick-mode{margin:5px 0}.map-legend{gap:8px}
