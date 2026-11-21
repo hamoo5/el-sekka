@@ -869,7 +869,7 @@ async function setupTripChat(tripId,partnerName){
     root.innerHTML='<div class="notice">المحادثة هتظهر هنا بعد قبول الرحلة.</div>';
     return;
   }
-  const closed=Boolean(conversation.closed_at);
+  const closed=Boolean(conversation.closed_at)||['completed','cancelled'].includes((await supabase.from('trip_requests').select('request_status').eq('id',tripId).maybeSingle()).data?.request_status);
   root.innerHTML=`
     <div class="trip-chat-head"><div><h3>محادثة الرحلة</h3><small>التواصل داخل السكة فقط · لا تظهر أرقام الهواتف</small></div></div>
     <div id="tripChatMessages" class="trip-chat-messages">جارٍ تحميل المحادثة...</div>
@@ -1103,7 +1103,7 @@ async function publicTrackingPage(token){
     status.textContent=data.status==='in_progress'?'الرحلة جارية الآن':'تم قبول الرحلة والكابتن في الطريق';
     details.hidden=false;
     const vehicle=data.vehicle||{};
-    details.innerHTML='<div class="driver-summary"><b>الكابتن: '+esc(data.captain_name)+'</b><small>المركبة: '+esc([vehicle.make,vehicle.model,vehicle.color].filter(Boolean).join(' ')||'—')+' · اللوحة: '+esc(vehicle.plate_number||'—')+'</small></div><p><b>من:</b> '+esc(data.origin)+'</p><p><b>إلى:</b> '+esc(data.destination)+'</p><small class="muted">آخر تحديث: '+esc(new Date(data.checked_at).toLocaleTimeString('ar-EG'))+'</small>';
+    details.innerHTML='<div class="driver-summary"><b>الكابتن: '+esc(data.captain_name)+'</b><small>المركبة: '+esc([vehicle.make,vehicle.model,vehicle.color].filter(Boolean).join(' ')||'—')+'</small></div><p><b>من:</b> '+esc(data.origin)+'</p><p><b>إلى:</b> '+esc(data.destination)+'</p><small class="muted">آخر تحديث: '+esc(new Date(data.checked_at).toLocaleTimeString('ar-EG'))+'</small>';
     if(data.location&&window.L){
       mapBox.hidden=false;
       if(!publicTrackingMap){
