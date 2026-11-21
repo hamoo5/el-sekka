@@ -2442,6 +2442,8 @@ async function captainDashboardPage() {
     <div class="fixed-trip-list">${requestCards}</div>
     ${vehicleError?'<p class="message">تعذر تحميل مركباتك المعتمدة.</p>':''}
   </section>`;
+  // Ignore an older dashboard load if the captain has navigated to another page while it was waiting on Supabase.
+  if (page !== 'captain' && page !== 'captain-account') return;
   const retainedSubscriptionPanel=preserveCaptainSubscriptionPanel?document.getElementById('captainSubscriptionPanel'):null;
   const captainAccountPage=page==='captain-account';
   layout(`
