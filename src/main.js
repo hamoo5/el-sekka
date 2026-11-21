@@ -1117,8 +1117,8 @@ async function publicTrackingPage(token){
 
 function shareHome() {
   const isCaptain = profile?.role === 'captain';
-  const sharedVehicleTypes=['private_car','suzuki','microbus'];
-  const types = [['private_car','ملاكي'],['suzuki','سوزوكي'],['microbus','ميكروباص']];
+  const sharedVehicleTypes=['private_car'];
+  const types = [['private_car','ملاكي']];
   layout(`
     <main class="wrap narrow">
       <button type="button" class="back" id="back">→ الرئيسية</button>
@@ -1152,7 +1152,7 @@ function shareHome() {
           <div class="map-heading"><b>حدد الطريق على الخريطة</b><small>اختار الحقل ثم اضغط على الخريطة أو حرّك الدبوس.</small></div>
           <div id="shareMap" class="trip-map" role="application" aria-label="خريطة تحديد بداية ونهاية المشاركة"></div>
           <div class="map-legend"><span>🟢 البداية</span><span>🔴 الوجهة</span><span id="shareMapHint">حدد النقطتين لعرض المسار.</span></div>
-          <label>عدد الكراسي المطلوبة<input id="shareSeats" type="number" min="1" max="13" value="1" required></label>
+          <label>عدد الكراسي المطلوبة<input id="shareSeats" type="number" min="1" max="3" value="1" required></label>
           <label>السعر المبدئي للكرسي (جنيه)<input id="sharePrice" type="number" min="0" step="0.5" required placeholder="اكتب السعر الذي تقترحه"></label>
           <label>نوع المركبة المفضل (اختياري)
             <select id="shareVehicle"><option value="">أي مركبة مناسبة</option>${types.map(([v,n])=>`<option value="${v}">${n}</option>`).join('')}</select>
@@ -1172,7 +1172,7 @@ function shareHome() {
           <label>بداية الخط (شارع أو معلم واضح)<input id="seatOfferOrigin" required maxlength="180" placeholder="مثال: حدائق المعادي"></label>
           <label>نهاية الخط (شارع أو معلم واضح)<input id="seatOfferDestination" required maxlength="180" placeholder="مثال: التجمع الخامس"></label>
           <label id="seatOfferDateField" hidden>موعد التحرك<input id="seatOfferDeparture" type="datetime-local"></label>
-          <label>عدد الكراسي المتاحة<input id="seatOfferSeats" type="number" min="1" max="13" value="1" required></label>
+          <label>عدد الكراسي المتاحة<input id="seatOfferSeats" type="number" min="1" max="3" value="1" required></label>
           <label>سعر الكرسي (جنيه)<input id="seatOfferPrice" type="number" min="0" step="0.5" required></label>
           <button class="btn primary" type="submit">نشر عرض الكراسي</button>
           <p id="seatOfferMessage" class="message" aria-live="polite"></p>
@@ -1299,7 +1299,7 @@ function shareHome() {
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initializeShareMap,{once:true});
   else window.requestAnimationFrame(initializeShareMap);
-  const shareVehicleCapacity = {private_car:3,suzuki:6,microbus:13};
+  const shareVehicleCapacity = {private_car:3};
   const updateShareVehicleOptions = () => {
     const select = $('shareVehicle');
     const seats = Math.max(1, Number.parseInt($('shareSeats').value, 10) || 1);
@@ -1583,7 +1583,7 @@ function shareHome() {
       .select('id,vehicle_type,make,model,passenger_capacity')
       .eq('captain_id',profile.id).eq('approval_status','approved').eq('is_active',true)
       .in('vehicle_type',sharedVehicleTypes);
-    if(error||!data?.length){select.innerHTML='<option value="">لا توجد مركبات مشاركة معتمدة ونشطة (ملاكي/سوزوكي/ميكروباص)</option>';return;}
+    if(error||!data?.length){select.innerHTML='<option value="">لا توجد مركبات مشاركة معتمدة ونشطة (ملاكي فقط)</option>';return;}
     select.innerHTML=data.map(v=>`<option value="${v.id}">${esc([v.make,v.model].filter(Boolean).join(' ')||v.vehicle_type)} · ${v.passenger_capacity} مقعد</option>`).join('');
     $('seatOfferSeats').max=String(Math.max(...data.map(v=>v.passenger_capacity)));
   }
