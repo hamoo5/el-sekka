@@ -41,7 +41,7 @@ Deno.serve(async(req:Request)=>{
    return new Response(JSON.stringify({error:"trip_no_longer_active"}),{status:410,headers:cors(origin)});
   const [{data:captain},{data:vehicle},{data:location}]=await Promise.all([
    admin.from("profiles").select("display_name").eq("id",trip.accepted_captain_id).maybeSingle(),
-   admin.from("vehicles").select("make,model,color,plate_number,vehicle_type").eq("id",trip.accepted_vehicle_id).maybeSingle(),
+   admin.from("vehicles").select("make,model,color,vehicle_type").eq("id",trip.accepted_vehicle_id).maybeSingle(),
    admin.from("driver_locations").select("latitude,longitude,accuracy_meters,updated_at").eq("captain_id",trip.accepted_captain_id).eq("trip_id",trip.id).maybeSingle()
   ]);
   return new Response(JSON.stringify({
