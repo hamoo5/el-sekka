@@ -59,7 +59,7 @@ function home(){
     <span class="service-arrow" aria-hidden="true">←</span>
    </button>
   </section>
-  <section class="rider-help"><span aria-hidden="true">💡</span><div><b>أول مرة تستخدم السكة؟</b><p>اختار الخدمة المناسبة، وحدد مكان ركوبك ونزولك، وتابع حالة طلبك من «حجوزاتي».</p></div><button class="text-btn" data-view="trips">حجوزاتي</button></section>
+  <section class="rider-help"><span aria-hidden="true">💡</span><div><b>أول مرة تستخدم السكة؟</b><p>اختار الخدمة المناسبة، وحدد مكان ركوبك ونزولك، وتابع حالة طلبك من «حجوزاتي».</p></div></section>
  </main>`);
 }
 function authPage(){
