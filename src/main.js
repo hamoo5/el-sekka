@@ -106,17 +106,10 @@ function layout(body) {
     if(error){console.warn('Mark all notifications read failed:',error.message);return;}
     await loadUserNotifications();
   });
-  document.querySelectorAll('[data-notification-read]').forEach(button=>button.addEventListener('click',async()=>{
-    if(!supabase||!profile?.id)return;
-    const id=button.dataset.notificationRead;
-    const {error}=await supabase.from('user_notifications').update({read_at:new Date().toISOString()}).eq('id',id).eq('user_id',profile.id).is('read_at',null);
-    if(error){console.warn('Mark notification read failed:',error.message);return;}
-    await loadUserNotifications();
-  }));
   document.querySelectorAll('[data-nav-page]').forEach(button=>button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();const target=button.dataset.navPage;if(!target)return;page=target;try{sessionStorage.setItem(PAGE_STORAGE_KEY,page);}catch(_){}render();}));
   document.querySelector('#adminEntry')?.addEventListener('click',event=>{event.preventDefault();selectedAuthRole='admin';try{sessionStorage.setItem('el-sekka-auth-role','admin');}catch(_){}render();});
   document.querySelector('#logout')?.addEventListener('click', async () => {
-    await supabase.auth.signOut();stopPassengerBookingUpdates();stopUserNotificationUpdates();session=null;profile=null;page='home';selectedAuthRole='';
+    await supabase.auth.signOut();stopPassengerBookingUpdates();stopUserNotificationUpdates();userNotifications=[];unreadNotificationCount=0;session=null;profile=null;page='home';selectedAuthRole='';
     try{sessionStorage.removeItem(PAGE_STORAGE_KEY);sessionStorage.removeItem('el-sekka-auth-role');}catch(_){}
     render();
   });
