@@ -695,7 +695,7 @@ async function adminHome(){
  const profileMap=new Map((captainProfiles||[]).map(p=>[p.id,p]));
  const vehicleMap=new Map((captainVehicles||[]).map(v=>[v.id,v]));
  const docLabels=[['national_id_front_path','البطاقة الشخصية — أمامي'],['national_id_back_path','البطاقة الشخصية — خلفي'],['driver_license_front_path','رخصة القيادة — أمامي'],['driver_license_back_path','رخصة القيادة — خلفي'],['vehicle_license_front_path','رخصة المركبة — أمامي'],['vehicle_license_back_path','رخصة المركبة — خلفي']];
- const applicationRows=await Promise.all((apps||[]).map(async a=>{
+ const applicationRows=(await Promise.all((apps||[]).map(async a=>{
   const vehicle=vehicleMap.get(a.vehicle_id),captain=profileMap.get(a.user_id);
   const docs=await Promise.all(docLabels.map(async([field,label])=>{
    if(!a[field])return '<span class="muted">'+label+': غير مرفق</span>';
@@ -710,12 +710,12 @@ async function adminHome(){
   const statusLabels={pending:'قيد المراجعة',approved:'معتمد',rejected:'مرفوض',suspended:'موقوف'};
   const canReview=['pending','suspended'].includes(a.application_status);
   return '<article class="request"><div class="ride-top"><b>'+esc(captain?.display_name||'كابتن بدون اسم')+'</b><span class="pill">'+esc(statusLabels[a.application_status]||a.application_status)+'</span></div><p>آخر 4 أرقام من البطاقة: '+esc(a.national_id_last4||'—')+' · رخصة القيادة: '+esc(a.license_number||'—')+'</p><p>انتهاء البطاقة: '+esc(a.national_id_expiry||'—')+' · رخصة القيادة: '+esc(a.license_expiry||'—')+' · رخصة المركبة: '+esc(a.vehicle_license_expiry||'—')+'</p><p class="muted">تاريخ التقديم: '+date(a.created_at)+'</p>'+(a.admin_notes?'<p class="notice">ملاحظات سابقة: '+esc(a.admin_notes)+'</p>':'')+'<p><b>مستندات التحقق</b></p><div class="actions">'+docs.join(' · ')+'</div>'+(vehicle?'<p><b>بيانات المركبة</b>: '+esc(({private_car:'ملاكي',suzuki:'سوزوكي',microbus:'ميكروباص'})[vehicle.vehicle_type]||vehicle.vehicle_type)+' · '+esc(vehicle.make)+' '+esc(vehicle.model)+' ('+esc(vehicle.model_year)+') · '+esc(vehicle.plate_number)+' · '+esc(vehicle.passenger_capacity)+' مقعد · '+esc(vehicle.color)+'<br>حالة المركبة: '+esc(vehicle.approval_status)+(vehicle.is_active?' · نشطة':' · غير نشطة')+'</p><div class="actions">'+vehiclePhotos.filter(Boolean).join(' · ')+'</div>':'<p class="notice error">لا توجد مركبة مرتبطة بطلب التقديم.</p>')+(canReview?'<div class="actions"><button class="btn primary" data-review="'+a.id+'" data-status="approved">اعتماد الكابتن والمركبة</button><button class="btn danger" data-review="'+a.id+'" data-status="rejected">رفض مع ملاحظات</button></div>':'')+'</article>';
- })).join('')||'<p>لا توجد طلبات تقديم حتى الآن.</p>';
- const pendingRows=await Promise.all((subscriptions||[]).map(async s=>{
+ }))).join('')||'<p>لا توجد طلبات تقديم حتى الآن.</p>';
+ const pendingRows=(await Promise.all((subscriptions||[]).map(async s=>{
   const {data}=await db.storage.from('captain-payment-proofs').createSignedUrl(s.payment_proof_path,600);
   const proofUrl=data?.signedUrl;
   return `<article class="request"><b>طلب اشتراك · ${s.plan_days===90?'3 شهور':'شهر واحد'} · ${money(s.amount_egp)}</b><p>رقم الكابتن: ${esc(String(s.captain_id).slice(0,8))}…</p><p>مرجع التحويل: ${esc(s.payment_reference||'—')}</p><p class="muted">${date(s.created_at)}</p>${proofUrl?`<p><a href="${esc(proofUrl)}" target="_blank" rel="noopener">عرض إثبات الدفع</a></p>`:'<p class="notice error">تعذر إنشاء رابط إثبات الدفع. تحقق من صلاحية قراءة الملفات.</p>'}<button class="btn primary" data-subscription-review="${s.id}" data-decision="approve">اعتماد الاشتراك</button> <button class="btn danger" data-subscription-review="${s.id}" data-decision="reject">رفض الطلب</button></article>`;
- })).join('')||'<p>لا توجد طلبات اشتراك قيد المراجعة.</p>';
+ }))).join('')||'<p>لا توجد طلبات اشتراك قيد المراجعة.</p>';
  const adminRideLabels={open:'مفتوح للحجز',full:'اكتملت المقاعد',in_progress:'جارية الآن',cancelled:'ملغي',completed:'مكتمل'};
  const adminRideRows=(adminRides||[]).map(r=>`<article class="request"><div class="ride-top"><b>${esc(adminCaptainMap.get(r.captain_id)||'كابتن')}</b><span class="pill">${esc(adminRideLabels[r.ride_status]||r.ride_status)}</span></div><p><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b></p><p>${date(r.departure_at)} · ${Number(r.available_seats)||0} مقعد متاح · ${money(r.seat_price_egp)} للمقعد</p>${['open','full'].includes(r.ride_status)?`<button class="btn danger" data-admin-cancel-ride="${r.id}">إلغاء الطريق إداريًا</button>`:''}${['open','full','in_progress'].includes(r.ride_status)&&new Date(r.departure_at).getTime()<=Date.now()?`<button class="btn primary" data-admin-complete-ride="${r.id}">تأكيد انتهاء الطريق</button>`:''}</article>`).join('')||'<p>لا توجد رحلات مسجلة.</p>';
  shell(`<main class="wrap"><div class="page-head"><h1>لوحة الإدارة</h1><p>مراجعة طلبات الكباتن والاشتراكات والخطوط ومتابعة حالة الرحلات. افتح المستندات قبل اتخاذ قرار الاعتماد.</p></div>
