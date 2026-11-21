@@ -93,11 +93,6 @@ drop function if exists public.passenger_cancel_fixed_trip(uuid);
 drop function if exists public.captain_update_fixed_trip_location(uuid,double precision,double precision,double precision);
 drop function if exists public.get_trip_counterparty_name(uuid);
 drop function if exists public.verify_trip_audio_cleanup_token(text);
-drop function if exists public.handle_trip_request_chat_and_tracking();
-drop function if exists public.release_sekka_trip_reservations_on_cancel();
-drop function if exists public.process_sekka_referral_trip_completion();
-drop function if exists public.reject_phone_number_in_trip_message();
-drop function if exists private.captain_has_zero_completed_trips();
 
 -- Keep account-boundary checks for the new shared-road tables only.
 create or replace function public.enforce_rider_captain_boundaries()
@@ -243,6 +238,13 @@ drop table if exists public.trip_tracking_links;
 drop table if exists public.driver_locations;
 drop table if exists public.trip_requests;
 drop table if exists public.trip_pricing_rules;
+
+-- Dropping these legacy tables removes their triggers and policies first.
+drop function if exists public.handle_trip_request_chat_and_tracking();
+drop function if exists public.release_sekka_trip_reservations_on_cancel();
+drop function if exists public.process_sekka_referral_trip_completion();
+drop function if exists public.reject_phone_number_in_trip_message();
+drop function if exists private.captain_has_zero_completed_trips();
 
 -- Remove the private token configuration used only by retired audio cleanup.
 drop table if exists private.trip_audio_cleanup_config;
