@@ -372,7 +372,7 @@ async function linesPage(){
      const {data:ownStops}=await db.from('sekka_line_stops').select('id,stop_name').in('id',ownStopIds);
      const ownStopMap=new Map((ownStops||[]).map(s=>[s.id,s.stop_name]));
      const ownRunMap=new Map((ownRuns||[]).map(r=>[r.id,r.departure_at]));
-     captainLineBookingsHtml=ownBookings.map(b=>'<article class="request"><b>'+esc(ownStopMap.get(b.pickup_stop_id)||'ركوب')+' ← '+esc(ownStopMap.get(b.dropoff_stop_id)||'نزول')+'</b><p>'+b.seats_requested+' مقعد · '+money(b.total_price_egp)+' · '+esc(b.booking_status)+'</p><p class="muted">'+date(ownRunMap.get(b.run_id))+'</p></article>').join('');
+     captainLineBookingsHtml=ownBookings.map(b=>'<article class="request"><b>'+esc(ownStopMap.get(b.pickup_stop_id)||'ركوب')+' ← '+esc(ownStopMap.get(b.dropoff_stop_id)||'نزول')+'</b><p>'+b.seats_requested+' مقعد · '+money(b.total_price_egp)+' · '+esc(({confirmed:'مؤكد',cancelled:'ملغي',completed:'مكتمل'})[b.booking_status]||'قيد المتابعة')+'</p><p class="muted">'+date(ownRunMap.get(b.run_id))+'</p></article>').join('');
     }
    }
   }
@@ -469,7 +469,7 @@ async function linesPage(){
    e.preventDefault();const fd=new FormData(form),dateValue=String(fd.get('run_date')||''),time=form.dataset.time,btn=form.querySelector('button[type="submit"]');
    const departure=new Date(dateValue+'T'+time+':00');if(!dateValue||Number.isNaN(departure.getTime())){form.querySelector('.notice').textContent='اختر تاريخًا صحيحًا.';return;}
    busyButton(btn,true);
-   try{const {error}=await db.rpc('request_sekka_line_seats',{p_schedule_id:form.dataset.lineSchedule,p_departure_at:departure.toISOString(),p_pickup_stop_id:String(fd.get('pickup_stop')),p_dropoff_stop_id:String(fd.get('dropoff_stop')),p_seats:Number(fd.get('seats'))});if(error)throw error;form.querySelector('.notice').textContent='تم إرسال طلبك. تابع حالته من صفحة حجوزاتي.';form.querySelector('.notice').className='notice success';}
+   try{const {error}=await db.rpc('request_sekka_line_seats',{p_schedule_id:form.dataset.lineSchedule,p_departure_at:departure.toISOString(),p_pickup_stop_id:String(fd.get('pickup_stop')),p_dropoff_stop_id:String(fd.get('dropoff_stop')),p_seats:Number(fd.get('seats'))});if(error)throw error;form.querySelector('.notice').textContent='تم حجز مقعدك بنجاح. تقدر تتابع تفاصيل الحجز من صفحة حجوزاتي.';form.querySelector('.notice').className='notice success';}
    catch(err){form.querySelector('.notice').textContent=err.message==='not_enough_seats_for_segment'?'لم تعد هناك مقاعد كافية لهذا الجزء. اختر عددًا أقل أو ميعادًا آخر.':(err.message||'تعذر إتمام الحجز.');form.querySelector('.notice').className='notice error';}
    finally{busyButton(btn,false);await refreshLineAvailability(form);}
   };
@@ -490,7 +490,7 @@ async function tripsPage(){
    const stopIds=[...new Set(lineBookings.flatMap(b=>[b.pickup_stop_id,b.dropoff_stop_id]))],runIds=[...new Set(lineBookings.map(b=>b.run_id))];
    const [{data:stops},{data:runs}]=await Promise.all([db.from('sekka_line_stops').select('id,stop_name').in('id',stopIds),db.from('sekka_line_runs').select('id,departure_at').in('id',runIds)]);
    const stopMap=new Map((stops||[]).map(s=>[s.id,s.stop_name])),runMap=new Map((runs||[]).map(r=>[r.id,r.departure_at]));
-   box.insertAdjacentHTML('beforeend','<section class="panel"><h2>حجوزات خطوط السكة</h2>'+lineBookings.map(b=>'<article class="request"><b>'+esc(stopMap.get(b.pickup_stop_id)||'محطة الركوب')+' ← '+esc(stopMap.get(b.dropoff_stop_id)||'محطة النزول')+'</b><p>'+esc(b.booking_status)+' · '+b.seats_requested+' مقعد · '+money(b.total_price_egp)+'</p><p class="muted">'+date(runMap.get(b.run_id))+'</p>'+(b.booking_status==='confirmed'?'<button class="btn danger" data-line-cancel="'+b.id+'">إلغاء الحجز</button>':'')+'</article>').join('')+'</section>');
+   box.insertAdjacentHTML('beforeend','<section class="panel"><h2>حجوزات خطوط السكة</h2>'+lineBookings.map(b=>'<article class="request"><b>'+esc(stopMap.get(b.pickup_stop_id)||'محطة الركوب')+' ← '+esc(stopMap.get(b.dropoff_stop_id)||'محطة النزول')+'</b><p>'+esc(({confirmed:'مؤكد',cancelled:'ملغي',completed:'مكتمل'})[b.booking_status]||'قيد المتابعة')+' · '+b.seats_requested+' مقعد · '+money(b.total_price_egp)+'</p><p class="muted">'+date(runMap.get(b.run_id))+'</p>'+(b.booking_status==='confirmed'?'<button class="btn danger" data-line-cancel="'+b.id+'">إلغاء الحجز</button>':'')+'</article>').join('')+'</section>');
    box.querySelectorAll('[data-line-cancel]').forEach(btn=>btn.onclick=async()=>{if(!confirm('تأكيد إلغاء حجز خط السكة؟'))return;busyButton(btn,true);try{const {error}=await db.rpc('cancel_sekka_line_booking',{p_booking_id:btn.dataset.lineCancel});if(error)throw error;await tripsPage();}catch(err){alert(err.message||'تعذر إلغاء الحجز.');busyButton(btn,false);}});
   }
  }
