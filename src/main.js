@@ -158,6 +158,22 @@ async function linesPage(){
    db.from('vehicles').select('id,vehicle_type,make,model,plate_number,passenger_capacity').eq('captain_id',session.user.id).eq('approval_status','approved').eq('is_active',true),
    db.from('sekka_lines').select('id,title,origin_name,destination_name,approval_status,is_active,created_at').eq('captain_id',session.user.id).order('created_at',{ascending:false}).limit(30)
   ]);
+  let captainLineBookingsHtml='<p>لا توجد حجوزات على خطوطك حتى الآن.</p>';
+  const ownLineIds=(lines||[]).map(l=>l.id);
+  if(ownLineIds.length){
+   const {data:ownRuns}=await db.from('sekka_line_runs').select('id,line_id,departure_at').in('line_id',ownLineIds);
+   const ownRunIds=(ownRuns||[]).map(r=>r.id);
+   if(ownRunIds.length){
+    const {data:ownBookings}=await db.from('sekka_line_bookings').select('id,run_id,pickup_stop_id,dropoff_stop_id,seats_requested,total_price_egp,booking_status').in('run_id',ownRunIds).order('created_at',{ascending:false}).limit(50);
+    if(ownBookings?.length){
+     const ownStopIds=[...new Set(ownBookings.flatMap(b=>[b.pickup_stop_id,b.dropoff_stop_id]))];
+     const {data:ownStops}=await db.from('sekka_line_stops').select('id,stop_name').in('id',ownStopIds);
+     const ownStopMap=new Map((ownStops||[]).map(s=>[s.id,s.stop_name]));
+     const ownRunMap=new Map((ownRuns||[]).map(r=>[r.id,r.departure_at]));
+     captainLineBookingsHtml=ownBookings.map(b=>'<article class="request"><b>'+esc(ownStopMap.get(b.pickup_stop_id)||'ركوب')+' ← '+esc(ownStopMap.get(b.dropoff_stop_id)||'نزول')+'</b><p>'+b.seats_requested+' مقعد · '+money(b.total_price_egp)+' · '+esc(b.booking_status)+'</p><p class="muted">'+date(ownRunMap.get(b.run_id))+'</p></article>').join('');
+    }
+   }
+  }
   shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">خطوط السكة · مساحة الكابتن</span><h1>أنشئ خطًا ثابتًا</h1><p>حدد المحطات وأيام التشغيل وميعاد التحرك. بعد مراجعة الإدارة سيظهر الخط للركاب.</p></div>
   ${card('خط جديد',`<form id="lineCreateForm">
    ${input('اسم الخط','title','text',true,'مثال: التجمع – مدينة نصر')}
@@ -174,7 +190,9 @@ async function linesPage(){
   </form>`)}
   ${vehicleError?'<p class="notice error">'+esc(vehicleError.message)+'</p>':''}
   ${vehicles?.length?'':'<section class="panel notice">لا توجد مركبة معتمدة ونشطة لإنشاء الخط.</section>'}
-  <div class="page-head"><h2>خطوطي</h2></div><div class="stack">${lineError?'<section class="panel notice error">'+esc(lineError.message)+'</section>':(lines||[]).map(l=>'<section class="panel"><b>'+esc(l.title)+'</b><p>'+esc(l.origin_name)+' ← '+esc(l.destination_name)+'</p><span class="pill">'+esc(l.approval_status==='approved'?'معتمد':l.approval_status==='rejected'?'مرفوض':'قيد المراجعة')+'</span></section>').join('')||'<section class="panel empty">لم تنشئ خطوطًا بعد.</section>'}</div></main>`);
+  <div class="page-head"><h2>خطوطي</h2></div><div class="stack">${lineError?'<section class="panel notice error">'+esc(lineError.message)+'</section>':(lines||[]).map(l=>'<section class="panel"><b>'+esc(l.title)+'</b><p>'+esc(l.origin_name)+' ← '+esc(l.destination_name)+'</p><span class="pill">'+esc(l.approval_status==='approved'?'معتمد':l.approval_status==='rejected'?'مرفوض':'قيد المراجعة')+'</span></section>').join('')||'<section class="panel empty">لم تنشئ خطوطًا بعد.</section>'}</div>
+  ${card('حجوزات الركاب على خطوطك',captainLineBookingsHtml)}
+  </main>`);
   const form=document.querySelector('#lineCreateForm');
   if(form)form.onsubmit=async e=>{
    e.preventDefault();const fd=new FormData(form),v=k=>String(fd.get(k)||'').trim(),btn=form.querySelector('button[type="submit"]');busyButton(btn,true);
