@@ -1558,27 +1558,53 @@ function shareHome() {
     const scheduled=$('seatOfferMode').value==='scheduled_share';
     $('seatOfferDateField').hidden=!scheduled; $('seatOfferDeparture').required=scheduled;
   });
+  async function geocodeShareAddress(query){
+    const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=eg&q='+encodeURIComponent(query+', Egypt');
+    const response=await fetch(url,{headers:{'Accept-Language':'ar'}});
+    if(!response.ok)throw new Error('تعذر البحث عن العنوان.');
+    const rows=await response.json();
+    if(!rows?.length)throw new Error('لم نتمكن من تحديد أحد العنوانين. اكتب اسم منطقة أو معلم أوضح.');
+    return {lat:Number(rows[0].lat),lng:Number(rows[0].lon),name:rows[0].display_name};
+  }
+  async function getShareRoadRoute(origin,destination){
+    const url='https://router.project-osrm.org/route/v1/driving/'+origin.lng+','+origin.lat+';'+destination.lng+','+destination.lat+'?overview=full&geometries=geojson&steps=false';
+    const response=await fetch(url);
+    if(!response.ok)throw new Error('تعذر حساب مسار الطريق. حاول مرة أخرى.');
+    const data=await response.json();
+    const route=data.routes?.[0];
+    if(data.code!=='Ok'||!route?.geometry?.coordinates?.length)throw new Error('لم نجد مسار قيادة بين النقطتين.');
+    return {geometry:route.geometry,distance:Math.round(route.distance),duration:Math.round(route.duration)};
+  }
   $('captainSeatOfferForm')?.addEventListener('submit',async e=>{
     e.preventDefault();
     const msg=$('seatOfferMessage'),btn=e.currentTarget.querySelector('button[type="submit"]');
     const mode=$('seatOfferMode').value;
+    const originName=$('seatOfferOrigin').value.trim(),destinationName=$('seatOfferDestination').value.trim();
     const departure=mode==='scheduled_share'?new Date($('seatOfferDeparture').value):new Date(Date.now()+60000);
+    if(!originName||!destinationName){msg.textContent='اكتب بداية الخط ونهايته.';return;}
     if(mode==='scheduled_share'&&(! $('seatOfferDeparture').value||Number.isNaN(departure.getTime())||departure<=new Date())){
       msg.textContent='اختار موعداً مستقبلياً صحيحاً.';return;
     }
-    btn.disabled=true;msg.textContent='جارٍ نشر عرض الكراسي...';
-    const {error}=await supabase.rpc('create_share_ride',{
-      p_vehicle_id:$('seatOfferVehicle').value,p_ride_mode:mode,
-      p_origin_name:$('seatOfferOrigin').value.trim(),p_origin_lat:null,p_origin_lng:null,
-      p_destination_name:$('seatOfferDestination').value.trim(),p_destination_lat:null,p_destination_lng:null,
-      p_route_description:null,p_departure_at:departure.toISOString(),
-      p_seats:Number($('seatOfferSeats').value),p_seat_price:Number($('seatOfferPrice').value)
-    });
-    btn.disabled=false;
-    if(error){msg.textContent=shareError(error);return;}
-    msg.textContent='تم نشر عرض الكراسي.';e.currentTarget.reset();
-    $('seatOfferMode').value='live_share';$('seatOfferDateField').hidden=true;
-    await loadAvailableRides();
+    btn.disabled=true;msg.textContent='جارٍ تحديد العناوين وحساب مسار الطريق...';
+    try{
+      const origin=await geocodeShareAddress(originName);
+      const destination=await geocodeShareAddress(destinationName);
+      const route=await getShareRoadRoute(origin,destination);
+      msg.textContent='المسار: '+(route.distance/1000).toFixed(1)+' كم · وقت قيادة تقديري '+Math.round(route.duration/60)+' دقيقة. جارٍ النشر...';
+      const {error}=await supabase.rpc('create_share_ride',{
+        p_vehicle_id:$('seatOfferVehicle').value,p_ride_mode:mode,
+        p_origin_name:originName,p_origin_lat:origin.lat,p_origin_lng:origin.lng,
+        p_destination_name:destinationName,p_destination_lat:destination.lat,p_destination_lng:destination.lng,
+        p_route_description:null,p_departure_at:departure.toISOString(),
+        p_seats:Number($('seatOfferSeats').value),p_seat_price:Number($('seatOfferPrice').value),
+        p_route_geometry:route.geometry,p_route_distance_m:route.distance,p_route_duration_seconds:route.duration
+      });
+      if(error)throw error;
+      msg.textContent='تم نشر خط السير وحفظ مساره على الخريطة.';
+      e.currentTarget.reset();$('seatOfferMode').value='live_share';$('seatOfferDateField').hidden=true;
+      await loadAvailableRides();
+    }catch(error){msg.textContent=shareError(error)||error.message||'تعذر نشر الخط.';}
+    finally{btn.disabled=false;}
   });
 
   async function loadAvailableRides(){
