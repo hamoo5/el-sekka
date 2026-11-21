@@ -254,6 +254,16 @@ async function linesPage(){
   ]);
   let captainLineBookingsHtml='<p>لا توجد حجوزات على خطوطك حتى الآن.</p>';
   const ownLineIds=(lines||[]).map(l=>l.id);
+  let lineSchedules=[];
+  if(ownLineIds.length){
+   const {data:scheduleRows}=await db.from('sekka_line_schedules').select('id,line_id,service_days,departure_time,seats_total,seat_price_egp,is_active').in('line_id',ownLineIds).order('departure_time');
+   lineSchedules=scheduleRows||[];
+  }
+  const lineCardsHtml=(lines||[]).map(l=>{
+   const schedulesForLine=lineSchedules.filter(s=>s.line_id===l.id);
+   const scheduleText=schedulesForLine.map(s=>String(s.departure_time).slice(0,5)+' · '+(s.service_days||[]).map(d=>dayNames[d]).join('، ')+' · '+s.seats_total+' مقعد · '+money(s.seat_price_egp)).join('</p><p class="muted">');
+   return '<section class="panel"><b>'+esc(l.title)+'</b><p>'+esc(l.origin_name)+' ← '+esc(l.destination_name)+'</p><span class="pill">'+esc(l.approval_status==='approved'?'معتمد':l.approval_status==='rejected'?'مرفوض':'قيد المراجعة')+'</span>'+(scheduleText?'<p class="muted">المواعيد:</p><p class="muted">'+scheduleText+'</p>':'<p class="muted">لم تتم إضافة مواعيد بعد.</p>')+'</section>';
+  }).join('')||'<section class="panel empty">لم تنشئ خطوطًا بعد.</section>';
   if(ownLineIds.length){
    const {data:ownRuns}=await db.from('sekka_line_runs').select('id,line_id,departure_at').in('line_id',ownLineIds);
    const ownRunIds=(ownRuns||[]).map(r=>r.id);
@@ -284,9 +294,17 @@ async function linesPage(){
   </form>`)}
   ${vehicleError?'<p class="notice error">'+esc(vehicleError.message)+'</p>':''}
   ${vehicles?.length?'':'<section class="panel notice">لا توجد مركبة معتمدة ونشطة لإنشاء الخط.</section>'}
-  <div class="page-head"><h2>خطوطي</h2></div><div class="stack">${lineError?'<section class="panel notice error">'+esc(lineError.message)+'</section>':(lines||[]).map(l=>'<section class="panel"><b>'+esc(l.title)+'</b><p>'+esc(l.origin_name)+' ← '+esc(l.destination_name)+'</p><span class="pill">'+esc(l.approval_status==='approved'?'معتمد':l.approval_status==='rejected'?'مرفوض':'قيد المراجعة')+'</span></section>').join('')||'<section class="panel empty">لم تنشئ خطوطًا بعد.</section>'}</div>
+  <div class="page-head"><h2>خطوطي ومواعيدها</h2></div><div class="stack">${lineError?'<section class="panel notice error">'+esc(lineError.message)+'</section>':lineCardsHtml}</div>
+  ${card('إضافة ميعاد لخط معتمد',`<form id="lineScheduleForm">${select('الخط','line_id',(lines||[]).filter(l=>l.approval_status==='approved'&&l.is_active).map(l=>[l.id,l.title+' · '+l.origin_name+' ← '+l.destination_name]))}<fieldset class="days-field"><legend>أيام تشغيل الميعاد</legend>${dayNames.map((d,i)=>'<label class="check"><input type="checkbox" name="schedule_days" value="'+i+'" '+(i<5?'checked':'')+'> '+d+'</label>').join('')}</fieldset>${input('ميعاد التحرك','schedule_time','time',true)}${input('عدد المقاعد','schedule_seats','number',true,'حسب سعة المركبة')}${input('سعر المقعد بالجنيه','schedule_price','number',true)}<button class="btn primary full" type="submit" ${(lines||[]).some(l=>l.approval_status==='approved'&&l.is_active)?'':'disabled'}>إضافة ميعاد أسبوعي</button><p id="scheduleNotice" class="notice" role="status"></p></form>`)}
   ${card('حجوزات الركاب على خطوطك',captainLineBookingsHtml)}
   </main>`);
+  const scheduleForm=document.querySelector('#lineScheduleForm');
+  if(scheduleForm)scheduleForm.onsubmit=async e=>{
+   e.preventDefault();const fd=new FormData(scheduleForm),days=fd.getAll('schedule_days').map(Number),btn=scheduleForm.querySelector('button[type="submit"]');
+   const note=scheduleForm.querySelector('#scheduleNotice');busyButton(btn,true);
+   try{if(!days.length)throw Error('حدد يوم تشغيل واحدًا على الأقل.');const {error}=await db.rpc('add_sekka_line_schedule',{p_line_id:String(fd.get('line_id')),p_service_days:days,p_departure_time:String(fd.get('schedule_time')),p_seats:Number(fd.get('schedule_seats')),p_seat_price:Number(fd.get('schedule_price'))});if(error)throw error;await linesPage();}
+   catch(err){if(note){note.textContent=err.message||'تعذر إضافة الميعاد.';note.className='notice error';}busyButton(btn,false);}
+  };
   const form=document.querySelector('#lineCreateForm');
   attachLineStopMap(form);
   if(form)form.onsubmit=async e=>{
