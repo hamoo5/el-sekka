@@ -343,16 +343,35 @@ async function linesPage(){
   const lineSchedules=(schedules||[]).filter(s=>s.line_id===line.id),lineStops=(stops||[]).filter(s=>s.line_id===line.id);
   return `<section class="panel"><h2>${esc(line.title)}</h2><h3>${esc(line.origin_name)} ← ${esc(line.destination_name)}</h3><p>${esc(line.description||'خط معتمد من السكة')}</p><p class="muted">المحطات: ${lineStops.map(s=>esc(s.stop_name)).join(' ← ')}</p>${lineSchedules.map(s=>{
    const pickup=lineStops.filter(x=>x.can_pickup),dropoff=lineStops.filter(x=>x.can_dropoff);
-   return `<form class="line-book-form" data-line-schedule="${s.id}" data-time="${String(s.departure_time).slice(0,5)}"><div class="ride-top"><b>ميعاد ${String(s.departure_time).slice(0,5)}</b><span class="pill">${s.seats_total} مقعد</span></div><p>أيام التشغيل: ${(s.service_days||[]).map(d=>dayNames[d]).join('، ')} · ${money(s.seat_price_egp)} للمقعد</p><label>تاريخ الرحلة<input type="date" name="run_date" min="${new Date().toISOString().slice(0,10)}" max="${new Date(Date.now()+90*86400000).toISOString().slice(0,10)}" required></label><label>محطة الركوب<select name="pickup_stop" required>${pickup.map(x=>'<option value="'+x.id+'">'+esc(x.stop_name)+'</option>').join('')}</select></label><label>محطة النزول<select name="dropoff_stop" required>${dropoff.map(x=>'<option value="'+x.id+'">'+esc(x.stop_name)+'</option>').join('')}</select></label><label>عدد المقاعد<select name="seats">${Array.from({length:Math.min(13,s.seats_total)},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('')}</select></label><button class="btn primary full" type="submit">احجز في الخط</button><p class="notice" role="status"></p></form>`;
+   return `<form class="line-book-form" data-line-schedule="${s.id}" data-time="${String(s.departure_time).slice(0,5)}"><div class="ride-top"><b>ميعاد ${String(s.departure_time).slice(0,5)}</b><span class="pill">${s.seats_total} مقعد</span></div><p>أيام التشغيل: ${(s.service_days||[]).map(d=>dayNames[d]).join('، ')} · ${money(s.seat_price_egp)} للمقعد</p><label>تاريخ الرحلة<input type="date" name="run_date" min="${new Date().toISOString().slice(0,10)}" max="${new Date(Date.now()+90*86400000).toISOString().slice(0,10)}" required></label><label>محطة الركوب<select name="pickup_stop" required>${pickup.map(x=>'<option value="'+x.id+'">'+esc(x.stop_name)+'</option>').join('')}</select></label><label>محطة النزول<select name="dropoff_stop" required>${dropoff.map(x=>'<option value="'+x.id+'">'+esc(x.stop_name)+'</option>').join('')}</select></label><p class="line-availability" data-line-availability>حدد التاريخ ومحطتي الركوب والنزول لمعرفة المقاعد المتاحة على الجزء المطلوب.</p><label>عدد المقاعد<select name="seats">${Array.from({length:Math.min(13,s.seats_total)},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('')}</select></label><button class="btn primary full" type="submit">احجز في الخط</button><p class="notice" role="status"></p></form>`;
   }).join('')||'<p class="muted">لا توجد مواعيد نشطة لهذا الخط.</p>'}</section>`;
  }).join('');
- box.querySelectorAll('[data-line-schedule]').forEach(form=>form.onsubmit=async e=>{
-  e.preventDefault();const fd=new FormData(form),dateValue=String(fd.get('run_date')||''),time=form.dataset.time,btn=form.querySelector('button[type="submit"]');
-  const departure=new Date(dateValue+'T'+time+':00');if(!dateValue||Number.isNaN(departure.getTime())){form.querySelector('.notice').textContent='اختر تاريخًا صحيحًا.';return;}
-  busyButton(btn,true);
-  try{const {error}=await db.rpc('request_sekka_line_seats',{p_schedule_id:form.dataset.lineSchedule,p_departure_at:departure.toISOString(),p_pickup_stop_id:String(fd.get('pickup_stop')),p_dropoff_stop_id:String(fd.get('dropoff_stop')),p_seats:Number(fd.get('seats'))});if(error)throw error;form.querySelector('.notice').textContent='تم حجز مقعدك بنجاح.';form.querySelector('.notice').className='notice success';}
-  catch(err){form.querySelector('.notice').textContent=err.message||'تعذر إتمام الحجز.';form.querySelector('.notice').className='notice error';}
-  finally{busyButton(btn,false);}
+ async function refreshLineAvailability(form){
+  const fd=new FormData(form),dateValue=String(fd.get('run_date')||''),pickup=String(fd.get('pickup_stop')||''),dropoff=String(fd.get('dropoff_stop')||''),time=form.dataset.time;
+  const status=form.querySelector('[data-line-availability]'),seatSelect=form.querySelector('[name="seats"]'),submit=form.querySelector('button[type="submit"]');
+  if(!dateValue||!pickup||!dropoff)return;
+  const departure=new Date(dateValue+'T'+time+':00');if(Number.isNaN(departure.getTime()))return;
+  if(status)status.textContent='جارٍ حساب المقاعد المتاحة على هذا الجزء…';
+  try{
+   const {data,error}=await db.rpc('get_sekka_line_segment_availability',{p_schedule_id:form.dataset.lineSchedule,p_departure_at:departure.toISOString(),p_pickup_stop_id:pickup,p_dropoff_stop_id:dropoff});
+   if(error)throw error;
+   const available=Math.max(0,Number(data)||0),current=Number(seatSelect.value)||1;
+   seatSelect.innerHTML=Array.from({length:available},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('');
+   seatSelect.disabled=available===0;submit.disabled=available===0;
+   if(available){seatSelect.value=String(Math.min(current,available));if(status)status.textContent='المقاعد المتاحة على هذا الجزء: '+available;}
+   else if(status)status.textContent='لا توجد مقاعد متاحة بين محطتي الركوب والنزول في هذا الميعاد.';
+  }catch(err){submit.disabled=true;if(status)status.textContent=err.message==='departure_not_in_schedule'?'هذا اليوم ليس من أيام تشغيل الخط.':(err.message==='invalid_boarding_stops'?'اختر محطة ركوب قبل محطة النزول.':'تعذر حساب المقاعد المتاحة.');}
+ }
+ box.querySelectorAll('[data-line-schedule]').forEach(form=>{
+  ['run_date','pickup_stop','dropoff_stop'].forEach(name=>form.querySelector('[name="'+name+'"]')?.addEventListener('change',()=>refreshLineAvailability(form)));
+  form.onsubmit=async e=>{
+   e.preventDefault();const fd=new FormData(form),dateValue=String(fd.get('run_date')||''),time=form.dataset.time,btn=form.querySelector('button[type="submit"]');
+   const departure=new Date(dateValue+'T'+time+':00');if(!dateValue||Number.isNaN(departure.getTime())){form.querySelector('.notice').textContent='اختر تاريخًا صحيحًا.';return;}
+   busyButton(btn,true);
+   try{const {error}=await db.rpc('request_sekka_line_seats',{p_schedule_id:form.dataset.lineSchedule,p_departure_at:departure.toISOString(),p_pickup_stop_id:String(fd.get('pickup_stop')),p_dropoff_stop_id:String(fd.get('dropoff_stop')),p_seats:Number(fd.get('seats'))});if(error)throw error;form.querySelector('.notice').textContent='تم حجز مقعدك بنجاح.';form.querySelector('.notice').className='notice success';await refreshLineAvailability(form);}
+   catch(err){form.querySelector('.notice').textContent=err.message==='not_enough_seats_for_segment'?'لم تعد هناك مقاعد كافية لهذا الجزء. اختر عددًا أقل أو ميعادًا آخر.':(err.message||'تعذر إتمام الحجز.');form.querySelector('.notice').className='notice error';}
+   finally{busyButton(btn,false);}
+  };
  });
 }
 async function tripsPage(){
