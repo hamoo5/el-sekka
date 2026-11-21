@@ -154,7 +154,20 @@ async function captainHome(){
  ${card('حالة طلب الانضمام',`<p class="pill">${esc(appRow?.application_status||'لم يتم التقديم')}</p><p>${esc(appRow?.admin_notes||'قدّم بياناتك ومستنداتك لاستكمال التفعيل.')}</p><button class="btn primary" data-view="apply">تقديم / تحديث بيانات الكابتن</button>`)}
  ${card('مركباتي',(vehicles||[]).map(v=>`<p>${esc(v.make)} ${esc(v.model)} · ${esc(v.plate_number)} — ${esc(v.approval_status)}</p>`).join('')||'<p>لا توجد مركبات مسجلة.</p>')}
  </main>`);
- document.querySelectorAll('[data-accept]').forEach(b=>b.onclick=async()=>{const vehicle=vehicles?.find(v=>v.approval_status==='approved'&&v.is_active);if(!vehicle){alert('لا توجد مركبة معتمدة ونشطة على حسابك.');return;}busyButton(b,true);const {error}=await db.rpc('captain_accept_fixed_trip',{p_request_id:b.dataset.accept,p_vehicle_id:vehicle.id});if(error)alert(error.message);else alert('تم قبول الرحلة.');captainHome();});
+ document.querySelectorAll('[data-accept]').forEach(b=>b.onclick=async()=>{
+  const request=(requests||[]).find(r=>r.id===b.dataset.accept);
+  if(!request){alert('تعذر العثور على طلب الرحلة. حدّث الصفحة وحاول مرة أخرى.');return;}
+  const trialEligible=completedTrips===0&&!activeSubscription;
+  const vehicle=(vehicles||[]).find(v=>v.vehicle_type===request.vehicle_type&&v.approval_status==='approved'&&(v.is_active||trialEligible));
+  if(!vehicle){alert(trialEligible?'لا توجد مركبة معتمدة من نفس نوع الرحلة.':'يلزم وجود مركبة معتمدة ونشطة من نفس نوع الرحلة.');return;}
+  busyButton(b,true);
+  try{
+   const {error}=await db.rpc('captain_accept_fixed_trip',{p_request_id:b.dataset.accept,p_vehicle_id:vehicle.id});
+   if(error)throw error;
+   alert('تم قبول الرحلة.');
+   await captainHome();
+  }catch(err){alert(err.message||'تعذر قبول الرحلة.');busyButton(b,false);}
+ });
  document.querySelector('#copyPaymentNumber')?.addEventListener('click',async()=>{try{await navigator.clipboard.writeText('01010530716');const n=document.querySelector('#subscriptionNotice');if(n)n.textContent='تم نسخ الرقم.';}catch{alert('تعذر النسخ تلقائيًا. الرقم هو 01010530716');}});
  document.querySelector('#subscriptionForm')?.addEventListener('submit',async e=>{
   e.preventDefault();
