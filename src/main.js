@@ -657,7 +657,6 @@ async function captainHome(){
     else alert(err.message||'تعذر إرسال طلب الاشتراك.');
    }finally{busyButton(btn,false);}
   });
- }
  }catch(err){shell(`<main class="wrap narrow"><section class="panel"><h1>تعذر تحميل مساحة الكابتن</h1><p class="notice error">${esc(err.message||'حدث خطأ أثناء تحميل البيانات.')}</p><button class="btn primary" id="retryCaptain">إعادة المحاولة</button></section></main>`);document.querySelector('#retryCaptain')?.addEventListener('click',()=>captainHome());}
 }
 function applyPage(){
