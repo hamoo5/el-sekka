@@ -1981,7 +1981,8 @@ function shareHome() {
     if(error){host.textContent='تعذر تحميل عروض الكراسي.';return;}
     // The database trigger guarantees that every newly published ride uses a shared-service vehicle.
     // Do not query vehicles here: rider RLS intentionally limits direct vehicle reads to owners/admins.
-    const rides=(data||[]).filter(r=>r.captain_id!==profile.id);\n    window.__sekkaAvailableRides=rides;
+    const rides=(data||[]).filter(r=>r.captain_id!==profile.id);
+    window.__sekkaAvailableRides=rides;
     if(!isCaptain)renderRiderShareRoutes(rides);
     if(!rides.length){host.innerHTML='<p class="muted">لا توجد خطوط متاحة حالياً. ارجع لاحقاً لاكتشاف خطوط جديدة.</p>';return;}
     host.innerHTML=rides.map(r=>`<article class="share-item rider-route-card">
