@@ -85,7 +85,7 @@ function layout(body) {
       <button type="button" data-nav-page="profile" class="${page==='profile'||page==='rewards'?'active':''}"><span>👤</span><small>حسابي</small></button>
     </nav>` : `<nav class="app-bottom-nav"><button type="button" data-nav-page="admin" class="${page==='admin'?'active':''}"><span>⚙️</span><small>الإدارة</small></button><button type="button" data-nav-page="profile"><span>👤</span><small>حسابي</small></button></nav>` : ''}
     <footer>السكة © 2026 · منصة تنقل ومشاركة طريق</footer>`;
-  document.querySelectorAll('[data-nav-page]').forEach(button=>button.addEventListener('click',()=>{page=button.dataset.navPage;render();}));
+  document.querySelectorAll('[data-nav-page]').forEach(button=>button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();const target=button.dataset.navPage;if(!target)return;page=target;try{sessionStorage.setItem(PAGE_STORAGE_KEY,page);}catch(_){}render();}));
   document.querySelector('#logout')?.addEventListener('click', async () => {
     await supabase.auth.signOut();session=null;profile=null;page='home';selectedAuthRole='';
     try{sessionStorage.removeItem(PAGE_STORAGE_KEY);sessionStorage.removeItem('el-sekka-auth-role');}catch(_){}
@@ -1171,6 +1171,10 @@ function shareHome() {
           <label>نوع العرض<select id="seatOfferMode"><option value="live_share">فوري</option><option value="scheduled_share">مجدول</option></select></label>
           <label>بداية الخط (شارع أو معلم واضح)<input id="seatOfferOrigin" required maxlength="180" placeholder="مثال: حدائق المعادي"></label>
           <label>نهاية الخط (شارع أو معلم واضح)<input id="seatOfferDestination" required maxlength="180" placeholder="مثال: التجمع الخامس"></label>
+          <div class="map-heading"><b>حدد خط سيرك على الخريطة</b><small>اختار البداية أو النهاية ثم اضغط على الخريطة. تقدر تحرك العلامات.</small></div>
+          <div class="map-pick-mode"><button type="button" class="map-mode active" id="seatPickOrigin">📍 تحديد البداية</button><button type="button" class="map-mode" id="seatPickDestination">🏁 تحديد النهاية</button></div>
+          <div id="seatOfferMap" class="trip-map trip-map-dark" role="application" aria-label="خريطة خط السير"></div>
+          <div class="map-legend"><span>🟢 البداية</span><span>🔴 النهاية</span><span>⛽ بنزينة</span><span>🏦 بنك</span><span>🛒 سوبر ماركت</span><span>💊 صيدلية</span><span id="seatOfferMapHint">اضغط على الخريطة لتحديد البداية والنهاية.</span></div>
           <label id="seatOfferDateField" hidden>موعد التحرك<input id="seatOfferDeparture" type="datetime-local"></label>
           <label>عدد الكراسي المتاحة<input id="seatOfferSeats" type="number" min="1" max="3" value="1" required></label>
           <label>سعر الكرسي (جنيه)<input id="seatOfferPrice" type="number" min="0" step="0.5" required></label>
@@ -1584,8 +1588,10 @@ function shareHome() {
       .eq('captain_id',profile.id).eq('approval_status','approved').eq('is_active',true)
       .in('vehicle_type',sharedVehicleTypes);
     if(error||!data?.length){select.innerHTML='<option value="">لا توجد مركبات مشاركة معتمدة ونشطة (ملاكي فقط)</option>';return;}
-    select.innerHTML=data.map(v=>`<option value="${v.id}">${esc([v.make,v.model].filter(Boolean).join(' ')||v.vehicle_type)} · ${v.passenger_capacity} مقعد</option>`).join('');
-    $('seatOfferSeats').max=String(Math.max(...data.map(v=>v.passenger_capacity)));
+    const eligible=data.filter(v=>v.vehicle_type==='private_car'&&Number(v.passenger_capacity)>=1&&Number(v.passenger_capacity)<=3);
+    if(!eligible.length){select.innerHTML='<option value="">لا توجد مركبة ملاكي معتمدة ونشطة بسعة حتى 3 ركاب</option>';return;}
+    select.innerHTML=eligible.map(v=>`<option value="${v.id}">${esc([v.make,v.model].filter(Boolean).join(' ')||'ملاكي')} · ${v.passenger_capacity} مقعد</option>`).join('');
+    $('seatOfferSeats').max=String(Math.min(3,Math.max(...eligible.map(v=>v.passenger_capacity))));
   }
   $('seatOfferMode')?.addEventListener('change',()=>{
     const scheduled=$('seatOfferMode').value==='scheduled_share';
@@ -2229,7 +2235,7 @@ async function tripsPage(){
 }
 
 async function profilePage(){
-  const [{data:captainApp},{data:activeSubscription}]=profile.role==='captain'?await Promise.all([
+  const [{data:captainApp},{data:activeSubscription}]=(profile.account_type==='captain'||profile.role==='captain')?await Promise.all([
     supabase.from('captain_applications').select('application_status').eq('user_id',profile.id).maybeSingle(),
     supabase.from('captain_subscriptions').select('expires_at,payment_status').eq('captain_id',profile.id).eq('payment_status','approved').order('expires_at',{ascending:false}).limit(1).maybeSingle()
   ]):[{data:null},{data:null}];
