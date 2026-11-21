@@ -29,7 +29,7 @@ function select(label,name,opts,required=true){return `<label>${label}<select na
 function home(){
  if(profile?.account_type==='captain')return captainHome();
  if(profile?.account_type==='admin')return adminHome();
- const firstName=String(profile?.display_name||'').trim().split(/\\s+/)[0];
+ const firstName=String(profile?.display_name||'').trim().split(/\s+/)[0];
  shell(`<main class="wrap rider-home">
   <section class="hero rider-hero">
    <span class="eyebrow">أهلاً ${esc(firstName||'بك في السكة')}</span>
