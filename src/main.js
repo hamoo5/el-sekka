@@ -164,7 +164,25 @@ function attachLineStopMap(form){
  addButton.onclick=()=>{const name=nameInput?.value.trim()||selectedName;if(!selected){if(status)status.textContent='حدد مكان المحطة على الخريطة أولًا.';return;}if(!name){if(status)status.textContent='اكتب اسم المحطة أو انتظر تحديد اسم المكان.';return;}const rows=readStops();rows.push(name+' | '+selected.lat.toFixed(6)+' | '+selected.lng.toFixed(6));area.value=rows.join('\n');drawStops();if(nameInput)nameInput.value='';selected=null;selectedName='';addButton.disabled=true;if(marker){marker.remove();marker=null;}if(status)status.textContent='اتضافت المحطة. حدد المحطة التالية بالترتيب.';};
  drawStops();setTimeout(()=>map.invalidateSize(),150);return map;
 }
-function attachBookingMap(mapId,container){
+function projectPointToRoute(geometry,lat,lng){
+ if(!geometry||geometry.type!=='LineString'||!Array.isArray(geometry.coordinates)||geometry.coordinates.length<2)return null;
+ const latScale=110540,lngScale=111320*Math.cos(lat*Math.PI/180);
+ let walked=0,bestDistance=Infinity,bestOffset=0;
+ const points=geometry.coordinates;
+ for(let i=1;i<points.length;i++){
+  const a=points[i-1],b=points[i];
+  const ax=(a[0]-lng)*lngScale,ay=(a[1]-lat)*latScale;
+  const bx=(b[0]-lng)*lngScale,by=(b[1]-lat)*latScale;
+  const dx=bx-ax,dy=by-ay,len2=dx*dx+dy*dy;
+  const t=len2?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/len2)):0;
+  const px=ax+t*dx,py=ay+t*dy,distance=Math.hypot(px,py);
+  const segmentLength=Math.hypot((b[0]-a[0])*lngScale,(b[1]-a[1])*latScale);
+  if(distance<bestDistance){bestDistance=distance;bestOffset=walked+t*segmentLength;}
+  walked+=segmentLength;
+ }
+ return {distance_m:bestDistance,offset_m:bestOffset};
+}
+function attachBookingMap(mapId,container,rides=[]){
  const mapElement=document.getElementById(mapId);if(!mapElement||!container)return;
  if(!window.L){mapElement.textContent='تعذر تحميل الخريطة. حدّث الصفحة وحاول مرة أخرى.';return;}
  const map=window.L.map(mapElement).setView([30.0444,31.2357],11);
@@ -173,14 +191,18 @@ function attachBookingMap(mapId,container){
  const status=document.querySelector('[data-booking-map-status]');
  container.querySelectorAll('[data-booking-map-pick]').forEach(button=>button.addEventListener('click',()=>{
   targetForm=container.querySelector('form[data-book="'+button.dataset.rideId+'"]');targetPoint=button.dataset.bookingMapPick;
-  if(status)status.textContent='اضغط على الخريطة لتحديد '+(targetPoint==='pickup'?'مكان ركوبك':'مكان نزولك')+' في الرحلة المختارة.';
+  const selectedRide=rides.find(r=>r.id===button.dataset.rideId);
+  if(selectedRide?.route_geometry){const bounds=window.L.geoJSON(selectedRide.route_geometry).getBounds();if(bounds.isValid())map.fitBounds(bounds,{padding:[35,35],maxZoom:16});}
+  if(status)status.textContent='الخريطة قربت على مسار الرحلة. اختار نقطة قريبة من الخط الأخضر؛ النقاط البعيدة هتترفض.';
  }));
  container.querySelectorAll('[data-booking-current]').forEach(button=>button.addEventListener('click',()=>{
   const form=container.querySelector('form[data-book="'+button.dataset.rideId+'"]');
   if(!navigator.geolocation){if(status)status.textContent='تحديد موقعك غير مدعوم على هذا الجهاز.';return;}
   if(status)status.textContent='بنحدد مكانك الحالي…';
   navigator.geolocation.getCurrentPosition(async pos=>{
-   const lat=pos.coords.latitude,lng=pos.coords.longitude;map.setView([lat,lng],15);
+   const lat=pos.coords.latitude,lng=pos.coords.longitude,ride=rides.find(r=>r.id===button.dataset.rideId),projection=projectPointToRoute(ride?.route_geometry,lat,lng);
+   if(!projection||projection.distance_m>500){if(status)status.textContent='موقعك الحالي بعيد عن خط الرحلة بحوالي '+Math.round(projection?.distance_m||0)+' متر. اختار نقطة ركوب أقرب للخط أو اختر رحلة أخرى.';return;}
+   map.setView([lat,lng],15);
    form.querySelector('[name="pickup_lat"]').value=lat.toFixed(6);form.querySelector('[name="pickup_lng"]').value=lng.toFixed(6);
    const key=form.dataset.book+'-pickup';if(markers[key])markers[key].remove();markers[key]=window.L.marker([lat,lng]).addTo(map).bindPopup('مكان ركوبك').openPopup();
    const name=await reversePlaceName(lat,lng),nameInput=form.querySelector('[name="pickup_name"]');if(name&&nameInput)nameInput.value=name;
@@ -190,6 +212,10 @@ function attachBookingMap(mapId,container){
  map.on('click',async event=>{
   if(!targetForm||!targetPoint)return;
   const form=targetForm,key=targetPoint,lat=event.latlng.lat,lng=event.latlng.lng;
+  const ride=rides.find(r=>r.id===form.dataset.book),projection=projectPointToRoute(ride?.route_geometry,lat,lng);
+  if(!projection||projection.distance_m>500){if(status)status.textContent='النقطة بعيدة عن خط الرحلة بحوالي '+Math.round(projection?.distance_m||0)+' متر. اختار مكانًا أقرب للخط الأخضر.';return;}
+  const otherKey=key==='pickup'?'dropoff':'pickup',otherLat=Number(form.querySelector('[name="'+otherKey+'_lat"]')?.value),otherLng=Number(form.querySelector('[name="'+otherKey+'_lng"]')?.value);
+  if(Number.isFinite(otherLat)&&Number.isFinite(otherLng)&&otherLat!==0&&otherLng!==0){const otherProjection=projectPointToRoute(ride?.route_geometry,otherLat,otherLng);if(otherProjection&&((key==='pickup'&&projection.offset_m>=otherProjection.offset_m)||(key==='dropoff'&&projection.offset_m<=otherProjection.offset_m))){if(status)status.textContent='ترتيب النقطتين غير صحيح: لازم الراكب يركب قبل مكان النزول على نفس اتجاه الرحلة.';return;}}
   form.querySelector('[name="'+key+'_lat"]').value=lat.toFixed(6);form.querySelector('[name="'+key+'_lng"]').value=lng.toFixed(6);
   const markerKey=form.dataset.book+'-'+key;if(markers[markerKey])markers[markerKey].remove();
   markers[markerKey]=window.L.marker([lat,lng]).addTo(map).bindPopup(key==='pickup'?'مكان ركوبك':'مكان نزولك').openPopup();
@@ -260,7 +286,7 @@ async function sharePage(){
  if(error){box.innerHTML='<section class="panel">تعذر تحميل الرحلات. '+esc(error.message)+'</section>';return;}
  if(!data?.length){box.innerHTML='<section class="panel empty">مفيش طرق متاحة حاليًا. ارجع بعد شوية أو تابع الخطوط الثابتة.</section>';return;}
  box.innerHTML=data.map(r=>{const seats=Math.max(1,Math.min(13,Number(r.available_seats)||1)),km=Number(r.route_distance_m)>0?(Number(r.route_distance_m)/1000).toFixed(1):null,minutes=Number(r.route_duration_seconds)>0?Math.round(Number(r.route_duration_seconds)/60):null;return `<section class="panel ride rider-ride-card"><div class="ride-top"><span class="pill">متاح الآن · ${seats} مقعد</span><b class="ride-price">${money(r.seat_price_egp)} <small>/ المقعد</small></b></div><h3 class="rider-route-title"><span>${esc(r.origin_name)}</span><span class="route-arrow" aria-hidden="true">←</span><span>${esc(r.destination_name)}</span></h3><div class="ride-meta"><span>◷ ${date(r.departure_at)}</span>${km?`<span>↔ ${km} كم تقريبًا</span>`:''}${minutes?`<span>◴ ${minutes} دقيقة تقريبًا</span>`:''}</div><p class="ride-description">${esc(r.route_description||'الكابتن لم يضف محطات إضافية')}</p><form data-book="${r.id}" data-price="${r.seat_price_egp}" class="book-form"><div class="booking-point"><div class="booking-point-heading"><span class="point-number">1</span><b>مكان الركوب</b></div><div class="booking-fields"><label><input name="pickup_name" required placeholder="اسم مكان الركوب" aria-label="اسم مكان الركوب"></label><div class="map-pick-actions"><button type="button" class="btn outline" data-booking-current data-ride-id="${r.id}">موقعي الحالي</button><button type="button" class="btn outline" data-booking-map-pick="pickup" data-ride-id="${r.id}">حدد على الخريطة</button></div><input type="hidden" name="pickup_lat"><input type="hidden" name="pickup_lng"></div></div><div class="booking-point"><div class="booking-point-heading"><span class="point-number">2</span><b>مكان النزول</b></div><div class="booking-fields"><label><input name="dropoff_name" required placeholder="اسم مكان النزول" aria-label="اسم مكان النزول"></label><button type="button" class="btn outline" data-booking-map-pick="dropoff" data-ride-id="${r.id}">حدد على الخريطة</button><input type="hidden" name="dropoff_lat"><input type="hidden" name="dropoff_lng"></div></div><div class="booking-seat-row">${select('عدد المقاعد','seats',Array.from({length:seats},(_,i)=>[String(i+1),String(i+1)+' '+(i===0?'مقعد':'مقاعد')]))}<span class="muted">المتاح في الرحلة: ${seats}</span></div><button class="btn primary full">إرسال طلب الحجز</button><p class="notice" role="status"></p></form></section>`}).join('');
- const bookingMap=attachBookingMap('bookingMap',box);
+ const bookingMap=attachBookingMap('bookingMap',box,data);
  if(bookingMap&&window.L){
   const routeLayers=[];data.forEach(r=>{if(r.route_geometry){const layer=window.L.geoJSON(r.route_geometry).addTo(bookingMap);layer.bindPopup(esc(r.origin_name+' ← '+r.destination_name));routeLayers.push(layer);}});
   if(routeLayers.length){const bounds=window.L.featureGroup(routeLayers).getBounds();if(bounds.isValid())bookingMap.fitBounds(bounds,{padding:[20,20]});}
