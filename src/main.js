@@ -1331,8 +1331,9 @@ function shareHome() {
   });
   $('shareRequestForm').addEventListener('submit', async e=>{
     e.preventDefault();
+    const form=e.currentTarget;
     const msg=$('shareCreateMessage');
-    const btn=e.currentTarget.querySelector('button[type="submit"]');
+    const btn=form.querySelector('button[type="submit"]');
     msg.textContent='جارٍ نشر الطلب...'; btn.disabled=true;
     const seats = Number($('shareSeats').value);
     const selectedVehicle = $('shareVehicle').value;
@@ -1366,7 +1367,7 @@ function shareHome() {
     btn.disabled=false;
     if(error){msg.textContent=shareError(error);return;}
     msg.textContent='تم نشر طلب المشاركة بنجاح. سيظهر للكباتن المعتمدين.';
-    e.currentTarget.reset(); $('shareMode').value='live_share'; $('shareDateField').hidden=true;
+    form.reset(); $('shareMode').value='live_share'; $('shareDateField').hidden=true;
     shareOriginPoint=null;shareDestinationPoint=null;
     $('shareOriginSuggestions').hidden=true;$('shareDestinationSuggestions').hidden=true;
     if(shareOriginMarker){shareMap?.removeLayer(shareOriginMarker);shareOriginMarker=null;}
@@ -1694,7 +1695,8 @@ function shareHome() {
   }
   $('captainSeatOfferForm')?.addEventListener('submit',async e=>{
     e.preventDefault();
-    const msg=$('seatOfferMessage'),btn=e.currentTarget.querySelector('button[type="submit"]');
+    const form=e.currentTarget;
+    const msg=$('seatOfferMessage'),btn=form.querySelector('button[type="submit"]');
     const mode=$('seatOfferMode').value;
     if(!$('seatOfferVehicle')?.value){
       msg.textContent=$('seatOfferVehicleStatus')?.textContent||'لا توجد مركبة ملاكي معتمدة ونشطة مرتبطة بحسابك.';
@@ -1727,7 +1729,7 @@ function shareHome() {
       });
       if(error)throw error;
       msg.textContent='تم نشر خط السير وحفظ مساره على الخريطة.';
-      e.currentTarget.reset();$('seatOfferMode').value='live_share';$('seatOfferDateField').hidden=true;
+      form.reset();$('seatOfferMode').value='live_share';$('seatOfferDateField').hidden=true;
       await loadAvailableRides();
     }catch(error){msg.textContent=shareError(error)||error.message||'تعذر نشر الخط.';}
     finally{btn.disabled=false;}
