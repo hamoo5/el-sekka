@@ -237,7 +237,7 @@ async function sharePage(){
   finally{busyButton(b,false);}
  });
 }
-function groupPage(){
+async function groupPage(){
  if(profile?.account_type==='captain'){
   const [{data:vehicles,error:vehicleError},{data:requests,error:requestError}]=await Promise.all([
    db.from('vehicles').select('id,vehicle_type,make,model,plate_number').eq('captain_id',session.user.id).eq('approval_status','approved').eq('is_active',true),
