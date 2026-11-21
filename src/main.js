@@ -62,11 +62,59 @@ async function loadProfile(){
  profile=data;
  if(profile?.is_blocked){await db.auth.signOut();session=null;profile=null;notice('الحساب موقوف. تواصل مع الإدارة.','error');}
 }
-async function sharePage(){
+async function attachCoordinatePicker(mapId,form){
+ const mapElement=document.getElementById(mapId);if(!mapElement||!form)return;
+ if(!window.L){mapElement.textContent='تعذر تحميل الخريطة. يمكنك إدخال الإحداثيات يدويًا.';return;}
+ const map=window.L.map(mapElement).setView([30.0444,31.2357],11);
+ window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+ const markers={};let activePoint=null;
+ form.querySelectorAll('[data-map-pick]').forEach(button=>button.addEventListener('click',()=>{
+  activePoint=button.dataset.mapPick;
+  const status=form.querySelector('[data-map-status]');if(status)status.textContent=activePoint==='origin'?'اضغط على الخريطة لتحديد نقطة البداية.':'اضغط على الخريطة لتحديد نقطة النهاية.';
+ }));
+ map.on('click',event=>{
+  if(!activePoint)return;
+  const lat=event.latlng.lat,lng=event.latlng.lng;
+  const latInput=form.querySelector('[name="'+activePoint+'_lat"]'),lngInput=form.querySelector('[name="'+activePoint+'_lng"]');
+  if(latInput)latInput.value=lat.toFixed(6);if(lngInput)lngInput.value=lng.toFixed(6);
+  if(markers[activePoint])markers[activePoint].remove();
+  markers[activePoint]=window.L.marker([lat,lng]).addTo(map).bindPopup(activePoint==='origin'?'نقطة البداية':'نقطة النهاية').openPopup();
+  const status=form.querySelector('[data-map-status]');if(status)status.textContent='تم تحديد '+(activePoint==='origin'?'البداية':'النهاية')+' على الخريطة.';
+  activePoint=null;
+ });
+ setTimeout(()=>map.invalidateSize(),150);
+ return map;
+}
+function attachLineStopMap(form){
+ const mapElement=form?.querySelector('#lineStopsMap');if(!mapElement)return;
+ if(!window.L){mapElement.textContent='تعذر تحميل الخريطة. يمكنك إدخال المحطات وإحداثياتها في الحقل النصي.';return;}
+ const map=window.L.map(mapElement).setView([30.0444,31.2357],11);
+ window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+ let selected=null,marker=null;
+ const status=form.querySelector('[data-stop-map-status]'),addButton=form.querySelector('#addMapStop');
+ map.on('click',event=>{
+  selected=event.latlng;if(marker)marker.remove();
+  marker=window.L.marker([selected.lat,selected.lng]).addTo(map);
+  addButton.disabled=false;if(status)status.textContent='تم تحديد الموقع. اكتب اسم المحطة ثم أضفها.';
+ });
+ addButton.onclick=()=>{
+  const name=form.querySelector('[name="map_stop_name"]').value.trim();
+  if(!selected){if(status)status.textContent='حدد مكان المحطة بالضغط على الخريطة أولًا.';return;}
+  if(!name){if(status)status.textContent='اكتب اسم المحطة أولًا.';return;}
+  const area=form.querySelector('[name="stops"]'),row=name+' | '+selected.lat.toFixed(6)+' | '+selected.lng.toFixed(6);
+  area.value=area.value.trim()?area.value.trim()+'\n'+row:row;
+  form.querySelector('[name="map_stop_name"]').value='';selected=null;addButton.disabled=true;
+  if(marker){marker.remove();marker=null;}if(status)status.textContent='تمت إضافة المحطة إلى القائمة.';
+ };
+ setTimeout(()=>map.invalidateSize(),150);
+ return map;
+}
+function sharePage(){
  if(profile?.account_type==='captain'){
   const {data:vehicles}=await db.from('vehicles').select('id,vehicle_type,make,model,plate_number,approval_status,is_active').eq('captain_id',session.user.id).eq('approval_status','approved').eq('is_active',true);
-  shell(`<main class="wrap narrow"><div class="page-head"><span class="eyebrow">خطوطي ومقاعدي</span><h1>انشر طريقك</h1><p>أضف رحلة ليتمكن الركاب من طلب مقاعد على نفس الطريق.</p></div>${card('رحلة جديدة',`<form id="rideForm">${select('المركبة','vehicle_id',(vehicles||[]).map(v=>[v.id,v.make+' '+v.model+' · '+v.plate_number]))}${select('نوع الرحلة','ride_mode',[['scheduled_share','رحلة بميعاد']])}${input('من','origin_name','text',true,'نقطة البداية')}${input('إلى','destination_name','text',true,'الوجهة')}${input('خط عرض البداية','origin_lat','number',true,'30.01')}${input('خط طول البداية','origin_lng','number',true,'31.40')}${input('خط عرض الوجهة','destination_lat','number',true,'30.05')}${input('خط طول الوجهة','destination_lng','number',true,'31.35')}${input('وصف الطريق والمحطات','route_description','text',false,'اكتب المناطق التي تمر بها')}${input('ميعاد التحرك','departure_at','datetime-local',true)}${input('المقاعد المتاحة','seats','number',true,'1')}${input('سعر المقعد بالجنيه','seat_price','number',true,'السعر لكل مقعد')}<button class="btn primary full">نشر الرحلة</button><p id="notice" class="notice"></p></form>`)}${vehicles?.length?'':'<p class="notice">لا توجد مركبة معتمدة ونشطة. أكمل بيانات الكابتن وانتظر اعتماد المركبة.</p>'}</main>`);
+  shell(`<main class="wrap narrow"><div class="page-head"><span class="eyebrow">خطوطي ومقاعدي</span><h1>انشر طريقك</h1><p>أضف رحلة ليتمكن الركاب من طلب مقاعد على نفس الطريق.</p></div>${card('رحلة جديدة',`<form id="rideForm">${select('المركبة','vehicle_id',(vehicles||[]).map(v=>[v.id,v.make+' '+v.model+' · '+v.plate_number]))}${select('نوع الرحلة','ride_mode',[['scheduled_share','رحلة بميعاد']])}${input('من','origin_name','text',true,'نقطة البداية')}${input('إلى','destination_name','text',true,'الوجهة')}${input('خط عرض البداية','origin_lat','number',true,'30.01')}${input('خط طول البداية','origin_lng','number',true,'31.40')}${input('خط عرض الوجهة','destination_lat','number',true,'30.05')}${input('خط طول الوجهة','destination_lng','number',true,'31.35')}<div class="map-pick-actions"><button type="button" class="btn outline" data-map-pick="origin">حدد البداية على الخريطة</button><button type="button" class="btn outline" data-map-pick="destination">حدد النهاية على الخريطة</button></div><div id="shareRouteMap" class="picker-map"></div><p class="map-status" data-map-status>اختار نقطة البداية أو النهاية ثم اضغط مكانها على الخريطة.</p>${input('وصف الطريق والمحطات','route_description','text',false,'اكتب المناطق التي تمر بها')}${input('ميعاد التحرك','departure_at','datetime-local',true)}${input('المقاعد المتاحة','seats','number',true,'1')}${input('سعر المقعد بالجنيه','seat_price','number',true,'السعر لكل مقعد')}<button class="btn primary full">نشر الرحلة</button><p id="notice" class="notice"></p></form>`)}${vehicles?.length?'':'<p class="notice">لا توجد مركبة معتمدة ونشطة. أكمل بيانات الكابتن وانتظر اعتماد المركبة.</p>'}</main>`);
   const form=document.querySelector('#rideForm');
+  attachCoordinatePicker('shareRouteMap',form);
   if(form)form.onsubmit=async e=>{e.preventDefault();const f=new FormData(form),v=n=>String(f.get(n)||'').trim(),b=form.querySelector('button[type=submit]');busyButton(b,true);try{const coords=[Number(v('origin_lng')),Number(v('origin_lat')),Number(v('destination_lng')),Number(v('destination_lat'))];if(coords.some(n=>!Number.isFinite(n)))throw Error('أدخل إحداثيات صحيحة للبداية والنهاية.');const routeRes=await fetch('https://router.project-osrm.org/route/v1/driving/'+coords[0]+','+coords[1]+';'+coords[2]+','+coords[3]+'?overview=full&geometries=geojson');if(!routeRes.ok)throw Error('تعذر حساب الطريق. حاول مرة أخرى.');const routeData=await routeRes.json();const route=routeData.routes?.[0];if(!route?.geometry||!route.distance||!route.duration)throw Error('لم يتم العثور على طريق قابل للحساب.');const {data,error}=await db.rpc('create_share_ride',{p_vehicle_id:v('vehicle_id'),p_ride_mode:'scheduled_share',p_origin_name:v('origin_name'),p_origin_lat:coords[1],p_origin_lng:coords[0],p_destination_name:v('destination_name'),p_destination_lat:coords[3],p_destination_lng:coords[2],p_route_description:v('route_description')||null,p_departure_at:new Date(v('departure_at')).toISOString(),p_seats:Number(v('seats')),p_seat_price:Number(v('seat_price')),p_route_geometry:route.geometry,p_route_distance_m:Math.round(route.distance),p_route_duration_seconds:Math.round(route.duration)});if(error)throw error;notice('تم نشر الرحلة بنجاح.','success');form.reset();}catch(err){notice(err.message||'تعذر نشر الرحلة.','error');}finally{busyButton(b,false);}};
   return;
  }
@@ -129,6 +177,7 @@ async function groupPage(){
  ${input('إلى','destination_name','text',true,'الوجهة')}
  ${input('خط عرض الوجهة','destination_lat','number',true,'30.05')}
  ${input('خط طول الوجهة','destination_lng','number',true,'31.35')}
+ <div class="map-pick-actions"><button type="button" class="btn outline" data-map-pick="origin">حدد البداية على الخريطة</button><button type="button" class="btn outline" data-map-pick="destination">حدد النهاية على الخريطة</button></div><div id="groupRouteMap" class="picker-map"></div><p class="map-status" data-map-status>اختار نقطة البداية أو النهاية ثم اضغط مكانها على الخريطة.</p>
  ${input('تفاصيل الطريق أو مناطق المرور','route_description','text',false,'اختياري')}
  ${input('ميعاد التحرك','departure_at','datetime-local',true)}
  ${select('نوع المركبة المفضل','vehicle_type',[['','أي نوع متاح'],['private_car','ملاكي'],['suzuki','سوزوكي'],['microbus','ميكروباص']],false)}
@@ -137,6 +186,7 @@ async function groupPage(){
  <button class="btn primary full" type="submit">نشر طلب مشاركة الطريق</button><p id="notice" class="notice" role="status"></p></form>`)}
  <div class="page-head"><h2>طلباتي وعروض الكباتن</h2></div><div id="myGroupRequests" class="stack">جارٍ تحميل طلباتك…</div></main>`);
  const form=document.querySelector('#groupRequestForm');
+ attachCoordinatePicker('groupRouteMap',form);
  const dt=form.querySelector('[name="departure_at"]');
  dt.value=new Date(Date.now()+60*60*1000).toISOString().slice(0,16);
  form.onsubmit=async e=>{
@@ -201,7 +251,7 @@ async function linesPage(){
    ${input('محطة البداية','origin_name','text',true,'اسم أول محطة')}
    ${input('محطة النهاية','destination_name','text',true,'اسم آخر محطة')}
    ${input('وصف الخط','description','text',false,'المناطق التي يمر بها الخط')}
-   <label>المحطات بالترتيب (كل محطة في سطر: الاسم | خط العرض | خط الطول)<textarea name="stops" rows="5" required placeholder="محطة البداية | 30.01 | 31.40&#10;محطة وسطى | 30.03 | 31.42&#10;محطة النهاية | 30.05 | 31.45"></textarea></label>
+   <label>المحطات بالترتيب (كل محطة في سطر: الاسم | خط العرض | خط الطول)<textarea name="stops" rows="5" required placeholder="محطة البداية | 30.01 | 31.40&#10;محطة وسطى | 30.03 | 31.42&#10;محطة النهاية | 30.05 | 31.45"></textarea></label><div class="line-stop-map-tools"><label>اسم المحطة المختارة<input name="map_stop_name" type="text" placeholder="اكتب اسم المحطة"></label><button type="button" class="btn outline" id="addMapStop" disabled>إضافة المحطة المحددة</button></div><div id="lineStopsMap" class="picker-map"></div><p class="map-status" data-stop-map-status>اضغط على الخريطة لتحديد موقع محطة، ثم اكتب اسمها وأضفها. أضف البداية أولًا والنهاية أخيرًا.</p>
    <fieldset class="days-field"><legend>أيام تشغيل الخط</legend>${dayNames.map((d,i)=>'<label class="check"><input type="checkbox" name="days" value="'+i+'" '+(i<5?'checked':'')+'> '+d+'</label>').join('')}</fieldset>
    ${input('ميعاد التحرك','departure_time','time',true)}
    ${input('عدد المقاعد في الرحلة','seats','number',true,'حسب سعة المركبة')}
@@ -214,6 +264,7 @@ async function linesPage(){
   ${card('حجوزات الركاب على خطوطك',captainLineBookingsHtml)}
   </main>`);
   const form=document.querySelector('#lineCreateForm');
+  attachLineStopMap(form);
   if(form)form.onsubmit=async e=>{
    e.preventDefault();const fd=new FormData(form),v=k=>String(fd.get(k)||'').trim(),btn=form.querySelector('button[type="submit"]');busyButton(btn,true);
    try{
