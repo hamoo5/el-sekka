@@ -82,22 +82,42 @@ async function groupPage(){
  if(profile?.account_type==='captain'){
   const [{data:vehicles,error:vehicleError},{data:requests,error:requestError}]=await Promise.all([
    db.from('vehicles').select('id,vehicle_type,make,model,plate_number').eq('captain_id',session.user.id).eq('approval_status','approved').eq('is_active',true),
-   db.from('share_route_requests').select('id,requester_id,ride_mode,origin_name,destination_name,route_description,departure_at,preferred_vehicle_type,seats_requested,requester_seat_price_egp,request_status').eq('request_status','open').neq('requester_id',session.user.id).order('departure_at',{ascending:true}).limit(30)
+   db.from('share_route_requests').select('id,requester_id,ride_mode,origin_name,origin_lat,origin_lng,destination_name,destination_lat,destination_lng,route_description,departure_at,preferred_vehicle_type,seats_requested,requester_seat_price_egp,request_status').eq('request_status','open').neq('requester_id',session.user.id).order('departure_at',{ascending:true}).limit(30)
   ]);
   shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">مشوارنا واحد · مساحة الكابتن</span><h1>طلبات مشاركة الطريق</h1><p>اختار الطلب المناسب لطريقك ومركبتك، واقبل السعر المقترح أو قدم عرضًا بديلًا.</p></div><div id="groupRequests" class="stack"></div></main>`);
   const box=document.querySelector('#groupRequests');
   if(vehicleError||requestError){box.innerHTML='<section class="panel notice error">'+esc((vehicleError||requestError).message)+'</section>';return;}
   if(!vehicles?.length){box.innerHTML='<section class="panel empty">لا توجد مركبة معتمدة ونشطة على حسابك.</section>';return;}
   if(!requests?.length){box.innerHTML='<section class="panel empty">لا توجد طلبات مشاركة طريق متاحة حاليًا.</section>';return;}
-  box.innerHTML=requests.map(r=>`<section class="panel"><div class="ride-top"><span class="pill">طلب مفتوح</span><b>${r.seats_requested} مقعد</b></div><h3>${esc(r.origin_name)} ← ${esc(r.destination_name)}</h3><p>${esc(r.route_description||'بدون تفاصيل إضافية')}</p><p class="muted">${date(r.departure_at)} · النوع المفضل: ${esc(({private_car:'ملاكي',suzuki:'سوزوكي',microbus:'ميكروباص'})[r.preferred_vehicle_type]||'أي مركبة')}</p><p>السعر المقترح للمقعد: <b>${money(r.requester_seat_price_egp)}</b></p><label>المركبة المناسبة<select data-vehicle-for="${r.id}">${vehicles.map(v=>`<option value="${v.id}">${esc(v.make||'')} ${esc(v.model||'')} · ${esc(({private_car:'ملاكي',suzuki:'سوزوكي',microbus:'ميكروباص'})[v.vehicle_type]||v.vehicle_type)} · ${esc(v.plate_number||'')}</option>`).join('')}</select></label><div class="actions"><button class="btn primary" data-group-action="accept" data-request="${r.id}">قبول السعر</button><button class="btn outline" data-group-action="counter" data-request="${r.id}">تقديم سعر بديل</button></div></section>`).join('');
+  const distanceMeters=(aLat,aLng,bLat,bLng)=>{
+   const rad=n=>n*Math.PI/180, dLat=rad(bLat-aLat),dLng=rad(bLng-aLng);
+   const h=Math.sin(dLat/2)**2+Math.cos(rad(aLat))*Math.cos(rad(bLat))*Math.sin(dLng/2)**2;
+   return 6371000*2*Math.asin(Math.sqrt(Math.min(1,h)));
+  };
+  const groups=[];
+  requests.forEach(r=>{
+   const group=groups.find(g=>{
+    const first=g.requests[0],pref=r.preferred_vehicle_type;
+    return g.requests.length<10&&g.seatsTotal+r.seats_requested<=13
+     &&Math.abs(new Date(r.departure_at)-new Date(first.departure_at))<=30*60*1000
+     &&distanceMeters(r.origin_lat,r.origin_lng,first.origin_lat,first.origin_lng)<=2000
+     &&distanceMeters(r.destination_lat,r.destination_lng,first.destination_lat,first.destination_lng)<=2000
+     &&(!pref||!g.preferredVehicleType||pref===g.preferredVehicleType);
+   });
+   if(group){group.requests.push(r);group.seatsTotal+=r.seats_requested;if(!group.preferredVehicleType)group.preferredVehicleType=r.preferred_vehicle_type;}
+   else groups.push({requests:[r],seatsTotal:r.seats_requested,preferredVehicleType:r.preferred_vehicle_type});
+  });
+  box.innerHTML=groups.map(g=>{
+   const first=g.requests[0],key=first.id,ids=g.requests.map(r=>r.id);
+   return `<section class="panel"><div class="ride-top"><span class="pill">${g.requests.length>1?'مجموعة طلبات متقاربة':'طلب مشاركة طريق'}</span><b>${g.requests.length} طلب · ${g.seatsTotal} مقعد</b></div><h3>${esc(first.origin_name)} ← ${esc(first.destination_name)}</h3><p class="muted">مطابقة تقريبية: بداية ونهاية في نطاق 2 كم وميعاد في نطاق 30 دقيقة.</p><div class="stack">${g.requests.map(r=>'<article class="request"><b>'+esc(r.origin_name)+' ← '+esc(r.destination_name)+'</b><p>'+r.seats_requested+' مقعد · '+money(r.requester_seat_price_egp)+' للمقعد · '+date(r.departure_at)+'</p></article>').join('')}</div><label>المركبة المناسبة<select data-vehicle-for="${key}">${vehicles.map(v=>`<option value="${v.id}">${esc(v.make||'')} ${esc(v.model||'')} · ${esc(({private_car:'ملاكي',suzuki:'سوزوكي',microbus:'ميكروباص'})[v.vehicle_type]||v.vehicle_type)} · ${esc(v.plate_number||'')} · سعة ${v.passenger_capacity}</option>`).join('')}</select></label><div class="actions"><button class="btn primary" data-group-action="accept" data-request-ids="${ids.join(',')}" data-group-key="${key}">قبول ${g.requests.length>1?'المجموعة':'الطلب'}</button><button class="btn outline" data-group-action="counter" data-request-ids="${ids.join(',')}" data-group-key="${key}">عرض سعر موحد للمجموعة</button></div></section>`;
+  }).join('');
   box.querySelectorAll('[data-group-action]').forEach(btn=>btn.onclick=async()=>{
-   const vehicle=box.querySelector('[data-vehicle-for="'+btn.dataset.request+'"]')?.value;
-   if(!vehicle)return;
+   const vehicle=box.querySelector('[data-vehicle-for="'+btn.dataset.groupKey+'"]')?.value;if(!vehicle)return;
    let price=null;
-   if(btn.dataset.groupAction==='counter'){const raw=prompt('اكتب السعر المقترح للمقعد بالجنيه:');if(raw===null)return;price=Number(raw);if(!Number.isFinite(price)||price<0){alert('أدخل سعرًا صحيحًا.');return;}}
+   if(btn.dataset.groupAction==='counter'){const raw=prompt('اكتب إجمالي تكلفة المشوار للمجموعة بالجنيه؛ سيتم تقسيمها تلقائيًا على إجمالي المقاعد:');if(raw===null)return;price=Number(raw);if(!Number.isFinite(price)||price<0){alert('أدخل سعرًا صحيحًا.');return;}}
    busyButton(btn,true);
-   try{const {error}=await db.rpc('captain_reply_share_route_request',{p_request_id:btn.dataset.request,p_vehicle_id:vehicle,p_action:btn.dataset.groupAction,p_counter_price:price});if(error)throw error;await groupPage();}
-   catch(err){alert(err.message||'تعذر إرسال الرد.');busyButton(btn,false);}
+   try{const {data,error}=await db.rpc('captain_reply_share_route_group',{p_request_ids:btn.dataset.requestIds.split(','),p_vehicle_id:vehicle,p_action:btn.dataset.groupAction,p_counter_price:price});if(error)throw error;alert('تم إرسال الرد على '+(data||btn.dataset.requestIds.split(',').length)+' طلب. كل راكب سيؤكد العرض من حسابه.');await groupPage();}
+   catch(err){alert(err.message||'تعذر إرسال الرد. تأكد من سعة المركبة وتقارب الطلبات.');busyButton(btn,false);}
   });
   return;
  }
