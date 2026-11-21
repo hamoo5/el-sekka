@@ -140,6 +140,18 @@ function attachBookingMap(mapId,container){
   targetForm=container.querySelector('form[data-book="'+button.dataset.rideId+'"]');targetPoint=button.dataset.bookingMapPick;
   if(status)status.textContent='اضغط على الخريطة لتحديد '+(targetPoint==='pickup'?'مكان ركوبك':'مكان نزولك')+' في الرحلة المختارة.';
  }));
+ container.querySelectorAll('[data-booking-current]').forEach(button=>button.addEventListener('click',()=>{
+  const form=container.querySelector('form[data-book="'+button.dataset.rideId+'"]');
+  if(!navigator.geolocation){if(status)status.textContent='تحديد موقعك غير مدعوم على هذا الجهاز.';return;}
+  if(status)status.textContent='بنحدد مكانك الحالي…';
+  navigator.geolocation.getCurrentPosition(async pos=>{
+   const lat=pos.coords.latitude,lng=pos.coords.longitude;map.setView([lat,lng],15);
+   form.querySelector('[name="pickup_lat"]').value=lat.toFixed(6);form.querySelector('[name="pickup_lng"]').value=lng.toFixed(6);
+   const key=form.dataset.book+'-pickup';if(markers[key])markers[key].remove();markers[key]=window.L.marker([lat,lng]).addTo(map).bindPopup('مكان ركوبك').openPopup();
+   const name=await reversePlaceName(lat,lng),nameInput=form.querySelector('[name="pickup_name"]');if(name&&nameInput)nameInput.value=name;
+   if(status)status.textContent='حددنا مكان ركوبك الحالي'+(name?' في '+name:'')+'.';
+  },()=>{if(status)status.textContent='مقدرناش نحدد موقعك. اسمح للموقع بالوصول للموقع أو اختار المكان على الخريطة.';},{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
+ }));
  map.on('click',async event=>{
   if(!targetForm||!targetPoint)return;
   const form=targetForm,key=targetPoint,lat=event.latlng.lat,lng=event.latlng.lng;
@@ -174,6 +186,9 @@ async function sharePage(){
   </main>`);
   const form=document.querySelector('#rideForm');
   const shareMap=attachCoordinatePicker('shareRouteMap',form);
+  const vehicleSelect=form?.querySelector('[name="vehicle_id"]'),seatSelect=form?.querySelector('[name="seats"]');
+  const syncSeatChoices=()=>{if(!vehicleSelect||!seatSelect)return;const vehicle=(vehicles||[]).find(x=>x.id===vehicleSelect.value),max=({private_car:3,suzuki:6,microbus:13})[vehicle?.vehicle_type]||13,current=Number(seatSelect.value)||1;seatSelect.innerHTML=Array.from({length:max},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('');seatSelect.value=String(Math.min(current,max));};
+  vehicleSelect?.addEventListener('change',syncSeatChoices);syncSeatChoices();
   if(form)form.onsubmit=async e=>{
    e.preventDefault();const f=new FormData(form),v=n=>String(f.get(n)||'').trim(),b=form.querySelector('button[type=submit]');busyButton(b,true);
    try{
@@ -204,7 +219,7 @@ async function sharePage(){
  const {data,error}=await db.from('rides').select('id,captain_id,vehicle_id,ride_mode,origin_name,destination_name,route_description,route_geometry,route_distance_m,route_duration_seconds,departure_at,available_seats,seat_price_egp,ride_status,seat_capacity').eq('ride_status','open').gt('available_seats',0).order('departure_at',{ascending:true}).limit(40);
  if(error){box.innerHTML='<section class="panel">تعذر تحميل الرحلات. '+esc(error.message)+'</section>';return;}
  if(!data?.length){box.innerHTML='<section class="panel empty">مفيش طرق متاحة حاليًا. ارجع بعد شوية أو تابع الخطوط الثابتة.</section>';return;}
- box.innerHTML=data.map(r=>`<section class="panel ride"><div class="ride-top"><span class="pill">متاح · ${r.available_seats} مقعد</span><b>${money(r.seat_price_egp)} <small>/ المقعد</small></b></div><h3>${esc(r.origin_name)} ← ${esc(r.destination_name)}</h3><p>${esc(r.route_description||'الكابتن لم يضف محطات إضافية')}</p><p class="muted">ميعاد التحرك: ${date(r.departure_at)}</p><form data-book="${r.id}" data-price="${r.seat_price_egp}" class="book-form"><div class="booking-fields"><label>هتركب منين؟<input name="pickup_name" required placeholder="حدد مكان الركوب من الخريطة"></label><button type="button" class="btn outline" data-booking-map-pick="pickup" data-ride-id="${r.id}">حدد مكان الركوب</button><input type="hidden" name="pickup_lat"><input type="hidden" name="pickup_lng"></div><div class="booking-fields"><label>هتنزل فين؟<input name="dropoff_name" required placeholder="حدد مكان النزول من الخريطة"></label><button type="button" class="btn outline" data-booking-map-pick="dropoff" data-ride-id="${r.id}">حدد مكان النزول</button><input type="hidden" name="dropoff_lat"><input type="hidden" name="dropoff_lng"></div>${select('عايز تحجز كام مقعد؟','seats',Array.from({length:Math.min(6,r.available_seats)},(_,i)=>[String(i+1),String(i+1)]))}<button class="btn primary full">اطلب حجز المقعد</button><p class="notice" role="status"></p></form></section>`).join('');
+ box.innerHTML=data.map(r=>`<section class="panel ride"><div class="ride-top"><span class="pill">متاح · ${r.available_seats} مقعد</span><b>${money(r.seat_price_egp)} <small>/ المقعد</small></b></div><h3>${esc(r.origin_name)} ← ${esc(r.destination_name)}</h3><p>${esc(r.route_description||'الكابتن لم يضف محطات إضافية')}</p><p class="muted">ميعاد التحرك: ${date(r.departure_at)}</p><form data-book="${r.id}" data-price="${r.seat_price_egp}" class="book-form"><div class="booking-fields"><label>هتركب منين؟<input name="pickup_name" required placeholder="حدد مكان الركوب من الخريطة"></label><div class="map-pick-actions"><button type="button" class="btn outline" data-booking-current data-ride-id="${r.id}">موقعي الحالي</button><button type="button" class="btn outline" data-booking-map-pick="pickup" data-ride-id="${r.id}">اختار على الخريطة</button></div><input type="hidden" name="pickup_lat"><input type="hidden" name="pickup_lng"></div><div class="booking-fields"><label>هتنزل فين؟<input name="dropoff_name" required placeholder="حدد مكان النزول من الخريطة"></label><button type="button" class="btn outline" data-booking-map-pick="dropoff" data-ride-id="${r.id}">حدد مكان النزول</button><input type="hidden" name="dropoff_lat"><input type="hidden" name="dropoff_lng"></div>${select('عايز تحجز كام مقعد؟','seats',Array.from({length:Math.min(6,r.available_seats)},(_,i)=>[String(i+1),String(i+1)]))}<button class="btn primary full">اطلب حجز المقعد</button><p class="notice" role="status"></p></form></section>`).join('');
  const bookingMap=attachBookingMap('bookingMap',box);
  if(bookingMap&&window.L){
   const routeLayers=[];data.forEach(r=>{if(r.route_geometry){const layer=window.L.geoJSON(r.route_geometry).addTo(bookingMap);layer.bindPopup(esc(r.origin_name+' ← '+r.destination_name));routeLayers.push(layer);}});
