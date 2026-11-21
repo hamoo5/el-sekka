@@ -42,3 +42,47 @@ textarea:focus{border-color:#c6f36a;box-shadow:0 0 0 3px #c6f36a20}
 .route-step{margin:12px 0}
 .book-form .notice{margin:0}
 @media(max-width:640px){.bottom{padding-inline:10px}.bottom button{min-width:82px;font-size:11px;padding:8px 7px}.line-stop-map-tools{grid-template-columns:1fr 1fr}.line-stop-map-tools label{grid-column:1/-1}.line-stop-map-tools #stopCurrentLocation{grid-column:1}.line-stop-map-tools #addMapStop{grid-column:2}}
+
+
+/* Rider home refresh: clearer hierarchy and touch-friendly service cards */
+.rider-home{max-width:900px;margin-top:26px}
+.rider-hero{position:relative;overflow:hidden;padding:clamp(25px,5vw,46px);background:radial-gradient(circle at 8% 10%,#c6f36a1b,transparent 34%),linear-gradient(130deg,#203d55,#142638 70%,#172c3c)}
+.rider-hero h1{font-size:clamp(32px,6vw,48px);margin:10px 0 8px}
+.rider-hero p{max-width:560px;font-size:15px}
+.rider-hero-actions{margin-top:22px}
+.rider-hero-actions .btn{min-width:145px}
+.rider-trust{display:flex;flex-wrap:wrap;gap:9px 18px;margin-top:20px;color:#c6d5c6;font-size:11px}
+.rider-services{margin-top:30px}
+.section-intro{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:14px}
+.section-intro h2{font-size:21px;margin:4px 0 0}
+.section-intro>.muted{font-size:11px;white-space:nowrap}
+.rider-service{width:100%;display:flex;align-items:center;gap:16px;text-align:right;padding:18px;margin:10px 0;border:1px solid #ffffff18;border-radius:19px;background:linear-gradient(120deg,#142235,#101b2a);color:#f5f7fb;min-height:116px;transition:border-color .18s,transform .18s}
+.rider-service:active{transform:scale(.99)}
+.rider-service:focus-visible{outline:2px solid #c6f36a;outline-offset:3px}
+.rider-service.featured{border-color:#c6f36a77;background:linear-gradient(115deg,#1b342b,#142638 70%)}
+.service-icon{display:grid;place-items:center;flex:0 0 54px;height:54px;border-radius:16px;background:#ffffff0d;font-size:27px}
+.featured .service-icon{background:#c6f36a1c}
+.service-copy{display:grid;gap:5px;flex:1;min-width:0}
+.service-copy b{font-size:17px}
+.service-copy small{font-size:12px;line-height:1.7;color:#aebdd0;font-weight:500}
+.service-copy strong{font-size:12px;color:#c6f36a;margin-top:3px}
+.service-arrow{font-size:21px;color:#91a3b8}
+.rider-help{display:flex;align-items:flex-start;gap:12px;margin-top:22px;padding:16px;border:1px solid #ffffff14;border-radius:16px;background:#ffffff06}
+.rider-help>span{font-size:22px}
+.rider-help b{font-size:13px}
+.rider-help p{margin:4px 0 0;color:#aebdd0;font-size:12px;line-height:1.8}
+.rider-help .text-btn{margin-inline-start:auto;white-space:nowrap}
+@media(max-width:640px){
+ .rider-home{margin-top:16px}
+ .rider-hero{padding:25px 20px}
+ .rider-hero-actions{display:grid;grid-template-columns:1fr 1fr}
+ .rider-hero-actions .btn{min-width:0;padding-inline:10px}
+ .rider-trust{gap:7px 12px;font-size:10px}
+ .section-intro h2{font-size:18px}
+ .rider-service{gap:12px;padding:15px;min-height:108px}
+ .service-icon{flex-basis:46px;height:46px;font-size:23px;border-radius:14px}
+ .service-copy b{font-size:15px}
+ .service-copy small{font-size:11px}
+ .rider-help{align-items:flex-start}
+ .rider-help .text-btn{padding:5px;font-size:11px}
+}
