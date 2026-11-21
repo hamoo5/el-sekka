@@ -1657,3 +1657,5 @@ body[data-page="share"] .share-rule summary{cursor:pointer}
 
 /* Small, discreet administrator entry on the public account chooser */
 .admin-entry-link{display:inline-block;margin-inline-start:10px;padding:5px 10px;border:1px solid #ffffff24;border-radius:999px;color:#9eafc2;text-decoration:none;font-size:11px;font-weight:700;transition:color .18s,border-color .18s,background .18s}.admin-entry-link:hover,.admin-entry-link:focus-visible{color:#b7f36b;border-color:#b7f36b88;background:#b7f36b0d;outline:none}
+
+.vehicle-summary{display:flex;flex-direction:column;gap:7px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2)}.vehicle-summary> b{font-size:12px}.vehicle-summary .notice{margin:0}.vehicle-summary .notice.success{color:var(--success,#059669)}
