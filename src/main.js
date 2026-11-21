@@ -232,15 +232,16 @@ async function sharePage(){
   if(routeLayers.length){const bounds=window.L.featureGroup(routeLayers).getBounds();if(bounds.isValid())bookingMap.fitBounds(bounds,{padding:[20,20]});}
  }
  box.querySelectorAll('[data-book]').forEach(form=>form.onsubmit=async e=>{
-  e.preventDefault();const f=new FormData(form),n=Number(f.get('seats')),val=k=>String(f.get(k)||'').trim(),b=form.querySelector('button[type=submit]')||form.querySelector('.btn.primary');busyButton(b,true);
+  e.preventDefault();if(form.dataset.submitted==='true')return;const f=new FormData(form),n=Number(f.get('seats')),val=k=>String(f.get(k)||'').trim(),b=form.querySelector('button[type=submit]')||form.querySelector('.btn.primary');busyButton(b,true);
   try{
    if(!val('pickup_name')||!val('dropoff_name')||![val('pickup_lat'),val('pickup_lng'),val('dropoff_lat'),val('dropoff_lng')].every(x=>x!==''&&Number.isFinite(Number(x))))throw Error('حدد مكان الركوب والنزول على الخريطة قبل إرسال الطلب.');
    if(Number(val('pickup_lat'))===Number(val('dropoff_lat'))&&Number(val('pickup_lng'))===Number(val('dropoff_lng')))throw Error('مكان الركوب والنزول لازم يكونوا مختلفين.');
    const {error}=await db.rpc('request_seats',{p_ride_id:form.dataset.book,p_pickup_name:val('pickup_name'),p_dropoff_name:val('dropoff_name'),p_pickup_order:0,p_dropoff_order:1,p_seats:n,p_offer:Number(form.dataset.price),p_pickup_lat:Number(val('pickup_lat')),p_pickup_lng:Number(val('pickup_lng')),p_dropoff_lat:Number(val('dropoff_lat')),p_dropoff_lng:Number(val('dropoff_lng'))});
    if(error)throw error;
-   const msg=form.querySelector('.notice');if(msg){msg.textContent='طلبك اتبعت للكابتن. هتلاقي تحديث الحالة في حجوزاتي.';msg.className='notice success';}
+   form.dataset.submitted='true';if(b){b.disabled=true;b.textContent='تم إرسال طلب الحجز';}
+   const msg=form.querySelector('.notice');if(msg){msg.textContent='طلبك اتبعت للكابتن بنجاح. تقدر تتابع الرد من صفحة «حجوزاتي». مش محتاج تبعت الطلب مرة تانية.';msg.className='notice success';}
   }catch(err){const msg=form.querySelector('.notice');if(msg){msg.textContent=err.message||'تعذر إرسال طلب الحجز.';msg.className='notice error';}}
-  finally{busyButton(b,false);}
+  finally{if(form.dataset.submitted!=='true')busyButton(b,false);}
  });
 }
 async function groupPage(){
