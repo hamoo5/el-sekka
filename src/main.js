@@ -165,10 +165,10 @@ async function groupPage(){
   const box=document.querySelector('#groupRequests');
   if(vehicleError||requestError){box.innerHTML='<section class="panel notice error">'+esc((vehicleError||requestError).message)+'</section>';return;}
   if(!vehicles?.length){box.innerHTML='<section class="panel empty">لا توجد مركبة معتمدة ونشطة على حسابك.</section>';return;}
-  if(!requests?.length){box.innerHTML='<section class="panel empty">لا توجد طلبات مشاركة طريق متاحة حاليًا.</section>';return;}
+  const requestList=requests||[];
   const {data:captainExistingOffers}=await db.from('share_route_negotiations').select('id,request_id,requester_offer_egp,captain_counter_offer_egp,agreed_price_egp,negotiation_status,created_at').eq('captain_id',session.user.id).order('created_at',{ascending:false}).limit(50);
   const handledRequestIds=new Set((captainExistingOffers||[]).map(o=>o.request_id));
-  const visibleRequests=requests.filter(r=>!handledRequestIds.has(r.id));
+  const visibleRequests=requestList.filter(r=>!handledRequestIds.has(r.id));
   if(!visibleRequests.length){box.innerHTML='<section class="panel empty">لا توجد طلبات جديدة للرد عليها. عروضك السابقة ظاهرة بالأسفل.</section>'; }
   const distanceMeters=(aLat,aLng,bLat,bLng)=>{
    const rad=n=>n*Math.PI/180, dLat=rad(bLat-aLat),dLng=rad(bLng-aLng);
