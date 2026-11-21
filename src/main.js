@@ -213,7 +213,7 @@ function ensureNotificationStyles(){
     .notification-wrap{position:relative;display:flex;align-items:center}
     .notification-toggle{position:relative;width:42px;height:42px;border:1px solid #ffffff24;border-radius:13px;background:#ffffff0d;color:#fff;font-size:20px}
     .notification-badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 4px;border-radius:10px;background:#e05252;color:#fff;font-size:10px;font-weight:900;display:grid;place-items:center}
-    .notification-panel{position:absolute;top:calc(100% + 10px);right:0;width:min(360px,calc(100vw - 24px));max-height:min(70vh,520px);overflow:hidden;display:flex;flex-direction:column;background:#142033;border:1px solid #ffffff22;border-radius:17px;box-shadow:0 18px 48px #0008;z-index:1200;color:#f8fafc}
+    .notification-panel{position:fixed;top:86px;right:max(12px,calc((100vw - 1080px)/2));width:min(360px,calc(100vw - 24px));max-height:min(70vh,520px);overflow:hidden;display:flex;flex-direction:column;background:#142033;border:1px solid #ffffff22;border-radius:17px;box-shadow:0 18px 48px #0008;z-index:1200;color:#f8fafc}
     .notification-panel[hidden],.notification-badge[hidden]{display:none}
     .notification-panel-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #ffffff18}
     .notification-mark-all{border:0;background:transparent;color:#b7f36b;font-size:12px;font-weight:800}
@@ -226,7 +226,7 @@ function ensureNotificationStyles(){
     .notification-item button{display:block;margin-top:7px;border:0;background:transparent;color:#b7f36b;padding:3px 0;font-size:11px}
     .notification-empty{padding:22px 8px;text-align:center;color:#94a3b8;font-size:13px}
     .topbar .notification-panel :where(b,small){color:inherit!important}
-    @media(max-width:420px){.topbar{gap:8px;padding-left:12px;padding-right:12px}.notification-panel{right:-54px}}
+    @media(max-width:420px){.topbar{gap:8px;padding-left:12px;padding-right:12px}}
   `;
   document.head.appendChild(style);
 }
@@ -320,7 +320,7 @@ async function loadProfile() {
     .eq('id', session.user.id).maybeSingle();
   if (error) console.error(error);
   profile = data;
-  if(!profile){stopPassengerBookingUpdates();stopUserNotificationUpdates();await supabase.auth.signOut();session=null;render();return;}
+  if(!profile){stopPassengerBookingUpdates();stopUserNotificationUpdates();userNotifications=[];unreadNotificationCount=0;await supabase.auth.signOut();session=null;render();return;}
   const actualRole=profile.account_type||(profile.role==='captain'?'captain':profile.role==='admin'?'admin':'rider');
   if(selectedAuthRole&&actualRole!=='admin'&&actualRole!==selectedAuthRole){stopPassengerBookingUpdates();stopUserNotificationUpdates();await supabase.auth.signOut();session=null;profile=null;document.getElementById('msg')?.replaceChildren(document.createTextNode(selectedAuthRole==='admin'?'هذا الحساب لا يملك صلاحية دخول الإدارة.':'هذا البريد الإلكتروني مسجل كحساب '+(selectedAuthRole==='rider'?'كابتن ولا يمكن استخدامه كراكب، يرجى التسجيل ببريد إلكتروني منفصل.':'راكب ولا يمكن استخدامه ككابتن، يرجى التسجيل ببريد إلكتروني منفصل.')));return;}
   profile.account_type=actualRole;
