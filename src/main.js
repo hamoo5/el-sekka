@@ -231,7 +231,7 @@ async function sharePage(){
 async function groupPage(){
  if(profile?.account_type==='captain'){
   const [{data:vehicles,error:vehicleError},{data:requests,error:requestError}]=await Promise.all([
-   db.from('vehicles').select('id,vehicle_type,make,model,plate_number').eq('captain_id',session.user.id).eq('approval_status','approved').eq('is_active',true),
+   db.from('vehicles').select('id,vehicle_type,make,model,plate_number,passenger_capacity').eq('captain_id',session.user.id).eq('approval_status','approved').eq('is_active',true),
    db.from('share_route_requests').select('id,requester_id,ride_mode,origin_name,origin_lat,origin_lng,destination_name,destination_lat,destination_lng,route_description,departure_at,preferred_vehicle_type,seats_requested,requester_seat_price_egp,request_status').eq('request_status','open').neq('requester_id',session.user.id).order('departure_at',{ascending:true}).limit(30)
   ]);
   shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">مشوارنا واحد · مساحة الكابتن</span><h1>طلبات مشاركة الطريق</h1><p>اختار الطلب المناسب لطريقك ومركبتك، واقبل السعر المقترح أو قدم عرضًا بديلًا.</p></div><div id="groupRequests" class="stack"></div></main>`);
@@ -284,32 +284,30 @@ async function groupPage(){
  }
  shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">مشوارنا واحد</span><h1>شارك مشوارك مع ناس في نفس السكة</h1><p>انشر اتجاهك وميعادك وعدد المقاعد. الكباتن القريبون من نفس المسار يقدروا يردوا على طلبك بعرض مناسب.</p></div>
  ${card('طلب مشاركة طريق',`<form id="groupRequestForm">
- ${input('من','origin_name','text',true,'منطقة الانطلاق')}
- ${input('خط عرض البداية','origin_lat','number',true,'30.01')}
- ${input('خط طول البداية','origin_lng','number',true,'31.40')}
- ${input('إلى','destination_name','text',true,'الوجهة')}
- ${input('خط عرض الوجهة','destination_lat','number',true,'30.05')}
- ${input('خط طول الوجهة','destination_lng','number',true,'31.35')}
- <div class="map-pick-actions"><button type="button" class="btn outline" data-map-pick="origin">حدد البداية على الخريطة</button><button type="button" class="btn outline" data-map-pick="destination">حدد النهاية على الخريطة</button></div><div id="groupRouteMap" class="picker-map"></div><p class="map-status" data-map-status>اختار نقطة البداية أو النهاية ثم اضغط مكانها على الخريطة.</p>
- ${input('تفاصيل الطريق أو مناطق المرور','route_description','text',false,'اختياري')}
- ${input('ميعاد التحرك','departure_at','datetime-local',true)}
- ${select('نوع المركبة المفضل','vehicle_type',[['','أي نوع متاح'],['private_car','ملاكي'],['suzuki','سوزوكي'],['microbus','ميكروباص']],false)}
- ${select('عدد المقاعد المطلوبة','seats',Array.from({length:6},(_,i)=>[String(i+1),String(i+1)]))}
- ${input('السعر المقترح للمقعد بالجنيه','seat_price','number',true,'مثال: 30')}
+ ${input('هتتحرك منين؟','origin_name','text',true,'مثال: التجمع الخامس، شارع التسعين')}
+ <div class="map-pick-actions"><button type="button" class="btn outline" data-map-current="origin">موقعي الحالي</button><button type="button" class="btn outline" data-map-pick="origin">اختار البداية على الخريطة</button></div><input type="hidden" name="origin_lat"><input type="hidden" name="origin_lng">
+ ${input('رايح فين؟','destination_name','text',true,'مثال: مدينة نصر، عباس العقاد')}
+ <div class="map-pick-actions"><button type="button" class="btn outline" data-map-pick="destination">اختار الوجهة على الخريطة</button></div><input type="hidden" name="destination_lat"><input type="hidden" name="destination_lng">
+ <div id="groupRouteMap" class="picker-map"></div><p class="map-status" data-map-status>حدد البداية والوجهة على الخريطة. مش محتاج تكتب أي إحداثيات.</p>
+ ${input('فيه أماكن تحب تعدّي عليها؟ (اختياري)','route_description','text',false,'اكتب المناطق القريبة من طريقك')}
+ ${input('محتاج المشوار إمتى؟','departure_at','datetime-local',true)}
+ ${select('تفضّل تركب إيه؟','vehicle_type',[['','أي مركبة مناسبة'],['private_car','ملاكي'],['suzuki','سوزوكي'],['microbus','ميكروباص']],false)}
+ ${select('محتاج كام مقعد؟','seats',Array.from({length:6},(_,i)=>[String(i+1),String(i+1)]))}
+ ${input('أقصى سعر مناسب ليك للمقعد (جنيه)','seat_price','number',true,'مثال: 30')}
  <button class="btn primary full" type="submit">نشر طلب مشاركة الطريق</button><p id="notice" class="notice" role="status"></p></form>`)}
  <div class="page-head"><h2>طلباتي وعروض الكباتن</h2></div><div id="myGroupRequests" class="stack">جارٍ تحميل طلباتك…</div></main>`);
  const form=document.querySelector('#groupRequestForm');
  attachCoordinatePicker('groupRouteMap',form);
  const dt=form.querySelector('[name="departure_at"]');
- dt.value=new Date(Date.now()+60*60*1000).toISOString().slice(0,16);
+ dt.value=new Date(Date.now()+60*60*1000-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
  form.onsubmit=async e=>{
   e.preventDefault();const fd=new FormData(form),v=k=>String(fd.get(k)||'').trim(),btn=form.querySelector('button[type="submit"]');busyButton(btn,true);
   try{
    const coords=['origin_lat','origin_lng','destination_lat','destination_lng'].map(k=>Number(v(k)));
-   if(coords.some(n=>!Number.isFinite(n)))throw Error('راجع إحداثيات البداية والنهاية.');
-   const price=Number(v('seat_price'));if(!Number.isFinite(price)||price<0)throw Error('أدخل سعرًا صحيحًا للمقعد.');
+   if(!v('origin_name')||!v('destination_name'))throw Error('اكتب مكان البداية والوجهة.');if(coords.some(n=>!Number.isFinite(n)||n===0))throw Error('حدد مكان البداية والوجهة على الخريطة أولًا.');if(new Date(v('departure_at'))<=new Date())throw Error('اختار ميعادًا قادمًا للمشوار.');
+   const price=Number(v('seat_price'));if(!Number.isFinite(price)||price<0)throw Error('اكتب أقصى سعر صحيح للمقعد.');if(!Number.isInteger(Number(v('seats')))||Number(v('seats'))<1||Number(v('seats'))>6)throw Error('عدد المقاعد المطلوبة من 1 إلى 6.');
    const {error}=await db.rpc('create_share_route_request',{p_ride_mode:'scheduled_share',p_origin_name:v('origin_name'),p_origin_lat:coords[0],p_origin_lng:coords[1],p_destination_name:v('destination_name'),p_destination_lat:coords[2],p_destination_lng:coords[3],p_route_description:v('route_description')||null,p_departure_at:new Date(v('departure_at')).toISOString(),p_seats:Number(v('seats')),p_seat_price:price,p_vehicle_type:v('vehicle_type')||null});
-   if(error)throw error;notice('تم نشر طلبك. سيظهر للكباتن المطابقين.','success');form.reset();dt.value=new Date(Date.now()+60*60*1000).toISOString().slice(0,16);await loadMyGroupRequests();
+   if(error)throw error;notice('طلبك اتنشر. الكباتن القريبين من طريقك يقدروا يرسلوا عروضهم.','success');form.reset();dt.value=new Date(Date.now()+60*60*1000-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);await loadMyGroupRequests();
   }catch(err){notice(err.message||'تعذر نشر الطلب.','error');}
   finally{busyButton(btn,false);}
  };
@@ -323,7 +321,7 @@ async function groupPage(){
   if(!requests?.length){box.innerHTML='<section class="panel empty">لم تنشر طلبات مشاركة طريق بعد.</section>';return;}
   const byRequest=new Map(requests.map(r=>[r.id,r]));
   const offers=(negotiations||[]).map(n=>{const r=byRequest.get(n.request_id);if(!r)return '';const status=({pending:'بانتظار رد الكابتن',counter_offer:'الكابتن قدم عرضًا بديلًا',accepted:'وافق الكابتن · في انتظار تأكيدك',confirmed:'تم تأكيد المشاركة',cancelled:'تم إلغاء التفاوض'})[n.negotiation_status]||n.negotiation_status;return `<article class="request"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><p>${status}</p><p>عرضك: ${money(n.requester_offer_egp)} ${n.captain_counter_offer_egp!==null?' · عرض الكابتن: '+money(n.captain_counter_offer_egp):''} ${n.agreed_price_egp!==null?' · السعر المتفق عليه: '+money(n.agreed_price_egp):''}</p>${n.negotiation_status==='counter_offer'?'<button class="btn primary" data-rider-action="accept" data-negotiation="'+n.id+'">قبول عرض الكابتن</button> <button class="btn outline" data-rider-action="counter" data-negotiation="'+n.id+'">عرض سعر آخر</button> <button class="btn danger" data-rider-action="cancel" data-negotiation="'+n.id+'">رفض العرض</button>':''}${n.negotiation_status==='accepted'?'<button class="btn primary" data-rider-action="confirm" data-negotiation="'+n.id+'">تأكيد المشاركة</button>':''}</article>`;}).join('');
-  const requestsHtml=requests.map(r=>`<article class="request"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><p>${esc(r.request_status)} · ${r.seats_requested} مقعد · ${money(r.requester_seat_price_egp)} للمقعد</p><p class="muted">${date(r.departure_at)}</p></article>`).join('');
+  const requestsHtml=requests.map(r=>`<article class="request"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><p>${esc(({open:'في انتظار عروض الكباتن',matched:'تم العثور على عرض مناسب',cancelled:'تم إلغاء الطلب',closed:'انتهى الطلب'})[r.request_status]||'طلبك منشور')} · ${r.seats_requested} مقعد · ${money(r.requester_seat_price_egp)} للمقعد</p><p class="muted">${date(r.departure_at)}</p></article>`).join('');
   box.innerHTML='<section class="panel"><h3>عروض الكباتن</h3>'+(offers||'<p>لا توجد عروض حتى الآن.</p>')+'</section><section class="panel"><h3>طلباتك المنشورة</h3>'+requestsHtml+'</section>';
   box.querySelectorAll('[data-rider-action]').forEach(btn=>btn.onclick=async()=>{
    let offer=null;if(btn.dataset.riderAction==='counter'){const raw=prompt('اكتب السعر الجديد للمقعد بالجنيه:');if(raw===null)return;offer=Number(raw);if(!Number.isFinite(offer)||offer<0){alert('أدخل سعرًا صحيحًا.');return;}}
