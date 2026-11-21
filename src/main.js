@@ -1521,7 +1521,7 @@ function shareHome() {
       if(result.error){host.textContent='تعذر تحميل حجوزات الكراسي.';return;}
       bs=result.data||[];
     }
-    if(!bs.length){host.innerHTML='<p class="muted">لا توجد حجوزات كراسي حتى الآن.</p>';return;}
+    if(!bs.length){window.__sekkaPickupReminders={};host.innerHTML='<p class="muted">لا توجد حجوزات كراسي حتى الآن.</p>';return;}
     const rideIds=[...new Set(bs.map(b=>b.ride_id))];
     const {data:rideInfoRows}=await supabase.from('rides').select('id,departure_at,route_distance_m,route_duration_seconds').in('id',rideIds);
     const rideInfo=new Map((rideInfoRows||[]).map(r=>[r.id,r]));
