@@ -2435,7 +2435,7 @@ async function captainDashboardPage() {
   layout(`
     <main class="wrap narrow captain-workspace">
       <section class="hero compact"><span class="tag">${captainAccountPage?'حساب الكابتن':'مركز تشغيل الكابتن'}</span><h1>${captainAccountPage?'اشتراكي ومستنداتي':'طلبات المشاوير'}</h1><p>${captainAccountPage?'تابع اعتماد مستنداتك واشتراكك لتظل جاهزاً لاستقبال الطلبات.':'راجع الطلبات المناسبة لمركبتك وتابع رحلاتك الحالية.'}</p></section>
-      ${captainAccountPage?`${postTrialNotice}${showPostTrialSubscription?subscription:''}${docs}${!showPostTrialSubscription&&!showFirstTripOffer?subscription:''}${showFirstTripOffer?'<section class="panel notice">يمكنك تفعيل الاشتراك مبكراً إذا رغبت، لكن أول مشوار تجريبي متاح لك مجاناً.</section>':''}`: `${firstTripOffer}${showFirstTripOffer?requestsSection:''}
+      ${captainAccountPage?`${showFirstTripOffer?firstTripOffer:''}${postTrialNotice}${showPostTrialSubscription?subscription:''}${docs}${!showPostTrialSubscription?subscription:''}`: `${firstTripOffer}${showFirstTripOffer?requestsSection:''}
       <section class="panel"><div class="fixed-trip-section-head"><div><h2>رحلاتك الحالية</h2><p class="muted">تابع الرحلات المقبولة وابدأها أو أنهها من شاشة الرحلة.</p></div></div><div class="fixed-trip-list">${activeTripError?'<p class="message">تعذر تحميل رحلاتك الحالية.</p>':activeTripCards}</div></section>
       ${showFirstTripOffer?'':requestsSection}`}
     </main>`);
