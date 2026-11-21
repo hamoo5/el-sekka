@@ -1597,6 +1597,25 @@ function shareHome() {
     const scheduled=$('seatOfferMode').value==='scheduled_share';
     $('seatOfferDateField').hidden=!scheduled; $('seatOfferDeparture').required=scheduled;
   });
+  let seatOfferMap=null,seatOfferActivePoint='origin',seatOfferOriginMarker=null,seatOfferDestinationMarker=null;
+  const initSeatOfferMap=()=>{
+    const el=$('seatOfferMap');if(!el||!window.L||seatOfferMap)return;
+    seatOfferMap=window.L.map(el,{zoomControl:true}).setView([30.0444,31.2357],11);
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(seatOfferMap);
+    seatOfferMap.on('click',async event=>{
+      const p=event.latlng,origin=seatOfferActivePoint==='origin';
+      const icon=window.L.divIcon({className:'sekka-pin-wrap',html:'<span class="sekka-pin '+(origin?'pickup-pin':'dropoff-pin')+'"></span>',iconSize:[24,24],iconAnchor:[12,22]});
+      let marker=origin?seatOfferOriginMarker:seatOfferDestinationMarker;
+      if(marker)marker.setLatLng(p);else{marker=window.L.marker(p,{draggable:true,icon:icon}).addTo(seatOfferMap);if(origin)seatOfferOriginMarker=marker;else seatOfferDestinationMarker=marker;marker.on('dragend',async e=>{const q=e.target.getLatLng();$(origin?'seatOfferOrigin':'seatOfferDestination').value=await reversePlace(q.lat,q.lng);});}
+      $(origin?'seatOfferOrigin':'seatOfferDestination').value=await reversePlace(p.lat,p.lng);
+      $('seatOfferMapHint').textContent=origin?'تم تحديد البداية. اختار تحديد النهاية ثم اضغط على الخريطة.':'تم تحديد النهاية. راجع العنوانين قبل النشر.';
+    });
+    $('seatPickOrigin')?.addEventListener('click',()=>{seatOfferActivePoint='origin';$('seatPickOrigin').classList.add('active');$('seatPickDestination').classList.remove('active');});
+    $('seatPickDestination')?.addEventListener('click',()=>{seatOfferActivePoint='destination';$('seatPickDestination').classList.add('active');$('seatPickOrigin').classList.remove('active');});
+    requestAnimationFrame(()=>seatOfferMap.invalidateSize());
+  };
+  const retrySeatOfferMap=()=>{if(!$('seatOfferMap'))return;if(!window.L){setTimeout(retrySeatOfferMap,180);return;}initSeatOfferMap();};
+  retrySeatOfferMap();
   let shareLastGeocodeAt=0;
   async function geocodeShareAddress(query){
     const wait=Math.max(0,1100-(Date.now()-shareLastGeocodeAt));
