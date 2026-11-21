@@ -339,7 +339,7 @@ async function linesPage(){
  if(profile?.account_type==='captain'){
   const [{data:vehicles,error:vehicleError},{data:lines,error:lineError}]=await Promise.all([
    db.from('vehicles').select('id,vehicle_type,make,model,plate_number,passenger_capacity').eq('captain_id',session.user.id).eq('approval_status','approved').eq('is_active',true),
-   db.from('sekka_lines').select('id,title,origin_name,destination_name,approval_status,is_active,created_at').eq('captain_id',session.user.id).order('created_at',{ascending:false}).limit(30)
+   db.from('sekka_lines').select('id,title,origin_name,destination_name,vehicle_id,approval_status,is_active,created_at').eq('captain_id',session.user.id).order('created_at',{ascending:false}).limit(30)
   ]);
   let captainLineBookingsHtml='<p>لا توجد حجوزات على خطوطك حتى الآن.</p>';
   const ownLineIds=(lines||[]).map(l=>l.id);
@@ -388,6 +388,9 @@ async function linesPage(){
   ${card('حجوزات الركاب على خطوطك',captainLineBookingsHtml)}
   </main>`);
   const scheduleForm=document.querySelector('#lineScheduleForm');
+  const scheduleLine=scheduleForm?.querySelector('[name="line_id"]'),scheduleSeats=scheduleForm?.querySelector('[name="schedule_seats"]');
+  const syncScheduleSeats=()=>{if(!scheduleLine||!scheduleSeats)return;const line=(lines||[]).find(l=>l.id===scheduleLine.value),vehicle=(vehicles||[]).find(v=>v.id===line?.vehicle_id),max=Number(vehicle?.passenger_capacity)||({private_car:3,suzuki:6,microbus:13})[vehicle?.vehicle_type]||1,current=Number(scheduleSeats.value)||1;scheduleSeats.max=String(max);scheduleSeats.value=String(Math.min(current,max));};
+  scheduleLine?.addEventListener('change',syncScheduleSeats);syncScheduleSeats();
   if(scheduleForm)scheduleForm.onsubmit=async e=>{
    e.preventDefault();const fd=new FormData(scheduleForm),days=fd.getAll('schedule_days').map(Number),btn=scheduleForm.querySelector('button[type="submit"]');
    const note=scheduleForm.querySelector('#scheduleNotice');busyButton(btn,true);
@@ -396,6 +399,9 @@ async function linesPage(){
   };
   const form=document.querySelector('#lineCreateForm');
   attachLineStopMap(form);
+  const lineVehicle=form?.querySelector('[name="vehicle_id"]'),lineSeats=form?.querySelector('[name="seats"]');
+  const syncLineSeats=()=>{if(!lineVehicle||!lineSeats)return;const vehicle=(vehicles||[]).find(v=>v.id===lineVehicle.value),max=Number(vehicle?.passenger_capacity)||({private_car:3,suzuki:6,microbus:13})[vehicle?.vehicle_type]||1,current=Number(lineSeats.value)||1;lineSeats.innerHTML=Array.from({length:max},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('');lineSeats.value=String(Math.min(current,max));};
+  lineVehicle?.addEventListener('change',syncLineSeats);syncLineSeats();
   if(form)form.onsubmit=async e=>{
    e.preventDefault();const fd=new FormData(form),v=k=>String(fd.get(k)||'').trim(),btn=form.querySelector('button[type="submit"]');busyButton(btn,true);
    try{
@@ -427,13 +433,15 @@ async function linesPage(){
   const lineSchedules=(schedules||[]).filter(s=>s.line_id===line.id),lineStops=(stops||[]).filter(s=>s.line_id===line.id);
   return `<section class="panel"><h2>${esc(line.title)}</h2><h3>${esc(line.origin_name)} ← ${esc(line.destination_name)}</h3><p>${esc(line.description||'خط معتمد من السكة')}</p><p class="muted">المحطات: ${lineStops.map(s=>esc(s.stop_name)).join(' ← ')}</p>${lineSchedules.map(s=>{
    const pickup=lineStops.filter(x=>x.can_pickup),dropoff=lineStops.filter(x=>x.can_dropoff);
-   return `<form class="line-book-form" data-line-schedule="${s.id}" data-time="${String(s.departure_time).slice(0,5)}"><div class="ride-top"><b>ميعاد ${String(s.departure_time).slice(0,5)}</b><span class="pill">${s.seats_total} مقعد إجمالي</span></div><p>أيام التشغيل: ${(s.service_days||[]).map(d=>dayNames[d]).join('، ')} · ${money(s.seat_price_egp)} للمقعد</p><label>تاريخ الرحلة<input type="date" name="run_date" min="${localDateValue()}" max="${localDateValue(new Date(Date.now()+90*86400000))}" required></label><label>محطة الركوب<select name="pickup_stop" required>${pickup.map(x=>'<option value="'+x.id+'">'+esc(x.stop_name)+'</option>').join('')}</select></label><label>محطة النزول<select name="dropoff_stop" required>${dropoff.map(x=>'<option value="'+x.id+'">'+esc(x.stop_name)+'</option>').join('')}</select></label><p class="line-availability" data-line-availability>حدد التاريخ ومحطتي الركوب والنزول لمعرفة المقاعد المتاحة على الجزء المطلوب.</p><label>عدد المقاعد<select name="seats">${Array.from({length:Math.min(13,s.seats_total)},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('')}</select></label><button class="btn primary full" type="submit">احجز في الخط</button><p class="notice" role="status"></p></form>`;
+   return `<form class="line-book-form" data-line-schedule="${s.id}" data-time="${String(s.departure_time).slice(0,5)}"><div class="ride-top"><b>ميعاد ${String(s.departure_time).slice(0,5)}</b><span class="pill">${s.seats_total} مقعد إجمالي</span></div><p>أيام التشغيل: ${(s.service_days||[]).map(d=>dayNames[d]).join('، ')} · ${money(s.seat_price_egp)} للمقعد</p><label>تاريخ الرحلة<input type="date" name="run_date" min="${localDateValue()}" max="${localDateValue(new Date(Date.now()+90*86400000))}" required></label><label>محطة الركوب<select name="pickup_stop" required>${pickup.map(x=>'<option value="'+x.id+'" data-stop-order="'+x.stop_order+'">'+esc(x.stop_name)+'</option>').join('')}</select></label><label>محطة النزول<select name="dropoff_stop" required>${dropoff.map(x=>'<option value="'+x.id+'" data-stop-order="'+x.stop_order+'">'+esc(x.stop_name)+'</option>').join('')}</select></label><p class="line-availability" data-line-availability>حدد التاريخ ومحطتي الركوب والنزول لمعرفة المقاعد المتاحة على الجزء المطلوب.</p><label>عدد المقاعد<select name="seats">${Array.from({length:Math.min(13,s.seats_total)},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('')}</select></label><button class="btn primary full" type="submit">احجز في الخط</button><p class="notice" role="status"></p></form>`;
   }).join('')||'<p class="muted">لا توجد مواعيد نشطة لهذا الخط.</p>'}</section>`;
  }).join('');
  async function refreshLineAvailability(form){
   const fd=new FormData(form),dateValue=String(fd.get('run_date')||''),pickup=String(fd.get('pickup_stop')||''),dropoff=String(fd.get('dropoff_stop')||''),time=form.dataset.time;
   const status=form.querySelector('[data-line-availability]'),seatSelect=form.querySelector('[name="seats"]'),submit=form.querySelector('button[type="submit"]');
   if(!dateValue||!pickup||!dropoff)return;
+  const pickupOrder=Number(form.querySelector('[name="pickup_stop"] option:checked')?.dataset.stopOrder),dropoffOrder=Number(form.querySelector('[name="dropoff_stop"] option:checked')?.dataset.stopOrder);
+  if(!Number.isFinite(pickupOrder)||!Number.isFinite(dropoffOrder)||pickupOrder>=dropoffOrder){submit.disabled=true;if(status)status.textContent='اختار محطة ركوب تسبق محطة النزول في ترتيب الخط.';return;}
   const departure=new Date(dateValue+'T'+time+':00');if(Number.isNaN(departure.getTime()))return;
   if(status)status.textContent='جارٍ حساب المقاعد المتاحة على هذا الجزء…';
   try{
