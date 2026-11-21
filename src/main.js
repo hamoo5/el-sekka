@@ -1558,7 +1558,11 @@ function shareHome() {
     const scheduled=$('seatOfferMode').value==='scheduled_share';
     $('seatOfferDateField').hidden=!scheduled; $('seatOfferDeparture').required=scheduled;
   });
+  let shareLastGeocodeAt=0;
   async function geocodeShareAddress(query){
+    const wait=Math.max(0,1100-(Date.now()-shareLastGeocodeAt));
+    if(wait)await new Promise(resolve=>setTimeout(resolve,wait));
+    shareLastGeocodeAt=Date.now();
     const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=eg&q='+encodeURIComponent(query+', Egypt');
     const response=await fetch(url,{headers:{'Accept-Language':'ar'}});
     if(!response.ok)throw new Error('تعذر البحث عن العنوان.');
