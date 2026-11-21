@@ -107,27 +107,18 @@ function attachCoordinatePicker(mapId,form){
 }
 function attachLineStopMap(form){
  const mapElement=form?.querySelector('#lineStopsMap');if(!mapElement)return;
- if(!window.L){mapElement.textContent='تعذر تحميل الخريطة. يمكنك إدخال المحطات وإحداثياتها في الحقل النصي.';return;}
+ if(!window.L){mapElement.textContent='تعذر تحميل الخريطة. حدّث الصفحة وحاول مرة أخرى.';return;}
  const map=window.L.map(mapElement).setView([30.0444,31.2357],11);
  window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
- let selected=null,marker=null;
- const status=form.querySelector('[data-stop-map-status]'),addButton=form.querySelector('#addMapStop');
- map.on('click',event=>{
-  selected=event.latlng;if(marker)marker.remove();
-  marker=window.L.marker([selected.lat,selected.lng]).addTo(map);
-  addButton.disabled=false;if(status)status.textContent='تم تحديد الموقع. اكتب اسم المحطة ثم أضفها.';
- });
- addButton.onclick=()=>{
-  const name=form.querySelector('[name="map_stop_name"]').value.trim();
-  if(!selected){if(status)status.textContent='حدد مكان المحطة بالضغط على الخريطة أولًا.';return;}
-  if(!name){if(status)status.textContent='اكتب اسم المحطة أولًا.';return;}
-  const area=form.querySelector('[name="stops"]'),row=name+' | '+selected.lat.toFixed(6)+' | '+selected.lng.toFixed(6);
-  area.value=area.value.trim()?area.value.trim()+'\n'+row:row;
-  form.querySelector('[name="map_stop_name"]').value='';selected=null;addButton.disabled=true;
-  if(marker){marker.remove();marker=null;}if(status)status.textContent='تمت إضافة المحطة إلى القائمة.';
- };
- setTimeout(()=>map.invalidateSize(),150);
- return map;
+ let selected=null,marker=null,selectedName='';
+ const status=form.querySelector('[data-stop-map-status]'),addButton=form.querySelector('#addMapStop'),nameInput=form.querySelector('[name="map_stop_name"]'),area=form.querySelector('[name="stops"]'),list=form.querySelector('#lineStopsList');
+ const readStops=()=>area.value.trim()?area.value.trim().split(/\r?\n/).filter(Boolean):[];
+ const drawStops=()=>{const rows=readStops();if(list)list.innerHTML=rows.length?rows.map((row,i)=>'<div class="stop-chip"><span>'+(i+1)+'. '+esc(row.split('|')[0]?.trim()||'محطة')+'</span><button type="button" class="text-btn" data-remove-stop="'+i+'">حذف</button></div>').join(''):'<p class="muted">لم تضف محطات بعد. ابدأ بمحطة الانطلاق.</p>';list?.querySelectorAll('[data-remove-stop]').forEach(btn=>btn.onclick=()=>{const rows=readStops();rows.splice(Number(btn.dataset.removeStop),1);area.value=rows.join('\n');drawStops();if(status)status.textContent='تم حذف المحطة.';});};
+ const setSelection=async(lat,lng)=>{selected={lat,lng};if(marker)marker.remove();marker=window.L.marker([lat,lng]).addTo(map);if(status)status.textContent='بنحدد اسم المكان…';const place=await reversePlaceName(lat,lng);selectedName=place||'';if(nameInput&&!nameInput.value.trim()&&place)nameInput.value=place;if(addButton)addButton.disabled=false;if(status)status.textContent='تم تحديد '+(place||'الموقع')+'. اكتب اسم المحطة لو محتاج تعدله، ثم اضغط «إضافة المحطة».';};
+ map.on('click',event=>setSelection(event.latlng.lat,event.latlng.lng));
+ form.querySelector('#stopCurrentLocation')?.addEventListener('click',()=>{if(!navigator.geolocation){if(status)status.textContent='تحديد موقعك غير مدعوم على هذا الجهاز.';return;}if(status)status.textContent='بنحدد موقعك الحالي…';navigator.geolocation.getCurrentPosition(pos=>{map.setView([pos.coords.latitude,pos.coords.longitude],15);setSelection(pos.coords.latitude,pos.coords.longitude);},()=>{if(status)status.textContent='مقدرناش نحدد موقعك. اختار المكان على الخريطة.';},{enableHighAccuracy:true,timeout:12000,maximumAge:60000});});
+ addButton.onclick=()=>{const name=nameInput?.value.trim()||selectedName;if(!selected){if(status)status.textContent='حدد مكان المحطة على الخريطة أولًا.';return;}if(!name){if(status)status.textContent='اكتب اسم المحطة أو انتظر تحديد اسم المكان.';return;}const rows=readStops();rows.push(name+' | '+selected.lat.toFixed(6)+' | '+selected.lng.toFixed(6));area.value=rows.join('\n');drawStops();if(nameInput)nameInput.value='';selected=null;selectedName='';addButton.disabled=true;if(marker){marker.remove();marker=null;}if(status)status.textContent='اتضافت المحطة. حدد المحطة التالية بالترتيب.';};
+ drawStops();setTimeout(()=>map.invalidateSize(),150);return map;
 }
 function attachBookingMap(mapId,container){
  const mapElement=document.getElementById(mapId);if(!mapElement||!container)return;
@@ -376,14 +367,14 @@ async function linesPage(){
     }
    }
   }
-  shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">خطوط السكة · مساحة الكابتن</span><h1>أنشئ خطًا ثابتًا</h1><p>حدد المحطات وأيام التشغيل وميعاد التحرك. بعد مراجعة الإدارة سيظهر الخط للركاب.</p></div>
+  shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">خطوط السكة · مساحة الكابتن</span><h1>أنشئ خطًا ثابتًا</h1><p>ارسم خطك على الخريطة بإضافة محطات التوقف بالترتيب، وحدد أيام ومواعيد التشغيل. الخط هيظهر للركاب بعد اعتماد الإدارة.</p></div>
   ${card('خط جديد',`<form id="lineCreateForm">
    ${input('اسم الخط','title','text',true,'مثال: التجمع – مدينة نصر')}
    ${select('المركبة','vehicle_id',(vehicles||[]).map(v=>[v.id,(v.make||'')+' '+(v.model||'')+' · '+v.plate_number+' · '+v.passenger_capacity+' مقعد']))}
    ${input('محطة البداية','origin_name','text',true,'اسم أول محطة')}
    ${input('محطة النهاية','destination_name','text',true,'اسم آخر محطة')}
    ${input('وصف الخط','description','text',false,'المناطق التي يمر بها الخط')}
-   <label>المحطات بالترتيب (كل محطة في سطر: الاسم | خط العرض | خط الطول)<textarea name="stops" rows="5" required placeholder="محطة البداية | 30.01 | 31.40&#10;محطة وسطى | 30.03 | 31.42&#10;محطة النهاية | 30.05 | 31.45"></textarea></label><div class="line-stop-map-tools"><label>اسم المحطة المختارة<input name="map_stop_name" type="text" placeholder="اكتب اسم المحطة"></label><button type="button" class="btn outline" id="addMapStop" disabled>إضافة المحطة المحددة</button></div><div id="lineStopsMap" class="picker-map"></div><p class="map-status" data-stop-map-status>اضغط على الخريطة لتحديد موقع محطة، ثم اكتب اسمها وأضفها. أضف البداية أولًا والنهاية أخيرًا.</p>
+   <textarea name="stops" required hidden></textarea><div class="line-stop-map-tools"><label>اسم المحطة<input name="map_stop_name" type="text" placeholder="اسم المحطة المحددة أو اكتبه"></label><button type="button" class="btn outline" id="stopCurrentLocation">موقعي الحالي</button><button type="button" class="btn primary" id="addMapStop" disabled>إضافة المحطة</button></div><div id="lineStopsMap" class="picker-map"></div><p class="map-status" data-stop-map-status>اضغط على الخريطة لتحديد المحطات بالترتيب: البداية ثم المحطات الوسطى ثم النهاية.</p><div id="lineStopsList" class="stop-list"><p class="muted">لم تضف محطات بعد.</p></div>
    <fieldset class="days-field"><legend>أيام تشغيل الخط</legend>${dayNames.map((d,i)=>'<label class="check"><input type="checkbox" name="days" value="'+i+'" '+(i<5?'checked':'')+'> '+d+'</label>').join('')}</fieldset>
    ${input('ميعاد التحرك','departure_time','time',true)}
    ${input('عدد المقاعد في الرحلة','seats','number',true,'حسب سعة المركبة')}
