@@ -1997,8 +1997,10 @@ function shareHome() {
     const rides=riderCurrentLocation&& !showFarRides?nearbyRides:allRides;
     const toggle=$('toggleFarRides');
     if(toggle){
+      const farCount=allRides.filter(ride=>ride._distanceFromUser>10000).length;
       toggle.hidden=!hasFarRides;
-      toggle.textContent=showFarRides?'عرض الخطوط الأقرب فقط':'عرض الخطوط الأبعد من 10 كم ('+allRides.filter(ride=>ride._distanceFromUser>10000).length+')';
+      toggle.className=(!showFarRides&&nearbyRides.length===0)?'btn primary far-rides-cta':'btn outline';
+      toggle.textContent=showFarRides?'عرض الخطوط الأقرب فقط':'لا توجد خطوط قريبة؟ اعرض '+farCount+' خط أبعد من 10 كم';
     }
     if(riderCurrentLocation){
       const status=$('rideLocationStatus');
