@@ -998,7 +998,7 @@ async function tripStatusPage(tripId){
   const active=['accepted','in_progress'].includes(trip.request_status);
   const [{data:counterpartyName},{data:vehicle},{data:location}]=await Promise.all([
     trip.accepted_captain_id?supabase.rpc('get_trip_counterparty_name',{p_trip_id:trip.id}):Promise.resolve({data:null}),
-    trip.accepted_vehicle_id?supabase.from('vehicles').select('make,model,color,plate_number').eq('id',trip.accepted_vehicle_id).maybeSingle():Promise.resolve({data:null}),
+    trip.accepted_vehicle_id?supabase.from('vehicles').select('make,model,color').eq('id',trip.accepted_vehicle_id).maybeSingle():Promise.resolve({data:null}),
     active&&trip.accepted_captain_id?supabase.from('driver_locations').select('latitude,longitude,accuracy_meters,updated_at').eq('captain_id',trip.accepted_captain_id).eq('trip_id',trip.id).maybeSingle():Promise.resolve({data:null})
   ]);
   const partnerName=counterpartyName||'الطرف الآخر';
@@ -1017,7 +1017,7 @@ async function tripStatusPage(tripId){
         <p class="muted">عدد الركاب: ${esc(trip.passenger_count)} · المركبة: ${esc(trip.vehicle_type)}</p>
         ${trip.pickup_note?'<p><b>ملاحظة الركوب:</b> '+esc(trip.pickup_note)+'</p>':''}
         ${preferenceLabels.length?'<div class="fixed-trip-preferences">'+preferenceLabels.map(x=>'<span>'+x+'</span>').join('')+'</div>':''}
-        ${active?'<div class="driver-summary"><b>الكابتن: '+esc(captainName||'بانتظار بيانات الكابتن')+'</b><small>المركبة: '+esc([vehicle?.make,vehicle?.model,vehicle?.color].filter(Boolean).join(' ')||'—')+' · اللوحة: '+esc(vehicle?.plate_number||'—')+'</small></div>':''}
+        ${active?'<div class="driver-summary"><b>الكابتن: '+esc(captainName||'بانتظار بيانات الكابتن')+'</b><small>المركبة: '+esc([vehicle?.make,vehicle?.model,vehicle?.color].filter(Boolean).join(' ')||'—')++'</small></div>':''}
         ${trip.request_status==='searching'?'<div class="notice">طلبك ظاهر للكباتن المعتمدين. هنحدث الحالة هنا عند قبول كابتن.</div>':''}
         ${trip.request_status==='completed'?'<div class="notice">وصلت بالسلامة. انتهت مشاركة الموقع والمحادثة.</div>':''}
         ${trip.request_status==='cancelled'?'<div class="notice">تم إلغاء الرحلة.</div>':''}
@@ -2197,7 +2197,7 @@ async function captainDashboardPage() {
             <div class="fixed-trip-card-head"><b>طلب مشوار جديد</b><strong>${Number(request.fixed_fare_egp||0).toLocaleString('ar-EG')} جنيه</strong></div>
             <p><b>من:</b> ${esc(request.origin_name)}</p>
             <p><b>إلى:</b> ${esc(request.destination_name)}</p>
-            <p><b>المركبة:</b> ${esc(({private_car:'ملاكي',taxi:'تاكسي',suzuki:'سوزوكي',microbus:'ميكروباص',scooter:'اسكوتر',motorcycle:'موتوسيكل'})[request.vehicle_type]||request.vehicle_type)} · <b>الركاب:</b> ${esc(request.passenger_count)}</p>
+            <p><b>المركبة:</b> ${esc(({private_car:'ملاكي',taxi:'تاكسي',suzuki:'سوزوكي',microbus:'ميكروباص',scooter:'اسكوتر',motorcycle:'دراجة نارية'})[request.vehicle_type]||request.vehicle_type)} · <b>الركاب:</b> ${esc(request.passenger_count)}</p>
             ${request.is_scheduled?'<p><b>موعد محدد:</b> '+esc(request.scheduled_at?new Date(request.scheduled_at).toLocaleString('ar-EG'):'')+'</p>':'<p class="muted">مشوار فوري</p>'}
             ${request.pickup_note?'<p><b>ملاحظة الركوب:</b> '+esc(request.pickup_note)+'</p>':''}
             ${preferenceLabels.length?'<div class="fixed-trip-preferences">'+preferenceLabels.map(item=>'<span>'+item+'</span>').join('')+'</div>':'<small class="muted">لا توجد تفضيلات إضافية.</small>'}
