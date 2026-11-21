@@ -86,7 +86,7 @@ function layout(body) {
       <button type="button" data-nav-page="captain-account" class="${page==='captain-account'?'active':''}"><span>💳</span><small>اشتراكي ومستنداتي</small></button>
       <button type="button" data-nav-page="profile" class="${page==='profile'?'active':''}"><span>👤</span><small>حسابي</small></button>
     </nav>` : rider ? `<nav class="app-bottom-nav rider-nav" aria-label="تنقل الراكب">
-      <button type="button" data-nav-page="trip" class="${['trip','trip-search','trip-options'].includes(page)?'active':''}"><span>🚖</span><small>اطلب مشوار</small></button>
+      <button type="button" data-nav-page="share" class="${page==='share'?'active':''}"><span>🗺️</span><small>الخطوط المتاحة</small></button>
       <button type="button" data-nav-page="trips" class="${page==='trips'||page==='trip-status'?'active':''}"><span>📋</span><small>مشاويري</small></button>
       <button type="button" data-nav-page="profile" class="${page==='profile'||page==='rewards'?'active':''}"><span>👤</span><small>حسابي</small></button>
     </nav>` : `<nav class="app-bottom-nav"><button type="button" data-nav-page="admin" class="${page==='admin'?'active':''}"><span>⚙️</span><small>الإدارة</small></button><button type="button" data-nav-page="profile"><span>👤</span><small>حسابي</small></button></nav>` : ''}
@@ -121,7 +121,7 @@ function setup() {
       <section class="hero">
         <span class="tag">EL SEKKA · V2</span>
         <h1>كل الطرق <em>تبدأ من هنا</em></h1>
-        <p>احجز مشواراً عادياً فورياً أو مجدولاً بسعر ثابت، أو شارك كرسياً بسعر ثابت ومعلن قبل إرسال طلب الحجز.</p>
+        <p>اكتشف الخطوط المنشورة، واختار نقطة ركوب ونزول على نفس الطريق بسعر ثابت ومعلن.</p>
       </section>
       <section class="panel">
         <h2>الاتصال بقاعدة البيانات غير مضبوط</h2>
@@ -448,13 +448,12 @@ const RIDER_DRAFT_KEY='el-sekka-rider-trip-draft';
 function readRiderDraft(){try{return JSON.parse(sessionStorage.getItem(RIDER_DRAFT_KEY)||'{}')||{};}catch(_){return {};}}
 function saveRiderDraft(value){try{sessionStorage.setItem(RIDER_DRAFT_KEY,JSON.stringify(value));}catch(_){}}
 function riderStartPage(){
- const draft=readRiderDraft(),places=savedPassengerDestinations(),icons={home:'🏠',work:'💼',metro:'🚇'},labels={home:'البيت',work:'الشغل',metro:'المترو'};
- layout(`<main class="rider-start-screen"><section class="rider-search-hero"><div class="sekka-hero-top"><span class="sekka-live"><i></i> طريقك يبدأ من هنا</span><span class="sekka-wordmark">السكة <b>↗</b></span></div><div class="sekka-hero-copy"><small>أقرب .. أسهل .. أوفر</small><h1>القاهرة على<br><em>طريقك</em></h1><p>اختار وجهتك، وإحنا نوصلك بالطريقة اللي تناسبك.</p></div><div class="sekka-city-art" aria-hidden="true"><span class="city-sun"></span><span class="city-tower tower-a"></span><span class="city-tower tower-b"></span><span class="city-tower tower-c"></span><span class="city-road"></span><span class="city-car">🚘</span><span class="city-pin">●</span></div><button type="button" class="rider-search-box" id="openRiderSearch"><span>🔎</span><b>إلى أين تتجه؟</b><small>اضغط لاختيار مكان الركوب والوجهة</small></button><button type="button" class="rider-mode-mini" id="riderModeMini">${draft.mode==='shared'?'👥 مشترك':'🚖 عادي'} <span>⌄</span></button><div class="rider-mode-menu" id="riderModeMenu" hidden><button type="button" data-mode="normal">🚖 مشوار عادي</button><button type="button" data-mode="shared">👥 مشوار مشترك</button></div></section><section class="sekka-mode-section"><div class="sekka-section-head"><div><small>اختار أسلوب مشوارك</small><h2>تتحرك إزاي النهارده؟</h2></div><span>01 / 02</span></div><div class="sekka-mode-cards"><button type="button" data-mode="normal" class="sekka-mode-card"><span class="sekka-mode-icon">↗</span><span><b>مشوار عادي</b><small>خصوصية وسعر واضح من البداية</small></span><i>←</i></button><button type="button" data-mode="shared" class="sekka-mode-card"><span class="sekka-mode-icon shared">⇄</span><span><b>مشاركة الطريق</b><small>كرسي فاضي؟ وفّر في تكلفة رحلتك</small></span><i>←</i></button></div></section><section class="rider-saved-section"><div class="sekka-section-head"><div><small>اختصاراتك اليومية</small><h2>أماكنك المحفوظة</h2></div><span>⌖</span></div><div class="rider-saved-places">${['home','work','metro'].map(k=>`<button type="button" data-saved-place="${k}" class="rider-saved-place ${places[k]?'saved':'empty'}"><span>${icons[k]}</span><b>${labels[k]}</b><small>${places[k]?.name?esc(places[k].name):'إضافة مكان'}</small></button>`).join('')}</div></section><section class="sekka-value-strip"><div><small>ميزة السكة</small><b>المشوار مش لازم يكون لوحدك</b><span>شارك الطريق مع حد رايح في نفس اتجاهك ووفروا سوا.</span></div><strong>⇄</strong></section>${draft.destination?.name?`<section class="rider-recent-place"><small>آخر وجهة اخترتها</small><b>${esc(draft.destination.name)}</b><button type="button" id="continueLastTrip">متابعة الاختيار ←</button></section>`:''}</main>`);
- document.getElementById('openRiderSearch')?.addEventListener('click',()=>{page='trip-search';render();});
- document.getElementById('riderModeMini')?.addEventListener('click',()=>{document.getElementById('riderModeMenu').hidden=!document.getElementById('riderModeMenu').hidden;});
- document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{const d=readRiderDraft();d.mode=b.dataset.mode;saveRiderDraft(d);render();}));
- document.querySelectorAll('[data-saved-place]').forEach(b=>b.addEventListener('click',()=>{const place=places[b.dataset.savedPlace];if(!place){page='trip-search';render();return;}const d=readRiderDraft();d.destination=place;d.mode=d.mode||'normal';saveRiderDraft(d);page=readRiderDraft().mode==='shared'?'share':'trip-options';render();}));
- document.getElementById('continueLastTrip')?.addEventListener('click',()=>{page='trip-options';render();});
+ layout(`<main class="wrap narrow rider-routes-home">
+   <section class="hero compact"><span class="tag">السكة · مشاركة الطريق</span><h1>مشوارك يبدأ من <em>الخط الأقرب</em></h1><p>اختار خطًا منشورًا، وشوف مساره وموعده والمقاعد والسعر قبل ما تحجز.</p></section>
+   <section class="panel rider-routes-entry"><div class="rider-routes-entry-icon">🗺️</div><h2>الخطوط المتاحة</h2><p class="muted">هنعرض لك الخطوط المنشورة ونرتب الأقرب لموقعك. اختار نقطة واضحة على الطريق للركوب والنزول.</p><button type="button" class="btn primary" id="openAvailableRoutes">اعرض الخطوط المتاحة ←</button><small>الحجز يكون على خط منشور وموعد محدد، ولا توجد رحلات فورية.</small></section>
+   <section class="panel rider-how-it-works"><h2>الحجز في 3 خطوات</h2><ol><li>حدد موقعك واعرف أقرب الخطوط.</li><li>افتح الخط وشوف مساره وموعده والسعر.</li><li>اختار مكان ركوب ونزول واضحين على نفس الخط، ثم ابعت طلب الحجز.</li></ol></section>
+ </main>`);
+ document.getElementById('openAvailableRoutes')?.addEventListener('click',()=>{page='share';render();});
 }
 function riderSearchPage(){
  const draft=readRiderDraft(),places=savedPassengerDestinations();
@@ -1273,7 +1272,7 @@ function shareHome() {
         <h2>انشر طلب مشاركة طريق</h2>
         <form id="shareRequestForm" class="form">
           <label>نوع المشاركة
-            <select id="shareMode"><option value="live_share">فوري</option><option value="scheduled_share">مجدول</option></select>
+            <select id="shareMode"><option value="scheduled_share">بموعد محدد</option></select>
           </label>
           <label id="shareDateField" hidden>موعد التحرك<input id="shareDeparture" type="datetime-local"></label>
           <section class="location-card">
@@ -1327,7 +1326,7 @@ function shareHome() {
       </section>` : ''}
       ${isCaptain ? '<section class="panel" hidden><h2>متابعة تفاوضاتك ككابتن</h2><div id="shareCaptainNegotiations" class="share-list">جارٍ تحميل التفاوضات...</div></section>' : ''}
       <section class="panel"><h2>حجوزات الكراسي الحالية</h2><div id="legacyShareBookings" class="share-list">جارٍ تحميل الحجوزات...</div></section>
-      ${isCaptain?'<section class="panel captain-own-routes-panel"><div class="share-section-heading"><div><span class="tag">لوحة الكابتن</span><h2>خطوطي المنشورة</h2><p class="muted">تابع العروض التي نشرتها والمقاعد المتاحة فيها.</p></div><span class="share-section-icon">🛣️</span></div><div id="captainOwnShareRides" class="share-list">جارٍ تحميل خطوطك...</div></section>':'<section class="panel rider-route-discovery"><div class="share-section-heading"><div><span class="tag">اكتشف الطريق</span><h2>الخطوط المتاحة حولك</h2><p class="muted">المسارات الحقيقية المنشورة من الكباتن، مع نقاط البداية والنهاية.</p></div><span class="share-section-icon">🧭</span></div><div id="riderShareMap" class="trip-map rider-share-map" role="application" aria-label="خريطة خطوط مشاركة الطريق"></div><div class="map-legend"><span>🟢 بداية الخط</span><span>🔴 نهاية الخط</span><span>🟩 مسار الكابتن</span></div><button type="button" class="btn outline" id="sortRidesNearMe">📍 ترتيب الخطوط حسب موقعي</button><button type="button" class="btn outline" id="toggleFarRides" hidden>عرض الخطوط الأبعد من 10 كم</button><p id="rideLocationStatus" class="muted" aria-live="polite">اعرض الخطوط القريبة خلال 10 كم باستخدام موقع هاتفك. يُستخدم الموقع للترتيب فقط ولا يُحفظ.</p><div id="shareAvailableRides" class="share-list rider-share-list">جارٍ تحميل الخطوط المتاحة...</div></section>'}
+      ${isCaptain?'<section class="panel captain-own-routes-panel"><div class="share-section-heading"><div><span class="tag">لوحة الكابتن</span><h2>خطوطي المنشورة</h2><p class="muted">تابع العروض التي نشرتها والمقاعد المتاحة فيها.</p></div><span class="share-section-icon">🛣️</span></div><div id="captainOwnShareRides" class="share-list">جارٍ تحميل خطوطك...</div></section>':'<section class="panel rider-route-discovery"><div class="share-section-heading"><div><span class="tag">اكتشف الطريق</span><h2>الخطوط المتاحة حولك</h2><p class="muted">الخطوط المجدولة المنشورة من الكباتن، مع المسار والموعد والمقاعد المتاحة.</p></div><span class="share-section-icon">🧭</span></div><div id="riderShareMap" class="trip-map rider-share-map" role="application" aria-label="خريطة خطوط مشاركة الطريق"></div><div class="map-legend"><span>🟢 بداية الخط</span><span>🔴 نهاية الخط</span><span>🟩 مسار الكابتن</span></div><button type="button" class="btn outline" id="sortRidesNearMe">📍 ترتيب الخطوط حسب موقعي</button><button type="button" class="btn outline" id="toggleFarRides" hidden>عرض الخطوط الأبعد من 10 كم</button><p id="rideLocationStatus" class="muted" aria-live="polite">اعرض الخطوط القريبة خلال 10 كم باستخدام موقع هاتفك. يُستخدم الموقع للترتيب فقط ولا يُحفظ.</p><div id="shareAvailableRides" class="share-list rider-share-list">جارٍ تحميل الخطوط المتاحة...</div></section>'}
       <section class="panel" hidden>        <h2>طلباتي وردود الكباتن</h2>
         <div id="shareMyRequests" class="share-list">جارٍ تحميل طلباتك...</div>
       </section>
@@ -1497,7 +1496,7 @@ function shareHome() {
     btn.disabled=false;
     if(error){msg.textContent=shareError(error);return;}
     msg.textContent='تم نشر طلب المشاركة بنجاح. سيظهر للكباتن المعتمدين.';
-    form.reset(); $('shareMode').value='live_share'; $('shareDateField').hidden=true;
+    form.reset(); $('shareMode').value='scheduled_share'; $('shareDateField').hidden=false;
     shareOriginPoint=null;shareDestinationPoint=null;
     $('shareOriginSuggestions').hidden=true;$('shareDestinationSuggestions').hidden=true;
     if(shareOriginMarker){shareMap?.removeLayer(shareOriginMarker);shareOriginMarker=null;}
@@ -1840,9 +1839,9 @@ function shareHome() {
       msg.textContent='عدد الكراسي لا يمكن أن يتجاوز سعة سيارتك المسجلة ('+registeredCapacity+').';return;
     }
     const originName=$('seatOfferOrigin').value.trim(),destinationName=$('seatOfferDestination').value.trim();
-    const departure=mode==='scheduled_share'?new Date($('seatOfferDeparture').value):new Date(Date.now()+60000);
+    const departure=new Date($('seatOfferDeparture').value);
     if(!originName||!destinationName){msg.textContent='اكتب بداية الخط ونهايته.';return;}
-    if(mode==='scheduled_share'&&(! $('seatOfferDeparture').value||Number.isNaN(departure.getTime())||departure<=new Date())){
+    if(! $('seatOfferDeparture').value||Number.isNaN(departure.getTime())||departure<=new Date()){
       msg.textContent='اختار موعداً مستقبلياً صحيحاً.';return;
     }
     btn.disabled=true;msg.textContent='جارٍ تحديد العناوين وحساب مسار الطريق...';
@@ -1862,7 +1861,7 @@ function shareHome() {
       });
       if(error)throw error;
       msg.textContent='تم نشر خط السير وحفظ مساره على الخريطة.';
-      form.reset();$('seatOfferMode').value='live_share';$('seatOfferDateField').hidden=true;
+      form.reset();$('seatOfferMode').value='scheduled_share';$('seatOfferDateField').hidden=false;
       await loadAvailableRides();
     }catch(error){msg.textContent=shareError(error)||error.message||'تعذر نشر الخط.';}
     finally{btn.disabled=false;}
@@ -1982,7 +1981,7 @@ function shareHome() {
   async function loadAvailableRides(){
     const host=$('shareAvailableRides');if(!host)return;
     let q=supabase.from('rides').select('id,captain_id,vehicle_id,ride_mode,origin_name,destination_name,departure_at,available_seats,seat_price_egp,route_distance_m,route_duration_seconds,route_geometry')
-      .eq('ride_status','open').order('departure_at',{ascending:true}).limit(40);
+      .eq('ride_status','open').eq('ride_mode','scheduled_share').gt('departure_at',new Date().toISOString()).order('departure_at',{ascending:true}).limit(40);
     const {data,error}=await q;
     if(error){host.textContent='تعذر تحميل عروض الكراسي.';return;}
     // The database trigger guarantees that every newly published ride uses a shared-service vehicle.
@@ -2018,14 +2017,14 @@ function shareHome() {
       return;
     }
     host.innerHTML=rides.map(r=>`<article class="share-item rider-route-card">
-      <div class="rider-route-card-head"><span class="route-car-icon">🚗</span><div><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><small>${r.ride_mode==='live_share'?'رحلة فورية':'رحلة مجدولة'} · ${new Date(r.departure_at).toLocaleString('ar-EG')}</small></div></div>
+      <div class="rider-route-card-head"><span class="route-car-icon">🚗</span><div><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><small>موعد التحرك · ${new Date(r.departure_at).toLocaleString('ar-EG')}</small></div></div>
       <div class="rider-route-card-meta"><span>💺 ${r.available_seats} مقعد متاح</span><strong>${Number(r.seat_price_egp).toLocaleString('ar-EG')} جنيه <small>للكرسي</small></strong></div>
       ${riderCurrentLocation?'<p class="muted">يبعد عنك نحو '+(r._distanceFromUser/1000).toFixed(1)+' كم من أقرب نقطة بالمسار (تقريبي).</p>':''}
       ${r.route_distance_m?'<p class="muted">مسار قيادة: '+(r.route_distance_m/1000).toFixed(1)+' كم · زمن تقديري '+Math.round((r.route_duration_seconds||0)/60)+' دقيقة</p>':'<p class="muted">مسار الطريق التفصيلي غير متاح لهذا العرض.</p>'}
       <div class="share-actions"><label>عدد الكراسي<input type="number" min="1" max="${r.available_seats}" value="1" id="ride-seats-${r.id}"></label>
       <div class="fixed-fare-note">السعر ثابت: ${Number(r.seat_price_egp).toLocaleString('ar-EG')} جنيه للكرسي · الإجمالي: <strong id="ride-total-fare-${r.id}">${Number(r.seat_price_egp).toLocaleString('ar-EG')}</strong> جنيه</div></div>
-      <div class="share-actions"><input id="ride-pickup-${r.id}" placeholder="مكان صعودك (على الخط)" value="${esc(r.origin_name)}">
-      <input id="ride-dropoff-${r.id}" placeholder="مكان نزولك (بعد الركوب على الخط)" value="${esc(r.destination_name)}"></div>
+      <div class="share-actions"><input id="ride-pickup-${r.id}" placeholder="نقطة الركوب (معلم واضح على الخط)" value="${esc(r.origin_name)}">
+      <input id="ride-dropoff-${r.id}" placeholder="نقطة النزول (معلم واضح على الخط)" value="${esc(r.destination_name)}"></div>
       <button class="btn primary" data-book-share-ride="${r.id}">إرسال طلب حجز بالسعر المعلن</button>
     </article>`).join('');
     host.querySelectorAll('[id^="ride-seats-"]').forEach(input=>input.addEventListener('input',()=>{
@@ -2697,18 +2696,16 @@ function render() {
       ?['admin','profile']
       :type==='captain'
         ?['captain','share','captain-account','apply-captain','profile','rewards','trip-status']
-        :['home','trip','trip-search','trip-options','share','trips','profile','rewards','trip-status'];
+        :['home','share','trips','profile','rewards','trip-status'];
     if(!allowed.includes(page))page=type==='admin'?'admin':type==='captain'?'share':'trip';
   }
   if (page === 'trip-status') return tripStatusPage(currentTripId);
   if (page === 'captain-account') return captainDashboardPage();
-  if (page === 'home') return profile?.account_type==='captain'?(page='share',shareHome()):(page='trip',riderStartPage());
+  if (page === 'home') return profile?.account_type==='captain'?(page='share',shareHome()):(page='home',riderStartPage());
   if (page === 'rewards') return rewardsPage();
   if (page === 'trips') return tripsPage();
   if (page === 'profile') return profilePage();
-  if (page === 'trip') return riderStartPage();
-  if (page === 'trip-search') return riderSearchPage();
-  if (page === 'trip-options') return tripForm();
+  if (page === 'trip' || page === 'trip-search' || page === 'trip-options') return profile?.account_type==='rider'?(page='share',shareHome()):(page='home',render());
   if (page === 'share') return shareHome();
   if (page === 'apply-captain') return applyCaptainPage();
   if (page === 'admin') return (profile?.account_type === 'admin' || profile?.role === 'admin') ? adminApplicationsPage() : (page='home',render());
