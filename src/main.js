@@ -107,11 +107,81 @@ async function accountPage(){
  shell(`<main class="wrap narrow"><div class="page-head"><h1>حسابي</h1></div>${card('بيانات الحساب',`<p><b>الاسم:</b> ${esc(profile.display_name||'—')}</p><p><b>البريد:</b> ${esc(session.user.email)}</p><p><b>نوع الحساب:</b> ${esc(profile.account_type)}</p><button class="btn outline" data-view="trips">رحلاتي</button>`)}</main>`);
 }
 async function captainHome(){
- const {data:appRow}=await db.from('captain_applications').select('application_status,admin_notes').eq('user_id',session.user.id).order('created_at',{ascending:false}).limit(1).maybeSingle();
- const {data:vehicles}=await db.from('vehicles').select('id,vehicle_type,make,model,plate_number,approval_status,is_active').eq('captain_id',session.user.id);
- const {data:requests}=await db.from('trip_requests').select('id,vehicle_type,origin_name,destination_name,scheduled_at,passenger_count,fixed_fare_egp,request_status').eq('request_status','searching').limit(30);
- shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">مساحة الكابتن</span><h1>أهلاً ${esc(profile.display_name||'يا كابتن')}</h1><p>إدارة بياناتك واستقبال الرحلات.</p></div>${card('حالة طلب الانضمام',`<p class="pill">${esc(appRow?.application_status||'لم يتم التقديم')}</p><p>${esc(appRow?.admin_notes||'قدّم بياناتك ومستنداتك لاستكمال التفعيل.')}</p><button class="btn primary" data-view="apply">تقديم / تحديث بيانات الكابتن</button>`)}${card('مركباتي',(vehicles||[]).map(v=>`<p>${esc(v.make)} ${esc(v.model)} · ${esc(v.plate_number)} — ${esc(v.approval_status)}</p>`).join('')||'<p>لا توجد مركبات مسجلة.</p>')}${card('طلبات الرحلات',`<div class="stack">${(requests||[]).map(r=>`<article class="request"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><p>${r.passenger_count} ركاب · ${money(r.fixed_fare_egp)}</p><button class="btn primary" data-accept="${r.id}">قبول الرحلة</button></article>`).join('')||'<p>لا توجد طلبات مفتوحة حاليًا.</p>'}</div>`)}</main>`);
+ const [{data:appRow},{data:vehicles},{data:requests},{data:captainStats},{data:subscriptions}] = await Promise.all([
+  db.from('captain_applications').select('application_status,admin_notes').eq('user_id',session.user.id).order('created_at',{ascending:false}).limit(1).maybeSingle(),
+  db.from('vehicles').select('id,vehicle_type,make,model,plate_number,approval_status,is_active').eq('captain_id',session.user.id),
+  db.from('trip_requests').select('id,vehicle_type,origin_name,destination_name,scheduled_at,passenger_count,fixed_fare_egp,request_status').eq('request_status','searching').limit(30),
+  db.from('captain_profiles').select('completed_trips').eq('user_id',session.user.id).maybeSingle(),
+  db.from('captain_subscriptions').select('id,plan_days,amount_egp,payment_status,starts_at,expires_at,created_at').eq('captain_id',session.user.id).order('created_at',{ascending:false}).limit(10)
+ ]);
+ const completedTrips=Number(captainStats?.completed_trips||0);
+ const now=Date.now();
+ const activeSubscription=(subscriptions||[]).find(s=>s.payment_status==='approved'&&s.expires_at&&new Date(s.expires_at).getTime()>now);
+ const pendingSubscription=(subscriptions||[]).find(s=>s.payment_status==='submitted');
+ const subscriptionForm=`<form id="subscriptionForm">
+  <label>الباقة<select name="plan_days" required><option value="30">150 ج / 30 يوم</option><option value="90">400 ج / 90 يوم</option></select></label>
+  <div class="payment-number"><b>حوّل قيمة الباقة عبر Vodafone Cash أو InstaPay</b><strong dir="ltr">01010530716</strong><button type="button" class="btn outline" id="copyPaymentNumber">نسخ الرقم</button></div>
+  <label>رقم التحويل أو مرجع العملية<input name="payment_reference" required maxlength="120" placeholder="اكتب رقم العملية أو رقم المحوّل"></label>
+  <label>صورة أو ملف إثبات الدفع<input name="payment_proof" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
+  <small class="muted">الحد الأقصى لحجم الملف 5 ميجابايت. سيتم مراجعة التحويل وتفعيل الاشتراك بعد الاعتماد.</small>
+  <button class="btn primary full" type="submit">إرسال طلب الاشتراك</button>
+  <p id="subscriptionNotice" class="notice" role="status"></p>
+ </form>`;
+ let subscriptionPanel='';
+ if(activeSubscription){
+  subscriptionPanel=`<section class="panel subscription-panel">
+   <div class="ride-top"><h2>اشتراكك نشط</h2><span class="pill">مفعّل</span></div>
+   <p>الباقة: ${activeSubscription.plan_days===90?'3 شهور':'شهر واحد'} · ${money(activeSubscription.amount_egp)}</p>
+   <p>ينتهي الاشتراك: <b>${date(activeSubscription.expires_at)}</b></p>
+   <details class="subscription-details"><summary>تجديد الاشتراك</summary>${subscriptionForm}</details>
+  </section>`;
+ }else if(pendingSubscription){
+  subscriptionPanel=`<section class="panel subscription-panel">
+   <div class="ride-top"><h2>طلب الاشتراك قيد المراجعة</h2><span class="pill">بانتظار الاعتماد</span></div>
+   <p>استلمنا طلبك وسيتم تفعيل الاشتراك بعد مراجعة إثبات الدفع. لا تحتاج إلى إرسال طلب آخر الآن.</p>
+  </section>`;
+ }else if(completedTrips===0){
+  subscriptionPanel=`<section class="panel trial-panel">
+   <h2>🎁 مشوارك الأول مجاني 100%</h2>
+   <p>اقبل أول طلب من قائمة المشاوير المتاحة بالأسفل وجرّب السكة مجاناً بدون اشتراك!</p>
+   <details class="subscription-details"><summary>تفعيل الاشتراك مبكراً (اختياري)</summary>${subscriptionForm}</details>
+  </section>`;
+ }else{
+  subscriptionPanel=`<section class="panel subscription-panel">
+   <div class="notice success">أتممت مشوارك التجريبي بنجاح! فعّل اشتراكك الشهري الآن (150 ج / شهر أو 400 ج / 3 شهور) لمواصلة استقبال الطلبات.</div>
+   <details class="subscription-details" open><summary>تقديم / تجديد الاشتراك</summary>${subscriptionForm}</details>
+  </section>`;
+ }
+ const requestsHtml=(requests||[]).map(r=>`<article class="request"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><p>${r.passenger_count} ركاب · ${money(r.fixed_fare_egp)}</p><p class="muted">${date(r.scheduled_at)}</p><button class="btn primary" data-accept="${r.id}">قبول الرحلة</button></article>`).join('')||'<p>لا توجد طلبات مفتوحة حاليًا.</p>';
+ shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">مساحة الكابتن</span><h1>أهلاً ${esc(profile.display_name||'يا كابتن')}</h1><p>إدارة بياناتك واستقبال الرحلات.</p></div>
+ ${subscriptionPanel}
+ ${card('طلبات المشاوير المتاحة',`<div class="stack">${requestsHtml}</div>`)}
+ ${card('حالة طلب الانضمام',`<p class="pill">${esc(appRow?.application_status||'لم يتم التقديم')}</p><p>${esc(appRow?.admin_notes||'قدّم بياناتك ومستنداتك لاستكمال التفعيل.')}</p><button class="btn primary" data-view="apply">تقديم / تحديث بيانات الكابتن</button>`)}
+ ${card('مركباتي',(vehicles||[]).map(v=>`<p>${esc(v.make)} ${esc(v.model)} · ${esc(v.plate_number)} — ${esc(v.approval_status)}</p>`).join('')||'<p>لا توجد مركبات مسجلة.</p>')}
+ </main>`);
  document.querySelectorAll('[data-accept]').forEach(b=>b.onclick=async()=>{const vehicle=vehicles?.find(v=>v.approval_status==='approved'&&v.is_active);if(!vehicle){alert('لا توجد مركبة معتمدة ونشطة على حسابك.');return;}busyButton(b,true);const {error}=await db.rpc('captain_accept_fixed_trip',{p_request_id:b.dataset.accept,p_vehicle_id:vehicle.id});if(error)alert(error.message);else alert('تم قبول الرحلة.');captainHome();});
+ document.querySelector('#copyPaymentNumber')?.addEventListener('click',async()=>{try{await navigator.clipboard.writeText('01010530716');const n=document.querySelector('#subscriptionNotice');if(n)n.textContent='تم نسخ الرقم.';}catch{alert('تعذر النسخ تلقائيًا. الرقم هو 01010530716');}});
+ document.querySelector('#subscriptionForm')?.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const form=e.currentTarget,fd=new FormData(form),file=fd.get('payment_proof'),btn=form.querySelector('button[type="submit"]');
+  busyButton(btn,true);
+  try{
+   if(!(file instanceof File)||!file.size)throw Error('أرفق إثبات الدفع أولاً.');
+   if(file.size>5*1024*1024)throw Error('حجم الملف يجب ألا يتجاوز 5 ميجابايت.');
+   if(!['image/jpeg','image/png','image/webp','application/pdf'].includes(file.type))throw Error('نوع الملف غير مدعوم. استخدم JPG أو PNG أو WEBP أو PDF.');
+   const path=session.user.id+'/'+Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+   const {error:uploadError}=await db.storage.from('captain-payment-proofs').upload(path,file,{upsert:false,contentType:file.type});
+   if(uploadError)throw uploadError;
+   const {error}=await db.rpc('submit_subscription',{p_plan_days:Number(fd.get('plan_days')),p_payment_reference:String(fd.get('payment_reference')||'').trim(),p_proof_path:path});
+   if(error)throw error;
+   alert('تم إرسال طلب الاشتراك بنجاح، وسيتم مراجعته من الإدارة.');
+   captainHome();
+  }catch(err){
+   const n=document.querySelector('#subscriptionNotice');
+   if(n){n.textContent=err.message||'تعذر إرسال طلب الاشتراك.';n.className='notice error';}
+   else alert(err.message||'تعذر إرسال طلب الاشتراك.');
+  }finally{busyButton(btn,false);}
+ });
 }
 function applyPage(){
  shell(`<main class="wrap narrow"><div class="page-head"><h1>تقديم بيانات الكابتن والمركبة</h1></div>${card('بيانات التقديم',`<form id="applyForm">${input('آخر 4 أرقام من الرقم القومي','national_id_last4','text',true,'1234')}${input('رقم رخصة القيادة','license_number')}${input('تاريخ انتهاء رخصة القيادة','license_expiry','date')}${input('تاريخ انتهاء البطاقة','national_id_expiry','date')}${input('تاريخ انتهاء رخصة المركبة','vehicle_license_expiry','date')}${select('نوع المركبة','vehicle_type',[['private_car','ملاكي'],['taxi','تاكسي'],['suzuki','سوزوكي'],['microbus','ميكروباص'],['scooter','اسكوتر'],['motorcycle','دراجة نارية']])}${input('الماركة','make')}${input('الموديل','model')}${input('سنة الصنع','model_year','number')}${input('اللون','color')}${input('رقم اللوحة','plate_number')}${input('عدد الركاب','passenger_capacity','number')}${['has_ac','has_large_trunk','no_smoking','pets_allowed'].map((n,i)=>`<label class="check"><input type="checkbox" name="${n}" ${i===2?'checked':''}> ${['تكييف','شنطة كبيرة','ممنوع التدخين','يسمح بالحيوانات الأليفة'][i]}</label>`).join('')}<div class="upload-group"><h3>مستندات مطلوبة</h3><label>البطاقة الشخصية — الوجه الأمامي<input type="file" name="national_id_front" accept="image/jpeg,image/png,image/webp,image/heic" required></label><label>البطاقة الشخصية — الوجه الخلفي<input type="file" name="national_id_back" accept="image/jpeg,image/png,image/webp,image/heic" required></label><label>رخصة القيادة — الوجه الأمامي<input type="file" name="driver_license_front" accept="image/jpeg,image/png,image/webp,image/heic" required></label><label>رخصة القيادة — الوجه الخلفي<input type="file" name="driver_license_back" accept="image/jpeg,image/png,image/webp,image/heic" required></label><label>رخصة المركبة — الوجه الأمامي<input type="file" name="vehicle_license_front" accept="image/jpeg,image/png,image/webp,image/heic" required></label><label>رخصة المركبة — الوجه الخلفي<input type="file" name="vehicle_license_back" accept="image/jpeg,image/png,image/webp,image/heic" required></label></div><div class="upload-group"><h3>صور الكابتن والمركبة</h3><label>صورة شخصية<input type="file" name="profile_photo" accept="image/jpeg,image/png,image/webp,image/heic" required></label><label>صورة أمامية للمركبة<input type="file" name="vehicle_front" accept="image/jpeg,image/png,image/webp,image/heic" required></label><label>صورة جانبية للمركبة<input type="file" name="vehicle_side" accept="image/jpeg,image/png,image/webp,image/heic" required></label><label>صورة خلفية للمركبة<input type="file" name="vehicle_rear" accept="image/jpeg,image/png,image/webp,image/heic" required></label></div><button class="btn primary full">إرسال الطلب</button><p id="notice" class="notice"></p></form>`)}<button class="btn outline" data-view="captain">رجوع للوحة الكابتن</button></main>`);
