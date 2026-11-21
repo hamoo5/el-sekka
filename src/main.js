@@ -78,7 +78,7 @@ function attachCoordinatePicker(mapId,form){
  if(!window.L){mapElement.textContent='تعذر تحميل الخريطة. حدّث الصفحة وحاول مرة أخرى.';return;}
  const map=window.L.map(mapElement).setView([30.0444,31.2357],11);
  window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
- const markers={};let activePoint=null;
+ const markers={};let activePoint=null,routeLayer=null;
  const status=()=>form.querySelector('[data-map-status]');
  const pointName=key=>form.querySelector('[name="'+key+'_name"]');
  const setPoint=async(key,lat,lng)=>{
@@ -90,6 +90,15 @@ function attachCoordinatePicker(mapId,form){
   const name=await reversePlaceName(lat,lng);
   if(name&&pointName(key))pointName(key).value=name;
   if(status())status().textContent=(key==='origin'?'مكان الانطلاق':'الوجهة')+' اتحدد'+(name?' في '+name:' على الخريطة')+'. تقدر تعدّل الاسم لو محتاج.';
+  const oLat=Number(form.querySelector('[name="origin_lat"]')?.value),oLng=Number(form.querySelector('[name="origin_lng"]')?.value),dLat=Number(form.querySelector('[name="destination_lat"]')?.value),dLng=Number(form.querySelector('[name="destination_lng"]')?.value);
+  if([oLat,oLng,dLat,dLng].every(Number.isFinite)&&oLat!==0&&oLng!==0&&dLat!==0&&dLng!==0){
+   if(status())status().textContent='بنرسم الطريق بين النقطتين…';
+   fetch('https://router.project-osrm.org/route/v1/driving/'+oLng+','+oLat+';'+dLng+','+dLat+'?overview=full&geometries=geojson').then(res=>res.ok?res.json():null).then(data=>{
+    const geometry=data?.routes?.[0]?.geometry;if(!geometry)return;if(routeLayer)routeLayer.remove();
+    routeLayer=window.L.geoJSON(geometry,{style:{color:'#c6f36a',weight:5,opacity:.85}}).addTo(map);map.fitBounds(routeLayer.getBounds(),{padding:[22,22]});
+    if(status())status().textContent='المسار ظهر على الخريطة. راجع البداية والنهاية قبل إرسال الطلب.';
+   }).catch(()=>{if(status())status().textContent='تم تحديد النقطتين. تعذر عرض خط الطريق حاليًا، لكن تقدر تكمل.';});
+  }
  };
  form.querySelectorAll('[data-map-pick]').forEach(button=>button.addEventListener('click',()=>{
   activePoint=button.dataset.mapPick;
