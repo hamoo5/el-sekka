@@ -2132,7 +2132,7 @@ async function captainDocumentsPanel() {
           : data.application_status==='approved'
             ? '<p class="muted">مستنداتك معتمدة. سيصلك تنبيه قبل انتهاء أي مستند بـ30 يوماً.</p>'
             : '<p class="muted">حالة الطلب غير معروفة حالياً. حدّث الصفحة أو اضغط تحديث المستندات للمحاولة مرة أخرى.</p>';
-  return '<section class="panel"><h2>صلاحية مستندات الكابتن</h2>'+status+(error?'':dates)+alerts+'<button class="btn outline" data-page="apply-captain">تحديث المستندات</button></section>';
+  return '<section class="panel"><h2>صلاحية مستندات الكابتن</h2>'+status+(error?'':dates)+alerts+'<button type="button" class="btn outline" id="captainUpdateDocuments">تحديث المستندات</button></section>';
 }
 
 async function captainApplicationStatusPage(knownApplicationId = null) {
@@ -2454,6 +2454,7 @@ async function captainDashboardPage() {
       ${showFirstTripOffer?'':requestsSection}`}
     </main>`);
   if(retainedSubscriptionPanel){const freshPanel=document.getElementById('captainSubscriptionPanel');if(freshPanel)freshPanel.replaceWith(retainedSubscriptionPanel);}
+  document.getElementById('captainUpdateDocuments')?.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();page='apply-captain';try{sessionStorage.setItem(PAGE_STORAGE_KEY,page);}catch(_){}render();});
   document.getElementById('captainHome')?.addEventListener('click',()=>{page='captain';render();});
   document.getElementById('refreshFixedTrips')?.addEventListener('click',()=>captainDashboardPage());
   document.querySelectorAll('[data-captain-open-trip]').forEach(button=>button.addEventListener('click',()=>{currentTripId=button.dataset.captainOpenTrip;page='trip-status';render();}));
