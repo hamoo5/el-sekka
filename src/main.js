@@ -327,7 +327,10 @@ async function loadProfile() {
   startPassengerBookingUpdates();
   startUserNotificationUpdates();
   await loadUserNotifications();
-  page=actualRole==='captain'?'captain':actualRole==='admin'?'admin':'trip';
+  // Preserve the current in-app destination during auth refreshes; only choose a role home when no valid page is selected.
+  if (!VALID_PAGES.has(page) || page === 'home') {
+    page=actualRole==='captain'?'captain':actualRole==='admin'?'admin':'trip';
+  }
   if (profile?.role === 'captain') {
     const {error: statusError} = await supabase.rpc('process_my_captain_document_status');
     if (statusError) console.warn('Captain status refresh failed:',statusError.message);
