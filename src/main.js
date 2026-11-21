@@ -1127,9 +1127,9 @@ function shareHome() {
         <h1>شارك الطريق</h1>
       </section>
       <details class="panel share-rule">
-        <summary><b>كيف تعمل المشاركة؟</b></summary>
-        <p>صاحب الطلب يحدد السعر المبدئي، والطرف الآخر يقدر يقبل أو يقدم سعراً مقابلاً. نفس القاعدة للمشاركة الفورية والمجدولة.</p>
-        <p>الكابتن يقدر يطلب كرسياً كأي راكب، لكن الراكب لا يحصل على صلاحيات الكابتن. الحجز العادي يظل بسعر ثابت ومنفصل.</p>
+        <summary><b>كيف تعمل مشاركة الطريق؟</b></summary>
+        <p>الكابتن ينشر خط سير وموعدًا وعدد كراسي. الراكب يختار نقطة ركوب ونزول على نفس الخط، ولازم كل نقطة تكون على بُعد 500 متر أو أقل من المسار.</p>
+        <p>السعر الظاهر قبل إرسال الطلب، والكابتن يراجع الطلب ويقبله أو يرفضه. الكرسي يتحجز عند القبول، ويُحسب إشغال المقاعد على الجزء المشترك من الطريق.</p>
       </details>
       <section class="panel" hidden>
         <h2>انشر طلب مشاركة طريق</h2>
@@ -1156,7 +1156,7 @@ function shareHome() {
           <label>السعر المبدئي للكرسي (جنيه)<input id="sharePrice" type="number" min="0" step="0.5" required placeholder="اكتب السعر الذي تقترحه"></label>
           <label>نوع المركبة المفضل (اختياري)
             <select id="shareVehicle"><option value="">أي مركبة مناسبة</option>${types.map(([v,n])=>`<option value="${v}">${n}</option>`).join('')}</select>
-            <small class="muted">المشاركة وحجز الكراسي متاحون بملاكي أو سوزوكي أو ميكروباص فقط.</small>
+            <small class="muted"></small>
           </label>
           <button class="btn primary" type="submit">نشر طلب المشاركة</button>
           <p id="shareCreateMessage" class="message" aria-live="polite"></p>
@@ -1165,12 +1165,12 @@ function shareHome() {
       ${isCaptain ? `
       <section class="panel">
         <h2>انشر كراسي متاحة بمركبتك</h2>
-        <p class="muted">هذا العرض ينشره الكابتن فقط بمركبة معتمدة ونشطة، ويحدد سعر الكرسي.</p>
+        <p class="muted">انشر خطًا من مكان لمكان. النظام يحسب مسار قيادة تقريبيًا ويحفظه، ثم يطابق طلبات الركاب على الخط بحد انحراف 500 متر.</p>
         <form id="captainSeatOfferForm" class="form">
           <label>المركبة<select id="seatOfferVehicle" required><option value="">جارٍ تحميل المركبات...</option></select></label>
           <label>نوع العرض<select id="seatOfferMode"><option value="live_share">فوري</option><option value="scheduled_share">مجدول</option></select></label>
-          <label>من<input id="seatOfferOrigin" required maxlength="180"></label>
-          <label>إلى<input id="seatOfferDestination" required maxlength="180"></label>
+          <label>بداية الخط (شارع أو معلم واضح)<input id="seatOfferOrigin" required maxlength="180" placeholder="مثال: حدائق المعادي"></label>
+          <label>نهاية الخط (شارع أو معلم واضح)<input id="seatOfferDestination" required maxlength="180" placeholder="مثال: التجمع الخامس"></label>
           <label id="seatOfferDateField" hidden>موعد التحرك<input id="seatOfferDeparture" type="datetime-local"></label>
           <label>عدد الكراسي المتاحة<input id="seatOfferSeats" type="number" min="1" max="13" value="1" required></label>
           <label>سعر الكرسي (جنيه)<input id="seatOfferPrice" type="number" min="0" step="0.5" required></label>
