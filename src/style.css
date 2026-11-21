@@ -1659,3 +1659,90 @@ body[data-page="share"] .share-rule summary{cursor:pointer}
 .admin-entry-link{display:inline-block;margin-inline-start:10px;padding:5px 10px;border:1px solid #ffffff24;border-radius:999px;color:#9eafc2;text-decoration:none;font-size:11px;font-weight:700;transition:color .18s,border-color .18s,background .18s}.admin-entry-link:hover,.admin-entry-link:focus-visible{color:#b7f36b;border-color:#b7f36b88;background:#b7f36b0d;outline:none}
 
 .vehicle-summary{display:flex;flex-direction:column;gap:7px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2)}.vehicle-summary> b{font-size:12px}.vehicle-summary .notice{margin:0}.vehicle-summary .notice.success{color:var(--success,#059669)}
+
+
+/* El Sekka gold identity refresh — visual-only, preserves existing app flows */
+:root{
+  --primary:#F59E0B;
+  --primary-dark:#D97706;
+  --sekka-gold:#F59E0B;
+}
+.topbar .logo{
+  background:linear-gradient(145deg,#FBBF24,#D97706)!important;
+  color:#111827!important;
+  box-shadow:0 5px 18px #F59E0B45;
+}
+.tag,.hero em,.back{color:#F59E0B!important}
+.btn.primary,.trip-submit-button{
+  background:linear-gradient(135deg,#F59E0B 0%,#FBBF24 52%,#F59E0B 100%)!important;
+  color:#111827!important;
+  border-color:#F59E0B!important;
+  box-shadow:0 7px 18px #F59E0B35!important;
+}
+.app-bottom-nav button.active span{color:#FBBF24!important}
+.rider-search-hero{
+  background:linear-gradient(135deg,#111827 0%,#25202a 58%,#593812 100%);
+}
+.rider-search-hero:after{
+  border-color:#F59E0B70;
+  box-shadow:0 0 0 18px #F59E0B14,0 0 0 40px #F59E0B0a;
+  background:radial-gradient(circle at 70% 45%,#F59E0B55,transparent 62%);
+}
+.sekka-hero-copy>small,.sekka-hero-copy h1 em{color:#FBBF24!important}
+.sekka-wordmark b,.sekka-value-strip>strong{
+  background:linear-gradient(135deg,#FBBF24,#D97706)!important;color:#111827!important;
+}
+.sekka-mode-icon{
+  background:#FFF4D6!important;color:#B45309!important;
+}
+.sekka-mode-icon.shared{background:#FFF0CF!important;color:#92400E!important}
+.sekka-mode-card:active{border-color:#F59E0B!important}
+.sekka-value-strip{
+  border-color:#F59E0B55;
+  background:linear-gradient(110deg,#111827,#3A2A19);
+}
+.sekka-value-strip small{color:#FBBF24!important}
+.rider-search-box>span:first-child{
+  background:#FFF4D6!important;color:#B45309!important;
+}
+.rider-search-box .rider-search-arrow{
+  background:linear-gradient(135deg,#F59E0B,#FBBF24)!important;color:#111827!important;
+}
+.rider-saved-place.saved,.rider-recent-place{
+  border-color:#F59E0B66!important;
+}
+.rider-saved-place span{background:#FFF4D6!important;color:#B45309!important}
+.rider-save-current{border-color:#F59E0B66!important;background:#FFF9EB!important}
+.rider-save-current small{color:#92400E!important}
+.rider-save-current button{background:#FDE7B0!important;color:#78350F!important}
+.vehicle-card[aria-pressed="true"],.vehicle-card.selected{
+  border-color:#F59E0B!important;
+  box-shadow:0 0 0 2px #F59E0B30!important;
+}
+.vehicle-price[data-cheapest="true"],.vehicle-card.selected .vehicle-price{
+  color:#B45309!important;
+}
+body[data-page="trip-options"] .vehicle-card[aria-pressed="true"],
+body[data-page="trip-options"] .vehicle-card.selected{
+  background:#FFF8E8!important;border-color:#F59E0B!important;
+}
+body[data-page="trip-options"] .vehicle-card .vehicle-price{color:#B45309!important}
+body[data-page="trip-options"] .vehicle-card.selected:after{
+  background:#F59E0B!important;color:#111827!important;
+}
+html.trip-night .sekka-mode-card{background:#1E293B;border-color:#475569}
+html.trip-night .sekka-mode-icon{background:#493516!important;color:#FBBF24!important}
+html.trip-night .sekka-mode-icon.shared{background:#493516!important;color:#FBBF24!important}
+html.trip-night .rider-saved-place.saved,
+html.trip-night .rider-recent-place{
+  background:#302516!important;border-color:#A16207!important;
+}
+html.trip-night .rider-save-current{
+  background:#302516!important;border-color:#A16207!important;
+}
+html.trip-night .rider-save-current small{color:#FDE68A!important}
+html.trip-night .rider-save-current button{background:#493516!important;color:#FDE68A!important}
+html.trip-night body[data-page="trip-options"] .vehicle-card[aria-pressed="true"],
+html.trip-night body[data-page="trip-options"] .vehicle-card.selected{
+  background:#302516!important;border-color:#F59E0B!important;
+}
