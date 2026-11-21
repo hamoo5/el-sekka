@@ -1123,7 +1123,7 @@ function shareHome() {
     <main class="wrap narrow">
       <button type="button" class="back" id="back">→ الرئيسية</button>
       <section class="hero compact">
-        <span class="tag">مشاركة السكة · سعر الكرسي بالتفاوض</span>
+        <span class="tag">مشاركة الطريق · خطوط سير وحجز مقاعد</span>
         <h1>شارك الطريق</h1>
       </section>
       <details class="panel share-rule">
@@ -1131,7 +1131,7 @@ function shareHome() {
         <p>صاحب الطلب يحدد السعر المبدئي، والطرف الآخر يقدر يقبل أو يقدم سعراً مقابلاً. نفس القاعدة للمشاركة الفورية والمجدولة.</p>
         <p>الكابتن يقدر يطلب كرسياً كأي راكب، لكن الراكب لا يحصل على صلاحيات الكابتن. الحجز العادي يظل بسعر ثابت ومنفصل.</p>
       </details>
-      <section class="panel">
+      <section class="panel" hidden>
         <h2>انشر طلب مشاركة طريق</h2>
         <form id="shareRequestForm" class="form">
           <label>نوع المشاركة
@@ -1178,19 +1178,19 @@ function shareHome() {
           <p id="seatOfferMessage" class="message" aria-live="polite"></p>
         </form>
       </section>
-      <section class="panel">
+      <section class="panel" hidden>
         <h2>طلبات مشاركة متاحة على الطريق</h2>
         <p class="muted">طلبات الركاب والكباتن الذين يستخدمون الخدمة كطالبي مقاعد.</p>
         <div id="shareOpenRequests" class="share-list">جارٍ تحميل الطلبات...</div>
       </section>` : ''}
-      ${isCaptain ? '<section class="panel"><h2>متابعة تفاوضاتك ككابتن</h2><div id="shareCaptainNegotiations" class="share-list">جارٍ تحميل التفاوضات...</div></section>' : ''}
+      ${isCaptain ? '<section class="panel" hidden><h2>متابعة تفاوضاتك ككابتن</h2><div id="shareCaptainNegotiations" class="share-list">جارٍ تحميل التفاوضات...</div></section>' : ''}
       <section class="panel"><h2>حجوزات الكراسي الحالية</h2><div id="legacyShareBookings" class="share-list">جارٍ تحميل الحجوزات...</div></section>
       <section class="panel">
-        <h2>عروض الكراسي المتاحة</h2>
-        <p class="muted">تقدر تطلب كرسياً من عرض كابتن آخر، حتى لو حسابك كابتن.</p>
+        <h2>خطوط مشاركة متاحة</h2>
+        <p class="muted">اختار خطًا مناسبًا، ثم اكتب نقطتي ركوبك ونزولك على مساره. لازم النقطتان تكونا على بُعد 500 متر أو أقل من خط الكابتن.</p>
         <div id="shareAvailableRides" class="share-list">جارٍ تحميل العروض...</div>
       </section>
-      <section class="panel">
+      <section class="panel" hidden>
         <h2>طلباتي وردود الكباتن</h2>
         <div id="shareMyRequests" class="share-list">جارٍ تحميل طلباتك...</div>
       </section>
@@ -1646,7 +1646,7 @@ function shareHome() {
           p_dropoff_lat:dropoff.lat,p_dropoff_lng:dropoff.lng
         });
         if(error)throw error;
-        b.textContent='تم إرسال طلبك للكابتن';b.disabled=true;
+        b.textContent='تم إرسال طلبك للكابتن';b.disabled=true;await loadLegacyShareBookings();
       }catch(error){alert(shareError(error));b.disabled=false;return;}
       b.textContent='تم إرسال طلبك';b.disabled=true;
     }));
