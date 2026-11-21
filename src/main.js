@@ -1557,7 +1557,7 @@ function shareHome() {
     const host=$('shareOpenRequests'); if(!host)return;
     const [{data:requests,error},{data:vehicles}] = await Promise.all([
       supabase.from('share_route_requests').select('id,requester_id,ride_mode,origin_name,destination_name,departure_at,seats_requested,requester_seat_price_egp,preferred_vehicle_type')
-        .eq('request_status','open').neq('requester_id',profile.id).order('departure_at',{ascending:true}).limit(40),
+        .eq('request_status','open').eq('ride_mode','scheduled_share').gt('departure_at',new Date().toISOString()).neq('requester_id',profile.id).order('departure_at',{ascending:true}).limit(40),
       supabase.from('vehicles').select('id,vehicle_type,make,model,passenger_capacity')
         .eq('captain_id',profile.id).eq('approval_status','approved').eq('is_active',true)
         .in('vehicle_type',sharedVehicleTypes)
