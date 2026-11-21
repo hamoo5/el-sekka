@@ -1305,14 +1305,14 @@ function shareHome() {
         <p class="muted">انشر خطًا من مكان لمكان. النظام يحسب مسار قيادة تقريبيًا ويحفظه، ثم يطابق طلبات الركاب على الخط بحد انحراف 500 متر.</p>
         <form id="captainSeatOfferForm" class="form">
           <div class="vehicle-summary" id="seatOfferVehicleSummary"><b>اختار مركبتك المعتمدة</b><select id="seatOfferVehicle"><option value="">جارٍ تحميل المركبات...</option></select><span id="seatOfferVehicleStatus" class="notice" role="status">جارٍ تحميل بيانات مركبتك...</span></div>
-          <label>نوع العرض<select id="seatOfferMode"><option value="live_share">فوري</option><option value="scheduled_share">مجدول</option></select></label>
+          <label>نوع العرض<select id="seatOfferMode"><option value="scheduled_share">بموعد محدد</option></select></label>
           <label>بداية الخط (شارع أو معلم واضح)<input id="seatOfferOrigin" required maxlength="180" placeholder="مثال: حدائق المعادي"></label>
           <label>نهاية الخط (شارع أو معلم واضح)<input id="seatOfferDestination" required maxlength="180" placeholder="مثال: التجمع الخامس"></label>
           <div class="map-heading"><b>حدد خط سيرك على الخريطة</b><small>اختار البداية أو النهاية ثم اضغط على الخريطة. تقدر تحرك العلامات.</small></div>
           <div class="map-pick-mode"><button type="button" class="map-mode active" id="seatPickOrigin">📍 تحديد البداية</button><button type="button" class="map-mode" id="seatPickDestination">🏁 تحديد النهاية</button></div>
           <div id="seatOfferMap" class="trip-map trip-map-dark" role="application" aria-label="خريطة خط السير"></div>
           <div class="map-legend"><span>🟢 البداية</span><span>🔴 النهاية</span><span>⛽ بنزينة</span><span>🏦 بنك</span><span>🛒 سوبر ماركت</span><span>💊 صيدلية</span><span id="seatOfferMapHint">اضغط على الخريطة لتحديد البداية والنهاية.</span></div>
-          <label id="seatOfferDateField" hidden>موعد التحرك<input id="seatOfferDeparture" type="datetime-local"></label>
+          <label id="seatOfferDateField">موعد التحرك<input id="seatOfferDeparture" type="datetime-local" required></label>
           <label>عدد الكراسي المتاحة<input id="seatOfferSeats" type="number" min="1" max="13" value="1" required></label>
           <label>سعر الكرسي (جنيه)<input id="seatOfferPrice" type="number" min="0" step="0.5" required></label>
           <button class="btn primary" type="submit">نشر عرض الكراسي</button>
@@ -1522,7 +1522,7 @@ function shareHome() {
       const ns=(negotiations||[]).filter(n=>n.request_id===r.id);
       return `<article class="share-item">
         <b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b>
-        <small>${r.ride_mode==='live_share'?'فوري':'مجدول'} · ${new Date(r.departure_at).toLocaleString('ar-EG')} · ${r.seats_requested} كرسي</small>
+        <small>${r.ride_mode==='live_share'?'موعد غير محدد (عرض قديم)':'بموعد محدد'} · ${new Date(r.departure_at).toLocaleString('ar-EG')} · ${r.seats_requested} كرسي</small>
         <p>سعرك المبدئي: ${Number(r.requester_seat_price_egp).toLocaleString('ar-EG')} جنيه للكرسي · الحالة: ${shareStatus(r.request_status)}</p>
         ${ns.length?ns.map(n=>`<div class="share-negotiation">
           <small>عرض الكابتن: ${n.captain_counter_offer_egp==null?'لم يقدم سعراً مقابلاً':Number(n.captain_counter_offer_egp).toLocaleString('ar-EG')+' جنيه'} · ${shareStatus(n.negotiation_status)}</small>
@@ -1612,7 +1612,7 @@ function shareHome() {
     host.innerHTML=waiting.map(n=>{
       const r=byId.get(n.request_id); if(!r)return '';
       return '<article class="share-item"><b>'+esc(r.origin_name)+' ← '+esc(r.destination_name)+'</b>'+
-        '<small>'+(r.ride_mode==='live_share'?'فوري':'مجدول')+' · '+new Date(r.departure_at).toLocaleString('ar-EG')+'</small>'+
+        '<small>'+(r.ride_mode==='live_share'?'موعد غير محدد (عرض قديم)':'بموعد محدد')+' · '+new Date(r.departure_at).toLocaleString('ar-EG')+'</small>'+
         '<p>صاحب الطلب قدم سعراً جديداً: '+Number(n.requester_offer_egp).toLocaleString('ar-EG')+' جنيه للكرسي · '+r.seats_requested+' كرسي</p>'+
         '<div class="share-actions"><button class="btn primary" data-follow-accept="'+n.id+'">قبول السعر الجديد</button>'+
         '<input id="follow-price-'+n.id+'" type="number" min="0" step="0.5" placeholder="سعر مقابل جديد">'+
@@ -2023,8 +2023,8 @@ function shareHome() {
       ${r.route_distance_m?'<p class="muted">مسار قيادة: '+(r.route_distance_m/1000).toFixed(1)+' كم · زمن تقديري '+Math.round((r.route_duration_seconds||0)/60)+' دقيقة</p>':'<p class="muted">مسار الطريق التفصيلي غير متاح لهذا العرض.</p>'}
       <div class="share-actions"><label>عدد الكراسي<input type="number" min="1" max="${r.available_seats}" value="1" id="ride-seats-${r.id}"></label>
       <div class="fixed-fare-note">السعر ثابت: ${Number(r.seat_price_egp).toLocaleString('ar-EG')} جنيه للكرسي · الإجمالي: <strong id="ride-total-fare-${r.id}">${Number(r.seat_price_egp).toLocaleString('ar-EG')}</strong> جنيه</div></div>
-      <div class="share-actions"><input id="ride-pickup-${r.id}" placeholder="نقطة الركوب (معلم واضح على الخط)" value="${esc(r.origin_name)}">
-      <input id="ride-dropoff-${r.id}" placeholder="نقطة النزول (معلم واضح على الخط)" value="${esc(r.destination_name)}"></div>
+      <div class="share-actions"><input id="ride-pickup-${r.id}" placeholder="نقطة ركوب واضحة على الخط (موقف أو معلم)" value="${esc(r.origin_name)}">
+      <input id="ride-dropoff-${r.id}" placeholder="نقطة نزول واضحة على الخط (موقف أو معلم)" value="${esc(r.destination_name)}"></div>
       <button class="btn primary" data-book-share-ride="${r.id}">إرسال طلب حجز بالسعر المعلن</button>
     </article>`).join('');
     host.querySelectorAll('[id^="ride-seats-"]').forEach(input=>input.addEventListener('input',()=>{
