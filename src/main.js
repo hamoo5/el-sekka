@@ -88,7 +88,7 @@ async function tripsPage(){
  }
 async function accountPage(){
  if(profile.account_type==='captain'){captainHome();return;}
- shell(`<main class="wrap narrow"><div class="page-head"><h1>حسابي</h1></div>${card('بيانات الحساب',`<p><b>الاسم:</b> ${esc(profile.display_name||'—')}</p><p><b>البريد:</b> ${esc(session.user.email)}</p><p><b>نوع الحساب:</b> ${esc(profile.account_type)}</p><button class="btn outline" data-view="trips">رحلاتي</button>`)}</main>`);
+ shell(`<main class="wrap narrow"><div class="page-head"><h1>حسابي</h1></div>${card('بيانات الحساب',`<p><b>الاسم:</b> ${esc(profile.display_name||'—')}</p><p><b>البريد:</b> ${esc(session.user.email)}</p><p><b>نوع الحساب:</b> ${esc(profile.account_type)}</p><button class="btn outline" data-view="trips">حجوزاتي</button>`)}</main>`);
 }
 async function captainHome(){
   const [{data:appRow},{data:vehicles},{data:rides},{data:subscriptions}] = await Promise.all([
