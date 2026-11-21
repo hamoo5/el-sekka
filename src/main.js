@@ -337,7 +337,7 @@ function riderSearchPage(){
 }
 
 function tripForm() {
-  const types = [['private_car','🚘','ملاكي','حتى 3 ركاب'],['taxi','🚕','تاكسي','حتى 4 ركاب'],['scooter','🛵','اسكوتر','راكب واحد'],['motorcycle','🏍️','موتوسيكل','راكب واحد']];
+  const types = [['private_car','🚘','ملاكي','حتى 3 ركاب'],['taxi','🚕','تاكسي','حتى 4 ركاب'],['suzuki','🚐','سوزوكي','حتى 6 ركاب'],['microbus','🚌','ميكروباص','حتى 13 راكب'],['scooter','🛵','اسكوتر','راكب واحد'],['motorcycle','🏍️','دراجة نارية','راكب واحد']];
   layout(`
     <main class="passenger-map-first"><section class="passenger-map-stage"><div id="tripMap" class="trip-map" role="application" aria-label="خريطة تحديد مكان الركوب والوجهة"></div><div class="map-floating-status" id="mapHint">حدد مكان الركوب والوجهة لعرض المسار</div><button type="button" class="map-locate-button" id="useLocation" aria-label="تحديد موقعي الحالي">◎</button></section>
       <form class="panel form trip-panel passenger-bottom-sheet" id="tripForm"><div class="bottom-sheet-handle"></div><div class="trip-options-scroll"><div class="trip-options-heading"><b>اختار المركبة المناسبة</b><small id="selectedRouteNames"></small></div>
@@ -526,7 +526,7 @@ function tripForm() {
     });
   };
 
-  const vehicleCapacities={private_car:3,taxi:4,scooter:1,motorcycle:1};
+  const vehicleCapacities={private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
   let currentPassengerMax=3, selectedPassengerCount=Math.max(1,Number(rememberedTrip?.passenger_count)||1);
   const updatePassengerCountUI=()=>{
     $('passengerCount').value=String(selectedPassengerCount);
@@ -557,7 +557,7 @@ function tripForm() {
     updatePassengerCountUI();updateFarePreview();
   };
   document.querySelectorAll('.vehicle-card').forEach(card=>card.addEventListener('click',()=>setVehicle(card.dataset.vehicle)));
-  setVehicle(['private_car','taxi','scooter','motorcycle'].includes(rememberedTrip?.vehicle_type)?rememberedTrip.vehicle_type:'private_car');
+  setVehicle(['private_car','taxi','suzuki','microbus','scooter','motorcycle'].includes(rememberedTrip?.vehicle_type)?rememberedTrip.vehicle_type:'private_car');
 
   const fitPoints = () => {
     if (!map) return;
