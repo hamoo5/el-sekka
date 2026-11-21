@@ -1327,7 +1327,7 @@ function shareHome() {
       </section>` : ''}
       ${isCaptain ? '<section class="panel" hidden><h2>متابعة تفاوضاتك ككابتن</h2><div id="shareCaptainNegotiations" class="share-list">جارٍ تحميل التفاوضات...</div></section>' : ''}
       <section class="panel"><h2>حجوزات الكراسي الحالية</h2><div id="legacyShareBookings" class="share-list">جارٍ تحميل الحجوزات...</div></section>
-      ${isCaptain?'<section class="panel captain-own-routes-panel"><div class="share-section-heading"><div><span class="tag">لوحة الكابتن</span><h2>خطوطي المنشورة</h2><p class="muted">تابع العروض التي نشرتها والمقاعد المتاحة فيها.</p></div><span class="share-section-icon">🛣️</span></div><div id="captainOwnShareRides" class="share-list">جارٍ تحميل خطوطك...</div></section>':'<section class="panel rider-route-discovery"><div class="share-section-heading"><div><span class="tag">اكتشف الطريق</span><h2>الخطوط المتاحة حولك</h2><p class="muted">المسارات الحقيقية المنشورة من الكباتن، مع نقاط البداية والنهاية.</p></div><span class="share-section-icon">🧭</span></div><div id="riderShareMap" class="trip-map rider-share-map" role="application" aria-label="خريطة خطوط مشاركة الطريق"></div><div class="map-legend"><span>🟢 بداية الخط</span><span>🔴 نهاية الخط</span><span>🟩 مسار الكابتن</span></div><button type="button" class="btn outline" id="sortRidesNearMe">📍 ترتيب الخطوط حسب موقعي</button><p id="rideLocationStatus" class="muted" aria-live="polite">اعرض الأقرب إليك باستخدام موقع هاتفك. يُستخدم الموقع للترتيب فقط ولا يُحفظ.</p><div id="shareAvailableRides" class="share-list rider-share-list">جارٍ تحميل الخطوط المتاحة...</div></section>'}
+      ${isCaptain?'<section class="panel captain-own-routes-panel"><div class="share-section-heading"><div><span class="tag">لوحة الكابتن</span><h2>خطوطي المنشورة</h2><p class="muted">تابع العروض التي نشرتها والمقاعد المتاحة فيها.</p></div><span class="share-section-icon">🛣️</span></div><div id="captainOwnShareRides" class="share-list">جارٍ تحميل خطوطك...</div></section>':'<section class="panel rider-route-discovery"><div class="share-section-heading"><div><span class="tag">اكتشف الطريق</span><h2>الخطوط المتاحة حولك</h2><p class="muted">المسارات الحقيقية المنشورة من الكباتن، مع نقاط البداية والنهاية.</p></div><span class="share-section-icon">🧭</span></div><div id="riderShareMap" class="trip-map rider-share-map" role="application" aria-label="خريطة خطوط مشاركة الطريق"></div><div class="map-legend"><span>🟢 بداية الخط</span><span>🔴 نهاية الخط</span><span>🟩 مسار الكابتن</span></div><button type="button" class="btn outline" id="sortRidesNearMe">📍 ترتيب الخطوط حسب موقعي</button><button type="button" class="btn outline" id="toggleFarRides" hidden>عرض الخطوط الأبعد من 10 كم</button><p id="rideLocationStatus" class="muted" aria-live="polite">اعرض الخطوط القريبة خلال 10 كم باستخدام موقع هاتفك. يُستخدم الموقع للترتيب فقط ولا يُحفظ.</p><div id="shareAvailableRides" class="share-list rider-share-list">جارٍ تحميل الخطوط المتاحة...</div></section>'}
       <section class="panel" hidden>        <h2>طلباتي وردود الكباتن</h2>
         <div id="shareMyRequests" class="share-list">جارٍ تحميل طلباتك...</div>
       </section>
@@ -1869,7 +1869,7 @@ function shareHome() {
   });
 
   let riderShareMap=null,riderShareRouteLayer=null,riderShareMarkerLayer=null,riderSharePoiLayer=null,riderShareMapAttempts=0,riderSharePoiSignature='';
-  let riderCurrentLocation=null,riderLocationMarker=null;
+  let riderCurrentLocation=null,riderLocationMarker=null,showFarRides=false;
   function distanceToRideRouteMeters(ride,point){
     const coords=ride.route_geometry?.coordinates;
     if(!coords||coords.length<2)return Number.POSITIVE_INFINITY;
@@ -1887,10 +1887,11 @@ function shareHome() {
   $('sortRidesNearMe')?.addEventListener('click',()=>{
     const status=$('rideLocationStatus'),button=$('sortRidesNearMe');
     if(!navigator.geolocation){if(status)status.textContent='المتصفح لا يدعم تحديد الموقع.';return;}
-    button.disabled=true;if(status)status.textContent='جارٍ تحديد موقعك لترتيب الخطوط الأقرب...';
+    button.disabled=true;if(status)status.textContent='جارٍ تحديد موقعك وعرض الخطوط التي تبعد حتى 10 كم...';
     navigator.geolocation.getCurrentPosition(position=>{
       riderCurrentLocation={lat:position.coords.latitude,lng:position.coords.longitude};
-      if(status)status.textContent='تم تحديد موقعك. ترتيب الخطوط حسب أقرب نقطة من مسار كل خط (مسافة تقريبية).';
+      showFarRides=false;
+      if(status)status.textContent='تم تحديد موقعك. نعرض الخطوط التي تبعد حتى 10 كم، مرتبة من الأقرب. المسافة تقريبية.';
       button.disabled=false;
       if(riderShareMap){riderShareMap.setView([riderCurrentLocation.lat,riderCurrentLocation.lng],11);}
       loadAvailableRides();
@@ -1898,6 +1899,10 @@ function shareHome() {
       button.disabled=false;
       if(status)status.textContent=error.code===1?'لم تسمح بالوصول للموقع. يمكنك تفعيل إذن الموقع من إعدادات المتصفح.':'تعذر تحديد موقعك الآن. تحقق من تشغيل GPS وحاول مرة أخرى.';
     },{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
+  });
+  $('toggleFarRides')?.addEventListener('click',()=>{
+    showFarRides=!showFarRides;
+    loadAvailableRides();
   });
   function initRiderShareMap(){
     const el=$('riderShareMap');if(!el||riderShareMap)return;
@@ -1982,15 +1987,39 @@ function shareHome() {
     if(error){host.textContent='تعذر تحميل عروض الكراسي.';return;}
     // The database trigger guarantees that every newly published ride uses a shared-service vehicle.
     // Do not query vehicles here: rider RLS intentionally limits direct vehicle reads to owners/admins.
-    const rides=(data||[]).filter(r=>r.captain_id!==profile.id);
-    if(riderCurrentLocation)rides.sort((a,b)=>distanceToRideRouteMeters(a,riderCurrentLocation)-distanceToRideRouteMeters(b,riderCurrentLocation));
+    const allRides=(data||[]).filter(r=>r.captain_id!==profile.id);
+    if(riderCurrentLocation){
+      allRides.forEach(ride=>{ride._distanceFromUser=distanceToRideRouteMeters(ride,riderCurrentLocation);});
+      allRides.sort((a,b)=>a._distanceFromUser-b._distanceFromUser);
+    }
+    const nearbyRides=riderCurrentLocation?allRides.filter(ride=>ride._distanceFromUser<=10000):allRides;
+    const hasFarRides=!!riderCurrentLocation&&allRides.some(ride=>ride._distanceFromUser>10000);
+    const rides=riderCurrentLocation&& !showFarRides?nearbyRides:allRides;
+    const toggle=$('toggleFarRides');
+    if(toggle){
+      toggle.hidden=!hasFarRides;
+      toggle.textContent=showFarRides?'عرض الخطوط الأقرب فقط':'عرض الخطوط الأبعد من 10 كم ('+allRides.filter(ride=>ride._distanceFromUser>10000).length+')';
+    }
+    if(riderCurrentLocation){
+      const status=$('rideLocationStatus');
+      if(status)status.textContent=showFarRides
+        ?'نعرض كل الخطوط مرتبة من الأقرب، بما فيها الخطوط الأبعد من 10 كم.'
+        :nearbyRides.length
+          ?'نعرض '+nearbyRides.length+' خط قريب خلال 10 كم، مرتبة من الأقرب. المسافة تقريبية.'
+          :'لا توجد خطوط منشورة خلال 10 كم من موقعك حالياً. يمكنك عرض الخطوط الأبعد.';
+    }
     window.__sekkaAvailableRides=rides;
     if(!isCaptain)renderRiderShareRoutes(rides);
-    if(!rides.length){host.innerHTML='<p class="muted">لا توجد خطوط متاحة حالياً. ارجع لاحقاً لاكتشاف خطوط جديدة.</p>';return;}
+    if(!rides.length){
+      host.innerHTML=riderCurrentLocation&&hasFarRides&&!showFarRides
+        ?'<p class="muted">لا توجد خطوط قريبة خلال 10 كم. اضغط «عرض الخطوط الأبعد» لاستكشاف باقي الخطوط.</p>'
+        :'<p class="muted">لا توجد خطوط متاحة حالياً. ارجع لاحقاً لاكتشاف خطوط جديدة.</p>';
+      return;
+    }
     host.innerHTML=rides.map(r=>`<article class="share-item rider-route-card">
       <div class="rider-route-card-head"><span class="route-car-icon">🚗</span><div><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><small>${r.ride_mode==='live_share'?'رحلة فورية':'رحلة مجدولة'} · ${new Date(r.departure_at).toLocaleString('ar-EG')}</small></div></div>
       <div class="rider-route-card-meta"><span>💺 ${r.available_seats} مقعد متاح</span><strong>${Number(r.seat_price_egp).toLocaleString('ar-EG')} جنيه <small>للكرسي</small></strong></div>
-      ${riderCurrentLocation?'<p class="muted">يبعد عنك نحو '+(distanceToRideRouteMeters(r,riderCurrentLocation)/1000).toFixed(1)+' كم من أقرب نقطة بالمسار (تقريبي).</p>':''}
+      ${riderCurrentLocation?'<p class="muted">يبعد عنك نحو '+(r._distanceFromUser/1000).toFixed(1)+' كم من أقرب نقطة بالمسار (تقريبي).</p>':''}
       ${r.route_distance_m?'<p class="muted">مسار قيادة: '+(r.route_distance_m/1000).toFixed(1)+' كم · زمن تقديري '+Math.round((r.route_duration_seconds||0)/60)+' دقيقة</p>':'<p class="muted">مسار الطريق التفصيلي غير متاح لهذا العرض.</p>'}
       <div class="share-actions"><label>عدد الكراسي<input type="number" min="1" max="${r.available_seats}" value="1" id="ride-seats-${r.id}"></label>
       <div class="fixed-fare-note">السعر ثابت: ${Number(r.seat_price_egp).toLocaleString('ar-EG')} جنيه للكرسي · الإجمالي: <strong id="ride-total-fare-${r.id}">${Number(r.seat_price_egp).toLocaleString('ar-EG')}</strong> جنيه</div></div>
