@@ -107,16 +107,16 @@ async function accountPage(){
  shell(`<main class="wrap narrow"><div class="page-head"><h1>حسابي</h1></div>${card('بيانات الحساب',`<p><b>الاسم:</b> ${esc(profile.display_name||'—')}</p><p><b>البريد:</b> ${esc(session.user.email)}</p><p><b>نوع الحساب:</b> ${esc(profile.account_type)}</p><button class="btn outline" data-view="trips">رحلاتي</button>`)}</main>`);
 }
 async function captainHome(){
- const [{data:appRow},{data:vehicles},{data:requests},{data:captainStats},{data:subscriptions}] = await Promise.all([
+ const [{data:appRow},{data:vehicles},{data:requests},{count:completedTripsCount},{data:subscriptions}] = await Promise.all([
   db.from('captain_applications').select('application_status,admin_notes').eq('user_id',session.user.id).order('created_at',{ascending:false}).limit(1).maybeSingle(),
   db.from('vehicles').select('id,vehicle_type,make,model,plate_number,approval_status,is_active').eq('captain_id',session.user.id),
   db.from('trip_requests').select('id,vehicle_type,origin_name,destination_name,scheduled_at,passenger_count,fixed_fare_egp,request_status').eq('request_status','searching').limit(30),
-  db.from('captain_profiles').select('completed_trips').eq('user_id',session.user.id).maybeSingle(),
+  db.from('trip_requests').select('id',{count:'exact',head:true}).eq('accepted_captain_id',session.user.id).eq('request_status','completed'),
   db.from('captain_subscriptions').select('id,plan_days,amount_egp,payment_status,starts_at,expires_at,created_at').eq('captain_id',session.user.id).order('created_at',{ascending:false}).limit(10)
  ]);
- const completedTrips=Number(captainStats?.completed_trips||0);
+ const completedTrips=Number(completedTripsCount||0);
  const now=Date.now();
- const activeSubscription=(subscriptions||[]).find(s=>s.payment_status==='approved'&&s.expires_at&&new Date(s.expires_at).getTime()>now);
+ const activeSubscription=(subscriptions||[]).find(s=>s.payment_status==='approved'&&s.starts_at&&new Date(s.starts_at).getTime()<=now&&s.expires_at&&new Date(s.expires_at).getTime()>now);
  const pendingSubscription=(subscriptions||[]).find(s=>s.payment_status==='submitted');
  const subscriptionForm=`<form id="subscriptionForm">
   <label>الباقة<select name="plan_days" required><option value="30">150 ج / 30 يوم</option><option value="90">400 ج / 90 يوم</option></select></label>
