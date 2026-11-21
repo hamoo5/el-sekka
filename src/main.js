@@ -1564,7 +1564,7 @@ function shareHome() {
     ]);
     if(error){host.textContent='تعذر تحميل الطلبات. تأكد من تنفيذ تحديث قاعدة البيانات أولاً.';return;}
     const eligibleRequests=(requests||[]).filter(r=>!r.preferred_vehicle_type||sharedVehicleTypes.includes(r.preferred_vehicle_type));
-    if(!eligibleRequests.length){host.innerHTML='<p class="muted">لا توجد طلبات مشاركة متاحة حالياً.</p>';return;}
+    if(!eligibleRequests.length){host.innerHTML='<p class="muted">لا توجد طلبات مشاركة مجدولة قادمة حالياً. ستظهر هنا الطلبات المفتوحة التي لم يحن موعد تحركها بعد.</p>';return;}
     if(!vehicles?.length){host.innerHTML='<div class="notice">لازم يكون عندك مركبة معتمدة ونشطة (ملاكي أو سوزوكي أو ميكروباص) حتى ترد على طلب مشاركة.</div>';return;}
     host.innerHTML=eligibleRequests.map(r=>{
       const matching=vehicles.filter(v=>(!r.preferred_vehicle_type||v.vehicle_type===r.preferred_vehicle_type)&&v.passenger_capacity>=r.seats_requested);
