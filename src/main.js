@@ -22,6 +22,7 @@ if (urlTrackingToken && window.location.pathname === '/track') {
 let currentTripId = null;
 let activeChatChannels = [];
 let activeTripChannels = [];
+let passengerBookingChannel = null;
 let publicTrackingTimer = null;
 let publicTrackingMap = null;
 let publicTrackingMarker = null;
@@ -184,6 +185,42 @@ async function authAction(mode,email,password,referralCode='') {
   await loadProfile();
 }
 
+function stopPassengerBookingUpdates(){
+  if(passengerBookingChannel){try{supabase?.removeChannel(passengerBookingChannel);}catch(_){}passengerBookingChannel=null;}
+}
+function showBookingCancellationNotice(){
+  let toast=document.getElementById('sekkaBookingNotice');
+  if(!toast){
+    toast=document.createElement('div');
+    toast.id='sekkaBookingNotice';
+    toast.setAttribute('role','status');
+    toast.setAttribute('aria-live','polite');
+    toast.style.cssText='position:fixed;z-index:10000;top:calc(env(safe-area-inset-top,0px) + 14px);left:16px;right:16px;max-width:520px;margin:0 auto;padding:14px 16px;border-radius:14px;background:#183b31;color:#fff;box-shadow:0 8px 28px #0003;font-size:14px;line-height:1.6;text-align:right;direction:rtl';
+    document.body.appendChild(toast);
+  }
+  toast.textContent='تنبيه من السكة: تم إلغاء حجز مشاركة الطريق بواسطة الكابتن. افتح «مشاركة الطريق» لمراجعة التفاصيل.';
+  clearTimeout(window.__sekkaBookingNoticeTimer);
+  window.__sekkaBookingNoticeTimer=window.setTimeout(()=>toast?.remove(),7000);
+  if(document.visibilityState==='hidden'&&'Notification' in window&&Notification.permission==='granted'){
+    try{new Notification('السكة: تم إلغاء حجزك',{body:'ألغى الكابتن خط المشاركة. افتح التطبيق لمراجعة حجوزاتك.',tag:'sekka-booking-cancelled'});}catch(_){}
+  }
+}
+function startPassengerBookingUpdates(){
+  stopPassengerBookingUpdates();
+  if(!supabase||!profile||profile.account_type!=='rider'||!profile.id)return;
+  passengerBookingChannel=supabase.channel('sekka-booking-updates-'+profile.id)
+    .on('postgres_changes',{
+      event:'UPDATE',schema:'public',table:'bookings',filter:'passenger_id=eq.'+profile.id
+    },payload=>{
+      if(payload.new?.booking_status!=='cancelled')return;
+      showBookingCancellationNotice();
+      if(typeof window.__sekkaReloadShareBookings==='function')window.__sekkaReloadShareBookings();
+    })
+    .subscribe((status,error)=>{
+      if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')console.warn('Passenger booking realtime unavailable:',error?.message||status);
+    });
+}
+
 async function loadProfile() {
   const { data, error } = await supabase.from('profiles')
     .select('id,display_name,role,account_type,is_blocked,is_vip,referral_code,points,captain_reward_days_balance,captain_referral_progress,referred_by,referral_discount_trips_used,referral_discount_trips_reserved,discounted_trips_count')
@@ -194,6 +231,7 @@ async function loadProfile() {
   const actualRole=profile.account_type||(profile.role==='captain'?'captain':profile.role==='admin'?'admin':'rider');
   if(selectedAuthRole&&actualRole!=='admin'&&actualRole!==selectedAuthRole){await supabase.auth.signOut();session=null;profile=null;document.getElementById('msg')?.replaceChildren(document.createTextNode(selectedAuthRole==='admin'?'هذا الحساب لا يملك صلاحية دخول الإدارة.':'هذا البريد الإلكتروني مسجل كحساب '+(selectedAuthRole==='rider'?'كابتن ولا يمكن استخدامه كراكب، يرجى التسجيل ببريد إلكتروني منفصل.':'راكب ولا يمكن استخدامه ككابتن، يرجى التسجيل ببريد إلكتروني منفصل.')));return;}
   profile.account_type=actualRole;
+  startPassengerBookingUpdates();
   page=actualRole==='captain'?'captain':actualRole==='admin'?'admin':'trip';
   if (profile?.role === 'captain') {
     const {error: statusError} = await supabase.rpc('process_my_captain_document_status');
@@ -1590,6 +1628,8 @@ function shareHome() {
     host.querySelectorAll('[data-b-reject]').forEach(b=>b.addEventListener('click',()=>call(b.dataset.bReject,'captain_reply_booking',{p_booking_id:b.dataset.bReject,p_action:'reject',p_counter_price:null})));
   }
 
+  window.__sekkaReloadShareBookings=loadLegacyShareBookings;
+
   async function loadCaptainSeatVehicles(){
     const vehicleInput=$('seatOfferVehicle'),status=$('seatOfferVehicleStatus'); if(!vehicleInput)return;
     vehicleInput.value='';
@@ -2378,6 +2418,7 @@ function disposeLiveUi(){
   activeChatChannels.forEach(channel=>{try{supabase?.removeChannel(channel);}catch(_){}});
   activeTripChannels.forEach(channel=>{try{supabase?.removeChannel(channel);}catch(_){}});
   activeChatChannels=[];activeTripChannels=[];
+  window.__sekkaReloadShareBookings=null;
   if(publicTrackingTimer){clearInterval(publicTrackingTimer);publicTrackingTimer=null;}
   if(publicTrackingMap){try{publicTrackingMap.remove();}catch(_){}publicTrackingMap=null;publicTrackingMarker=null;}
   if(captainLocationWatchId!==null&&navigator.geolocation){navigator.geolocation.clearWatch(captainLocationWatchId);captainLocationWatchId=null;}
@@ -2524,6 +2565,7 @@ async function init() {
     session = next;
     if (next) loadProfile();
     else {
+      stopPassengerBookingUpdates();
       profile = null; page = 'home';
       try { sessionStorage.removeItem(PAGE_STORAGE_KEY); } catch (_) {}
       render();
