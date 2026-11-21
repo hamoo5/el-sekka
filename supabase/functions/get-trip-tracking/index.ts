@@ -47,7 +47,7 @@ Deno.serve(async(req:Request)=>{
   return new Response(JSON.stringify({
    active:true,trip_id:trip.id,status:trip.request_status,
    captain_name:captain?.display_name||"الكابتن",
-   vehicle:vehicle?{make:vehicle.make,model:vehicle.model,color:vehicle.color,plate_number:vehicle.plate_number,vehicle_type:vehicle.vehicle_type}:null,
+   vehicle:vehicle?{make:vehicle.make,model:vehicle.model,color:vehicle.color,vehicle_type:vehicle.vehicle_type}:null,
    origin:trip.origin_name,destination:trip.destination_name,
    location:location?{latitude:location.latitude,longitude:location.longitude,accuracy_meters:location.accuracy_meters,updated_at:location.updated_at}:null,
    checked_at:new Date().toISOString()
