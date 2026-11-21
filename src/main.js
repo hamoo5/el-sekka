@@ -165,14 +165,18 @@ async function groupPage(){
   const box=document.querySelector('#groupRequests');
   if(vehicleError||requestError){box.innerHTML='<section class="panel notice error">'+esc((vehicleError||requestError).message)+'</section>';return;}
   if(!vehicles?.length){box.innerHTML='<section class="panel empty">لا توجد مركبة معتمدة ونشطة على حسابك.</section>';return;}
-  if(!requests?.length){box.innerHTML='<section class="panel empty">لا توجد طلبات مشاركة طريق متاحة حاليًا.</section>';return;}
+  const requestList=requests||[];
+  const {data:captainExistingOffers}=await db.from('share_route_negotiations').select('id,request_id,requester_offer_egp,captain_counter_offer_egp,agreed_price_egp,negotiation_status,created_at').eq('captain_id',session.user.id).order('created_at',{ascending:false}).limit(50);
+  const handledRequestIds=new Set((captainExistingOffers||[]).map(o=>o.request_id));
+  const visibleRequests=requestList.filter(r=>!handledRequestIds.has(r.id));
+  if(!visibleRequests.length){box.innerHTML='<section class="panel empty">لا توجد طلبات جديدة للرد عليها. عروضك السابقة ظاهرة بالأسفل.</section>'; }
   const distanceMeters=(aLat,aLng,bLat,bLng)=>{
    const rad=n=>n*Math.PI/180, dLat=rad(bLat-aLat),dLng=rad(bLng-aLng);
    const h=Math.sin(dLat/2)**2+Math.cos(rad(aLat))*Math.cos(rad(bLat))*Math.sin(dLng/2)**2;
    return 6371000*2*Math.asin(Math.sqrt(Math.min(1,h)));
   };
   const groups=[];
-  requests.forEach(r=>{
+  visibleRequests.forEach(r=>{
    const group=groups.find(g=>{
     const first=g.requests[0],pref=r.preferred_vehicle_type;
     return g.requests.length<10&&g.seatsTotal+r.seats_requested<=13
@@ -184,17 +188,24 @@ async function groupPage(){
    if(group){group.requests.push(r);group.seatsTotal+=r.seats_requested;if(!group.preferredVehicleType)group.preferredVehicleType=r.preferred_vehicle_type;}
    else groups.push({requests:[r],seatsTotal:r.seats_requested,preferredVehicleType:r.preferred_vehicle_type});
   });
-  box.innerHTML=groups.map(g=>{
+  box.innerHTML=groups.length?groups.map(g=>{
    const first=g.requests[0],key=first.id,ids=g.requests.map(r=>r.id);
    return `<section class="panel"><div class="ride-top"><span class="pill">${g.requests.length>1?'مجموعة طلبات متقاربة':'طلب مشاركة طريق'}</span><b>${g.requests.length} طلب · ${g.seatsTotal} مقعد</b></div><h3>${esc(first.origin_name)} ← ${esc(first.destination_name)}</h3><p class="muted">مطابقة تقريبية: بداية ونهاية في نطاق 2 كم وميعاد في نطاق 30 دقيقة.</p><div class="stack">${g.requests.map(r=>'<article class="request"><b>'+esc(r.origin_name)+' ← '+esc(r.destination_name)+'</b><p>'+r.seats_requested+' مقعد · '+money(r.requester_seat_price_egp)+' للمقعد · '+date(r.departure_at)+'</p></article>').join('')}</div><label>المركبة المناسبة<select data-vehicle-for="${key}">${vehicles.map(v=>`<option value="${v.id}">${esc(v.make||'')} ${esc(v.model||'')} · ${esc(({private_car:'ملاكي',suzuki:'سوزوكي',microbus:'ميكروباص'})[v.vehicle_type]||v.vehicle_type)} · ${esc(v.plate_number||'')} · سعة ${v.passenger_capacity}</option>`).join('')}</select></label><div class="actions"><button class="btn primary" data-group-action="accept" data-request-ids="${ids.join(',')}" data-group-key="${key}">قبول ${g.requests.length>1?'المجموعة':'الطلب'}</button><button class="btn outline" data-group-action="counter" data-request-ids="${ids.join(',')}" data-group-key="${key}">عرض سعر موحد للمجموعة</button></div></section>`;
-  }).join('');
+  }).join(''):'<section class="panel empty">لا توجد طلبات جديدة للرد عليها.</section>';
+  const myOffers=captainExistingOffers;
+  if(myOffers?.length){
+   const offerRequestIds=[...new Set(myOffers.map(o=>o.request_id))];
+   const {data:offerRequests}=await db.from('share_route_requests').select('id,origin_name,destination_name,departure_at,seats_requested').in('id',offerRequestIds);
+   const offerMap=new Map((offerRequests||[]).map(r=>[r.id,r]));
+   box.insertAdjacentHTML('beforeend','<section class="panel"><h2>عروضك وحجوزاتك على مشوارنا واحد</h2>'+myOffers.map(o=>{const r=offerMap.get(o.request_id);if(!r)return '';const status=({pending:'بانتظار رد الراكب',counter_offer:'عرضك ينتظر رد الراكب · السعة محجوزة مؤقتًا',accepted:'الراكب وافق · في انتظار التأكيد',confirmed:'تم تأكيد المشاركة',cancelled:'تم رفض العرض أو إلغاؤه'})[o.negotiation_status]||o.negotiation_status;return '<article class="request"><b>'+esc(r.origin_name)+' ← '+esc(r.destination_name)+'</b><p>'+status+' · '+r.seats_requested+' مقعد</p><p class="muted">'+date(r.departure_at)+' · '+money(o.agreed_price_egp??o.captain_counter_offer_egp??o.requester_offer_egp)+' للمقعد</p></article>';}).join('')+'</section>');
+  }
   box.querySelectorAll('[data-group-action]').forEach(btn=>btn.onclick=async()=>{
    const vehicle=box.querySelector('[data-vehicle-for="'+btn.dataset.groupKey+'"]')?.value;if(!vehicle)return;
    let price=null;
    if(btn.dataset.groupAction==='counter'){const raw=prompt('اكتب إجمالي تكلفة المشوار للمجموعة بالجنيه؛ سيتم تقسيمها تلقائيًا على إجمالي المقاعد:');if(raw===null)return;price=Number(raw);if(!Number.isFinite(price)||price<0){alert('أدخل سعرًا صحيحًا.');return;}}
    busyButton(btn,true);
    try{const {data,error}=await db.rpc('captain_reply_share_route_group',{p_request_ids:btn.dataset.requestIds.split(','),p_vehicle_id:vehicle,p_action:btn.dataset.groupAction,p_counter_price:price});if(error)throw error;alert('تم إرسال الرد على '+(data||btn.dataset.requestIds.split(',').length)+' طلب. كل راكب سيؤكد العرض من حسابه.');await groupPage();}
-   catch(err){alert(err.message||'تعذر إرسال الرد. تأكد من سعة المركبة وتقارب الطلبات.');busyButton(btn,false);}
+   catch(err){const messages={vehicle_schedule_conflict:'المركبة مرتبطة بطلب آخر في نفس الميعاد وعلى مسار مختلف.',vehicle_capacity_already_reserved:'المقاعد المتبقية في المركبة لا تكفي بعد احتساب الحجوزات والعروض السابقة.',group_exceeds_vehicle_capacity:'إجمالي مقاعد المجموعة أكبر من سعة المركبة.',requests_not_close_enough_to_group:'الطلبات ليست متقاربة بما يكفي لتجميعها.',vehicle_type_mismatch:'نوع المركبة لا يناسب أحد طلبات المجموعة.'};alert(messages[err.message]||err.message||'تعذر إرسال الرد.');busyButton(btn,false);}
   });
   return;
  }
@@ -238,7 +249,7 @@ async function groupPage(){
   if(rErr||nErr){box.innerHTML='<section class="panel notice error">'+esc((rErr||nErr).message)+'</section>';return;}
   if(!requests?.length){box.innerHTML='<section class="panel empty">لم تنشر طلبات مشاركة طريق بعد.</section>';return;}
   const byRequest=new Map(requests.map(r=>[r.id,r]));
-  const offers=(negotiations||[]).map(n=>{const r=byRequest.get(n.request_id);if(!r)return '';const status=({pending:'بانتظار رد الكابتن',counter_offer:'الكابتن قدم عرضًا بديلًا',accepted:'وافق الكابتن · في انتظار تأكيدك',confirmed:'تم تأكيد المشاركة',cancelled:'تم إلغاء التفاوض'})[n.negotiation_status]||n.negotiation_status;return `<article class="request"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><p>${status}</p><p>عرضك: ${money(n.requester_offer_egp)} ${n.captain_counter_offer_egp!==null?' · عرض الكابتن: '+money(n.captain_counter_offer_egp):''} ${n.agreed_price_egp!==null?' · السعر المتفق عليه: '+money(n.agreed_price_egp):''}</p>${n.negotiation_status==='counter_offer'?'<button class="btn primary" data-rider-action="accept" data-negotiation="'+n.id+'">قبول عرض الكابتن</button> <button class="btn outline" data-rider-action="counter" data-negotiation="'+n.id+'">عرض سعر آخر</button>':''}${n.negotiation_status==='accepted'?'<button class="btn primary" data-rider-action="confirm" data-negotiation="'+n.id+'">تأكيد المشاركة</button>':''}</article>`;}).join('');
+  const offers=(negotiations||[]).map(n=>{const r=byRequest.get(n.request_id);if(!r)return '';const status=({pending:'بانتظار رد الكابتن',counter_offer:'الكابتن قدم عرضًا بديلًا',accepted:'وافق الكابتن · في انتظار تأكيدك',confirmed:'تم تأكيد المشاركة',cancelled:'تم إلغاء التفاوض'})[n.negotiation_status]||n.negotiation_status;return `<article class="request"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><p>${status}</p><p>عرضك: ${money(n.requester_offer_egp)} ${n.captain_counter_offer_egp!==null?' · عرض الكابتن: '+money(n.captain_counter_offer_egp):''} ${n.agreed_price_egp!==null?' · السعر المتفق عليه: '+money(n.agreed_price_egp):''}</p>${n.negotiation_status==='counter_offer'?'<button class="btn primary" data-rider-action="accept" data-negotiation="'+n.id+'">قبول عرض الكابتن</button> <button class="btn outline" data-rider-action="counter" data-negotiation="'+n.id+'">عرض سعر آخر</button> <button class="btn danger" data-rider-action="cancel" data-negotiation="'+n.id+'">رفض العرض</button>':''}${n.negotiation_status==='accepted'?'<button class="btn primary" data-rider-action="confirm" data-negotiation="'+n.id+'">تأكيد المشاركة</button>':''}</article>`;}).join('');
   const requestsHtml=requests.map(r=>`<article class="request"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><p>${esc(r.request_status)} · ${r.seats_requested} مقعد · ${money(r.requester_seat_price_egp)} للمقعد</p><p class="muted">${date(r.departure_at)}</p></article>`).join('');
   box.innerHTML='<section class="panel"><h3>عروض الكباتن</h3>'+(offers||'<p>لا توجد عروض حتى الآن.</p>')+'</section><section class="panel"><h3>طلباتك المنشورة</h3>'+requestsHtml+'</section>';
   box.querySelectorAll('[data-rider-action]').forEach(btn=>btn.onclick=async()=>{
