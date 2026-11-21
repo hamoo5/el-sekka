@@ -82,6 +82,7 @@ function attachCoordinatePicker(mapId,form){
  const status=()=>form.querySelector('[data-map-status]');
  const pointName=key=>form.querySelector('[name="'+key+'_name"]');
  const setPoint=async(key,lat,lng)=>{
+  if(routeLayer){routeLayer.remove();routeLayer=null;}
   const latInput=form.querySelector('[name="'+key+'_lat"]'),lngInput=form.querySelector('[name="'+key+'_lng"]');
   if(latInput)latInput.value=Number(lat).toFixed(6);if(lngInput)lngInput.value=Number(lng).toFixed(6);
   if(markers[key])markers[key].remove();
@@ -94,7 +95,7 @@ function attachCoordinatePicker(mapId,form){
   if([oLat,oLng,dLat,dLng].every(Number.isFinite)&&oLat!==0&&oLng!==0&&dLat!==0&&dLng!==0){
    if(status())status().textContent='بنرسم الطريق بين النقطتين…';
    fetch('https://router.project-osrm.org/route/v1/driving/'+oLng+','+oLat+';'+dLng+','+dLat+'?overview=full&geometries=geojson').then(res=>res.ok?res.json():null).then(data=>{
-    const geometry=data?.routes?.[0]?.geometry;if(!geometry)return;if(routeLayer)routeLayer.remove();
+    const geometry=data?.routes?.[0]?.geometry;if(!geometry){if(status())status().textContent='مش قادرين نرسم طريق بين النقطتين دول. راجع مكان البداية والوجهة.';return;}if(routeLayer)routeLayer.remove();
     routeLayer=window.L.geoJSON(geometry,{style:{color:'#c6f36a',weight:5,opacity:.85}}).addTo(map);map.fitBounds(routeLayer.getBounds(),{padding:[22,22]});
     if(status())status().textContent='المسار ظهر على الخريطة. راجع البداية والنهاية قبل إرسال الطلب.';
    }).catch(()=>{if(status())status().textContent='تم تحديد النقطتين. تعذر عرض خط الطريق حاليًا، لكن تقدر تكمل.';});
@@ -113,6 +114,7 @@ function attachCoordinatePicker(mapId,form){
   },()=>{if(status())status().textContent='مقدرناش نحدد موقعك. اسمح للموقع بالوصول للموقع أو اختار المكان على الخريطة.';},{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
  }));
  map.on('click',async event=>{if(!activePoint)return;const key=activePoint;activePoint=null;await setPoint(key,event.latlng.lat,event.latlng.lng);});
+ form.addEventListener('reset',()=>setTimeout(()=>{Object.values(markers).forEach(marker=>marker.remove());Object.keys(markers).forEach(key=>delete markers[key]);if(routeLayer){routeLayer.remove();routeLayer=null;}activePoint=null;map.setView([30.0444,31.2357],11);if(status())status().textContent='حدد مكان الانطلاق والوجهة على الخريطة.';},0));
  setTimeout(()=>map.invalidateSize(),150);
  return map;
 }
@@ -188,6 +190,8 @@ async function sharePage(){
   </main>`);
   const form=document.querySelector('#rideForm');
   const shareMap=attachCoordinatePicker('shareRouteMap',form);
+  const departureInput=form?.querySelector('[name="departure_at"]');
+  if(departureInput){departureInput.min=localDateTimeValue();departureInput.value=localDateTimeValue(new Date(Date.now()+60*60*1000));}
   const vehicleSelect=form?.querySelector('[name="vehicle_id"]'),seatSelect=form?.querySelector('[name="seats"]');
   const syncSeatChoices=()=>{if(!vehicleSelect||!seatSelect)return;const vehicle=(vehicles||[]).find(x=>x.id===vehicleSelect.value),max=({private_car:3,suzuki:6,microbus:13})[vehicle?.vehicle_type]||13,current=Number(seatSelect.value)||1;seatSelect.innerHTML=Array.from({length:max},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('');seatSelect.value=String(Math.min(current,max));};
   vehicleSelect?.addEventListener('change',syncSeatChoices);syncSeatChoices();
@@ -196,7 +200,7 @@ async function sharePage(){
    try{
     const coords=[Number(v('origin_lng')),Number(v('origin_lat')),Number(v('destination_lng')),Number(v('destination_lat'))];
     if(!v('origin_name')||!v('destination_name'))throw Error('اكتب مكان الانطلاق والوجهة.');
-    if(coords.some(n=>!Number.isFinite(n)||n===0))throw Error('حدد مكان الانطلاق والوجهة على الخريطة أولاً.');
+    if(coords.some(n=>!Number.isFinite(n)||n===0))throw Error('حدد مكان الانطلاق والوجهة على الخريطة أولاً.');if(Math.hypot(coords[0]-coords[2],coords[1]-coords[3])<0.0005)throw Error('مكان الانطلاق والوجهة قريبان جدًا من بعض. اختار نقطتين مختلفتين.');
     if(!v('departure_at')||new Date(v('departure_at'))<=new Date())throw Error('اختار ميعادًا قادمًا للتحرك.');
     const vehicle=(vehicles||[]).find(x=>x.id===v('vehicle_id'));
     if(!vehicle)throw Error('اختار المركبة التي ستتحرك بها.');
@@ -210,7 +214,7 @@ async function sharePage(){
     if(shareMap&&window.L){const preview=window.L.geoJSON(route.geometry).addTo(shareMap);shareMap.fitBounds(preview.getBounds(),{padding:[18,18]});}
     const {error}=await db.rpc('create_share_ride',{p_vehicle_id:v('vehicle_id'),p_ride_mode:'scheduled_share',p_origin_name:v('origin_name'),p_origin_lat:coords[1],p_origin_lng:coords[0],p_destination_name:v('destination_name'),p_destination_lat:coords[3],p_destination_lng:coords[2],p_route_description:v('route_description')||null,p_departure_at:new Date(v('departure_at')).toISOString(),p_seats:Number(v('seats')),p_seat_price:Number(v('seat_price')),p_route_geometry:route.geometry,p_route_distance_m:Math.round(route.distance),p_route_duration_seconds:Math.round(route.duration)});
     if(error)throw error;
-    notice('طريقك اتنشر بنجاح. الركاب يقدروا يشوفوه ويطلبوا مقاعد عليه.','success');form.reset();
+    notice('طريقك اتنشر بنجاح. الركاب يقدروا يشوفوه ويطلبوا مقاعد عليه.','success');form.reset();if(departureInput){departureInput.min=localDateTimeValue();departureInput.value=localDateTimeValue(new Date(Date.now()+60*60*1000));}syncSeatChoices();
    }catch(err){notice(err.message||'تعذر نشر الطريق.','error');}
    finally{busyButton(b,false);}
   };
@@ -310,15 +314,15 @@ async function groupPage(){
  const form=document.querySelector('#groupRequestForm');
  attachCoordinatePicker('groupRouteMap',form);
  const dt=form.querySelector('[name="departure_at"]');
- dt.value=localDateTimeValue(new Date(Date.now()+60*60*1000));
+ dt.min=localDateTimeValue();dt.value=localDateTimeValue(new Date(Date.now()+60*60*1000));
  form.onsubmit=async e=>{
   e.preventDefault();const fd=new FormData(form),v=k=>String(fd.get(k)||'').trim(),btn=form.querySelector('button[type="submit"]');busyButton(btn,true);
   try{
    const coords=['origin_lat','origin_lng','destination_lat','destination_lng'].map(k=>Number(v(k)));
-   if(!v('origin_name')||!v('destination_name'))throw Error('اكتب مكان البداية والوجهة.');if(coords.some(n=>!Number.isFinite(n)||n===0))throw Error('حدد مكان البداية والوجهة على الخريطة أولًا.');if(new Date(v('departure_at'))<=new Date())throw Error('اختار ميعادًا قادمًا للمشوار.');
+   if(!v('origin_name')||!v('destination_name'))throw Error('اكتب مكان البداية والوجهة.');if(coords.some(n=>!Number.isFinite(n)||n===0))throw Error('حدد مكان البداية والوجهة على الخريطة أولًا.');if(Math.hypot(coords[0]-coords[2],coords[1]-coords[3])<0.0005)throw Error('مكان الانطلاق والوجهة قريبان جدًا من بعض. اختار نقطتين مختلفتين.');if(new Date(v('departure_at'))<=new Date())throw Error('اختار ميعادًا قادمًا للمشوار.');
    const price=Number(v('seat_price'));if(!Number.isFinite(price)||price<0)throw Error('اكتب أقصى سعر صحيح للمقعد.');if(!Number.isInteger(Number(v('seats')))||Number(v('seats'))<1||Number(v('seats'))>6)throw Error('عدد المقاعد المطلوبة من 1 إلى 6.');
    const {error}=await db.rpc('create_share_route_request',{p_ride_mode:'scheduled_share',p_origin_name:v('origin_name'),p_origin_lat:coords[0],p_origin_lng:coords[1],p_destination_name:v('destination_name'),p_destination_lat:coords[2],p_destination_lng:coords[3],p_route_description:v('route_description')||null,p_departure_at:new Date(v('departure_at')).toISOString(),p_seats:Number(v('seats')),p_seat_price:price,p_vehicle_type:v('vehicle_type')||null});
-   if(error)throw error;notice('طلبك اتنشر. الكباتن القريبين من طريقك يقدروا يرسلوا عروضهم.','success');form.reset();dt.value=new Date(Date.now()+60*60*1000-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);await loadMyGroupRequests();
+   if(error)throw error;notice('طلبك اتنشر. الكباتن القريبين من طريقك يقدروا يرسلوا عروضهم.','success');form.reset();dt.min=localDateTimeValue();dt.value=localDateTimeValue(new Date(Date.now()+60*60*1000));await loadMyGroupRequests();
   }catch(err){notice(err.message||'تعذر نشر الطلب.','error');}
   finally{busyButton(btn,false);}
  };
