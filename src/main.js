@@ -397,8 +397,7 @@ function tripForm() {
         <p class="map-first-saving-note">وفّرت 15% تلقائياً بدون عمولة</p></div>
         <p class="message" id="tripMessage" aria-live="polite"></p>
         <section id="tripResult" class="trip-result" hidden></section>
-      </form>
-    </main>`);
+      </form>    </main>`);
 
   let origin = null, destination = null, activePoint = 'origin';
   const $ = id => document.getElementById(id);
@@ -797,8 +796,7 @@ function tripForm() {
     let scheduledAt=null;
     if(scheduled){
       const raw=$('scheduledAt').value;
-      if(!raw||new Date(raw).getTime()<=Date.now()){msg.textContent='اختر موعداً مستقبلياً صحيحاً.';return;}
-      scheduledAt=new Date(raw).toISOString();
+      if(!raw||new Date(raw).getTime()<=Date.now()){msg.textContent='اختر موعداً مستقبلياً صحيحاً.';return;}      scheduledAt=new Date(raw).toISOString();
     }
     button.disabled=true;$('sendTripLabel').textContent=scheduled?'جارٍ إرسال الحجز المجدول...':'جارٍ إرسال طلبك...';
     msg.textContent='بنحسب المسافة والسعر الثابت على الخادم.';
@@ -1197,8 +1195,7 @@ function shareHome() {
       ${isCaptain ? '<section class="panel" hidden><h2>متابعة تفاوضاتك ككابتن</h2><div id="shareCaptainNegotiations" class="share-list">جارٍ تحميل التفاوضات...</div></section>' : ''}
       <section class="panel"><h2>حجوزات الكراسي الحالية</h2><div id="legacyShareBookings" class="share-list">جارٍ تحميل الحجوزات...</div></section>
       ${isCaptain?'<section class="panel captain-own-routes-panel"><div class="share-section-heading"><div><span class="tag">لوحة الكابتن</span><h2>خطوطي المنشورة</h2><p class="muted">تابع العروض التي نشرتها والمقاعد المتاحة فيها.</p></div><span class="share-section-icon">🛣️</span></div><div id="captainOwnShareRides" class="share-list">جارٍ تحميل خطوطك...</div></section>':'<section class="panel rider-route-discovery"><div class="share-section-heading"><div><span class="tag">اكتشف الطريق</span><h2>الخطوط المتاحة حولك</h2><p class="muted">المسارات الحقيقية المنشورة من الكباتن، مع نقاط البداية والنهاية.</p></div><span class="share-section-icon">🧭</span></div><div id="riderShareMap" class="trip-map rider-share-map" role="application" aria-label="خريطة خطوط مشاركة الطريق"></div><div class="map-legend"><span>🟢 بداية الخط</span><span>🔴 نهاية الخط</span><span>🟩 مسار الكابتن</span></div><div id="shareAvailableRides" class="share-list rider-share-list">جارٍ تحميل الخطوط المتاحة...</div></section>'}
-      <section class="panel" hidden>
-        <h2>طلباتي وردود الكباتن</h2>
+      <section class="panel" hidden>        <h2>طلباتي وردود الكباتن</h2>
         <div id="shareMyRequests" class="share-list">جارٍ تحميل طلباتك...</div>
       </section>
     </main>`);
@@ -1546,8 +1543,9 @@ function shareHome() {
 
       let actions='';
       if(requester&&b.booking_status==='counter_offer') actions=
-        '<div class="share-actions"><button class="btn primary" data-b-accept="'+b.id+'">قبول سعر الكابتن</button><input id="b-offer-'+b.id+'" type="number" min="0" step="0.5" placeholder="سعرك الجديد"><button class="btn outline" data-b-counter="'+b.id+'">سعر مقابل</button><button class="btn ghost" data-b-cancel="'+b.id+'">إلغاء</button></div>';
-      else if(requester&&b.booking_status==='accepted') actions='<button class="btn primary" data-b-confirm="'+b.id+'">تأكيد حجز الكرسي</button>';
+        '<div class="share-actions"><button class="btn primary" data-b-accept="'+b.id+'">قبول سعر الكابتن</button><input id="b-offer-'+b.id+'" type="number" min="0" step="0.5" placeholder="سعرك الجديد"><button class="btn outline" data-b-counter="'+b.id+'">سعر مقابل</button><button class="btn ghost" data-b-cancel="'+b.id+'">إلغاء الحجز</button></div>';
+      else if(requester&&b.booking_status==='accepted') actions='<div class="share-actions"><button class="btn primary" data-b-confirm="'+b.id+'">تأكيد حجز الكرسي</button><button class="btn ghost" data-b-cancel="'+b.id+'">إلغاء الحجز</button></div>';
+      else if(requester&&['pending','confirmed'].includes(b.booking_status)) actions='<button class="btn ghost" data-b-cancel="'+b.id+'">إلغاء الحجز</button>';
       else if(!requester&&b.booking_status==='pending') actions=
         '<div class="share-actions"><button class="btn primary" data-b-captain-accept="'+b.id+'">قبول عرض الراكب</button><input id="b-counter-'+b.id+'" type="number" min="0" step="0.5" placeholder="سعرك المقابل"><button class="btn outline" data-b-captain-counter="'+b.id+'">سعر مقابل</button><button class="btn ghost" data-b-reject="'+b.id+'">رفض</button></div>';
       return '<article class="share-item"><b>'+esc(b.pickup_name)+' ← '+esc(b.dropoff_name)+'</b>'+
@@ -1578,7 +1576,14 @@ function shareHome() {
     }));
     host.querySelectorAll('[data-b-accept]').forEach(b=>b.addEventListener('click',()=>call(b.dataset.bAccept,'passenger_reply_booking',{p_booking_id:b.dataset.bAccept,p_action:'accept',p_new_offer:null})));
     host.querySelectorAll('[data-b-counter]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.bCounter,price=Number($('b-offer-'+id).value);if(!Number.isFinite(price)||price<0){alert('اكتب سعراً صحيحاً.');return;}call(id,'passenger_reply_booking',{p_booking_id:id,p_action:'counter',p_new_offer:price});}));
-    host.querySelectorAll('[data-b-cancel]').forEach(b=>b.addEventListener('click',()=>call(b.dataset.bCancel,'passenger_reply_booking',{p_booking_id:b.dataset.bCancel,p_action:'cancel',p_new_offer:null})));
+    host.querySelectorAll('[data-b-cancel]').forEach(b=>b.addEventListener('click',async buttonEvent=>{
+      const button=buttonEvent.currentTarget,id=button.dataset.bCancel;
+      if(!window.confirm('هل تريد إلغاء هذا الحجز؟ سيتم تحرير المقاعد المحجوزة إذا لم تكن الرحلة قد بدأت.'))return;
+      button.disabled=true;
+      const {error}=await supabase.rpc('passenger_cancel_shared_ride_booking',{p_booking_id:id});
+      if(error){alert(shareError(error));button.disabled=false;return;}
+      await loadLegacyShareBookings();
+    }));
     host.querySelectorAll('[data-b-confirm]').forEach(b=>b.addEventListener('click',()=>call(b.dataset.bConfirm,'confirm_seat_booking',{p_booking_id:b.dataset.bConfirm})));
     host.querySelectorAll('[data-b-captain-accept]').forEach(b=>b.addEventListener('click',()=>call(b.dataset.bCaptainAccept,'captain_reply_booking',{p_booking_id:b.dataset.bCaptainAccept,p_action:'accept',p_counter_price:null})));
     host.querySelectorAll('[data-b-captain-counter]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.bCaptainCounter,price=Number($('b-counter-'+id).value);if(!Number.isFinite(price)||price<0){alert('اكتب سعراً صحيحاً.');return;}call(id,'captain_reply_booking',{p_booking_id:id,p_action:'counter',p_counter_price:price});}));
@@ -1597,8 +1602,7 @@ function shareHome() {
       return;
     }
     const eligible=(vehicles||[]).filter(v=>Number(v.passenger_capacity)>=1&&Number(v.passenger_capacity)<=3);
-    if(!eligible.length){
-      if(status){status.textContent='لا توجد سيارة ملاكي معتمدة مرتبطة بحسابك. راجع بيانات المركبة.';status.className='notice';}
+    if(!eligible.length){      if(status){status.textContent='لا توجد سيارة ملاكي معتمدة مرتبطة بحسابك. راجع بيانات المركبة.';status.className='notice';}
       return;
     }
     const active=eligible.filter(v=>v.is_active===true);
@@ -1997,8 +2001,7 @@ async function applyCaptainPage() {
         <label class="checkline"><input name="attestation" type="checkbox" required> أقر أن المستندات والبيانات المرفوعة صحيحة وتخصني أو تخص المركبة المسجلة.</label>
         <button class="btn primary" type="submit">إرسال المستندات للمراجعة / تحديثها</button>
         <p class="message" id="applyMessage" aria-live="polite"></p>
-      </form>
-    </main>`);
+      </form>    </main>`);
   document.getElementById('back')?.addEventListener('click',()=>{page='home';render();});
   const form=document.getElementById('captainApplyForm');
   const capacityByType={private_car:3,taxi:4,suzuki:6,microbus:13,scooter:1,motorcycle:1};
@@ -2397,8 +2400,7 @@ async function profilePage(){
     <section class="profile-hero"><div class="profile-avatar">${esc(name.slice(0,1))}</div><div><span class="tag">حسابي الشخصي</span><h1>${esc(name)}</h1><p>${esc(session?.user?.email||'')}</p><span class="profile-role-pill">${roleLabel}</span></div></section>
     <section class="panel profile-section"><h2>بيانات الحساب</h2>
       <div class="profile-info-row"><span>الاسم الظاهر</span><b>${esc(name)}</b></div>
-      <div class="profile-info-row"><span>البريد الإلكتروني</span><b dir="ltr">${esc(session?.user?.email||'—')}</b></div>
-      <div class="profile-info-row"><span>نوع الحساب</span><b>${roleLabel}</b></div>
+      <div class="profile-info-row"><span>البريد الإلكتروني</span><b dir="ltr">${esc(session?.user?.email||'—')}</b></div>      <div class="profile-info-row"><span>نوع الحساب</span><b>${roleLabel}</b></div>
       ${profile.is_blocked?'<div class="notice">الحساب موقوف حاليًا. تواصل مع الإدارة للمراجعة.</div>':''}
     </section>
     ${profile.account_type==='captain'?'<section class="panel profile-section"><h2>حالة الكابتن</h2><div class="profile-info-row"><span>طلب الانضمام</span><b>'+esc(captainApp?.application_status==='approved'?'معتمد':captainApp?.application_status==='pending'?'قيد المراجعة':captainApp?.application_status==='suspended'?'موقوف':'غير مكتمل')+'</b></div><div class="profile-info-row"><span>الاشتراك</span><b>'+esc(activeSubscription?.expires_at&&new Date(activeSubscription.expires_at)>new Date()?'نشط حتى '+new Date(activeSubscription.expires_at).toLocaleDateString('ar-EG'):'لا يوجد اشتراك نشط')+'</b></div></section>':''}
