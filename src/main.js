@@ -1122,9 +1122,11 @@ function shareHome() {
   layout(`
     <main class="wrap narrow">
       <button type="button" class="back" id="back">→ الرئيسية</button>
-      <section class="hero compact">
-        <span class="tag">مشاركة الطريق · خطوط سير وحجز مقاعد</span>
-        <h1>شارك الطريق</h1>
+      <section class="hero compact share-hero ${isCaptain?"captain-share-hero":"rider-share-hero"}">
+        <span class="tag">${isCaptain?"مساحة الكابتن · إدارة خطوطك":"مساحة الراكب · اكتشف طريقك"}</span>
+        <h1>${isCaptain?"انشر خطك واستقبل الحجوزات":"اختار خط سير يناسب مشوارك"}</h1>
+        <p>${isCaptain?"حدد طريقك ومواعيدك وعدد المقاعد، وتابع طلبات الركاب من مكان واحد.":"شوف الخطوط المتاحة على الخريطة، واختار مكان ركوب ونزول على نفس الطريق."}</p>
+        <div class="share-hero-points"><span>🗺️ خريطة فعلية</span><span>🚗 ملاكي فقط</span><span>🛡️ حجز آمن داخل التطبيق</span></div>
       </section>
       <details class="panel share-rule">
         <summary><b>كيف تعمل مشاركة الطريق؟</b></summary>
@@ -1189,11 +1191,7 @@ function shareHome() {
       </section>` : ''}
       ${isCaptain ? '<section class="panel" hidden><h2>متابعة تفاوضاتك ككابتن</h2><div id="shareCaptainNegotiations" class="share-list">جارٍ تحميل التفاوضات...</div></section>' : ''}
       <section class="panel"><h2>حجوزات الكراسي الحالية</h2><div id="legacyShareBookings" class="share-list">جارٍ تحميل الحجوزات...</div></section>
-      <section class="panel">
-        <h2>خطوط مشاركة متاحة</h2>
-        <p class="muted">اختار خطًا مناسبًا، ثم اكتب نقطتي ركوبك ونزولك على مساره. لازم النقطتان تكونا على بُعد 500 متر أو أقل من خط الكابتن.</p>
-        <div id="shareAvailableRides" class="share-list">جارٍ تحميل العروض...</div>
-      </section>
+      ${isCaptain?'<section class="panel captain-own-routes-panel"><div class="share-section-heading"><div><span class="tag">لوحة الكابتن</span><h2>خطوطي المنشورة</h2><p class="muted">تابع العروض التي نشرتها والمقاعد المتاحة فيها.</p></div><span class="share-section-icon">🛣️</span></div><div id="captainOwnShareRides" class="share-list">جارٍ تحميل خطوطك...</div></section>':'<section class="panel rider-route-discovery"><div class="share-section-heading"><div><span class="tag">اكتشف الطريق</span><h2>الخطوط المتاحة حولك</h2><p class="muted">المسارات الحقيقية المنشورة من الكباتن، مع نقاط البداية والنهاية.</p></div><span class="share-section-icon">🧭</span></div><div id="riderShareMap" class="trip-map rider-share-map" role="application" aria-label="خريطة خطوط مشاركة الطريق"></div><div class="map-legend"><span>🟢 بداية الخط</span><span>🔴 نهاية الخط</span><span>🟩 مسار الكابتن</span></div><div id="shareAvailableRides" class="share-list rider-share-list">جارٍ تحميل الخطوط المتاحة...</div></section>'}
       <section class="panel" hidden>
         <h2>طلباتي وردود الكباتن</h2>
         <div id="shareMyRequests" class="share-list">جارٍ تحميل طلباتك...</div>
@@ -1336,7 +1334,7 @@ function shareHome() {
     if(!shareOriginPoint){msg.textContent='اختار مكان البداية من اقتراحات البحث أو من الخريطة.';btn.disabled=false;return;}
     if(!shareDestinationPoint){msg.textContent='اختار الوجهة من اقتراحات البحث أو من الخريطة.';btn.disabled=false;return;}
     if(shareOriginPoint.lat===shareDestinationPoint.lat&&shareOriginPoint.lng===shareDestinationPoint.lng){msg.textContent='مكان البداية والوجهة متطابقان.';btn.disabled=false;return;}
-    if (!Number.isInteger(seats) || seats < 1 || seats > 13 ||
+    if (!Number.isInteger(seats) || seats < 1 || seats > 3 ||
         (selectedVehicle && (shareVehicleCapacity[selectedVehicle] || 0) < seats)) {
       msg.textContent='نوع المركبة المختار لا يستوعب عدد الكراسي. عدّل العدد أو اختر مركبة مناسبة.';
       btn.disabled=false; updateShareVehicleOptions(); return;
@@ -1694,6 +1692,43 @@ function shareHome() {
     finally{btn.disabled=false;}
   });
 
+  let riderShareMap=null,riderShareRouteLayer=null,riderShareMarkerLayer=null,riderShareMapAttempts=0;
+  function initRiderShareMap(){
+    const el=$('riderShareMap');if(!el||riderShareMap)return;
+    if(!window.L){if(riderShareMapAttempts++<40)setTimeout(initRiderShareMap,180);return;}
+    riderShareMap=window.L.map(el,{zoomControl:true}).setView([30.0444,31.2357],10);
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(riderShareMap);
+    riderShareRouteLayer=window.L.layerGroup().addTo(riderShareMap);
+    riderShareMarkerLayer=window.L.layerGroup().addTo(riderShareMap);
+    requestAnimationFrame(()=>riderShareMap?.invalidateSize());
+  }
+  function renderRiderShareRoutes(rides){
+    if(!riderShareMap||!window.L)return;
+    riderShareRouteLayer.clearLayers();riderShareMarkerLayer.clearLayers();
+    const bounds=[];
+    rides.forEach(ride=>{
+      const geometry=ride.route_geometry;if(!geometry?.coordinates?.length)return;
+      const line=window.L.geoJSON(geometry,{style:{color:'#16a36a',weight:5,opacity:.82}}).addTo(riderShareRouteLayer);
+      const coords=geometry.coordinates,start=[coords[0][1],coords[0][0]],end=[coords[coords.length-1][1],coords[coords.length-1][0]];
+      const startIcon=window.L.divIcon({className:'rider-share-pin-wrap',html:'<span class="rider-share-pin rider-start-pin">●</span>',iconSize:[24,24],iconAnchor:[12,12]});
+      const endIcon=window.L.divIcon({className:'rider-share-pin-wrap',html:'<span class="rider-share-pin rider-end-pin">●</span>',iconSize:[24,24],iconAnchor:[12,12]});
+      window.L.marker(start,{icon:startIcon}).bindPopup('<b>'+esc(ride.origin_name)+'</b><br>بداية الخط').addTo(riderShareMarkerLayer);
+      window.L.marker(end,{icon:endIcon}).bindPopup('<b>'+esc(ride.destination_name)+'</b><br>نهاية الخط').addTo(riderShareMarkerLayer);
+      line.bindPopup('<b>'+esc(ride.origin_name)+' ← '+esc(ride.destination_name)+'</b><br>'+Number(ride.available_seats||0)+' مقعد متاح');
+      bounds.push(line.getBounds());
+    });
+    if(bounds.length){const all=window.L.latLngBounds(bounds.flatMap(b=>[b.getSouthWest(),b.getNorthEast()]));riderShareMap.fitBounds(all,{padding:[24,24],maxZoom:13});}
+    else riderShareMap.setView([30.0444,31.2357],10);
+    setTimeout(()=>riderShareMap?.invalidateSize(),100);
+  }
+  async function loadCaptainOwnShareRides(){
+    const host=$('captainOwnShareRides');if(!host)return;
+    const {data,error}=await supabase.from('rides').select('id,origin_name,destination_name,departure_at,available_seats,seat_capacity,seat_price_egp,ride_status,route_distance_m').eq('captain_id',profile.id).order('departure_at',{ascending:false}).limit(20);
+    if(error){host.textContent='تعذر تحميل خطوطك المنشورة.';return;}
+    if(!data?.length){host.innerHTML='<p class="muted">لسه ما نشرتش أي خط. ابدأ بتحديد خط السير من النموذج بالأعلى.</p>';return;}
+    host.innerHTML=data.map(ride=>'<article class="share-item captain-own-route-card"><b>'+esc(ride.origin_name)+' ← '+esc(ride.destination_name)+'</b><small>'+new Date(ride.departure_at).toLocaleString('ar-EG')+'</small><p>المتاح: '+Number(ride.available_seats||0)+' من '+Number(ride.seat_capacity||0)+' مقعد · '+Number(ride.seat_price_egp||0).toLocaleString('ar-EG')+' جنيه للكرسي</p>'+(ride.route_distance_m?'<small>طول المسار '+(ride.route_distance_m/1000).toFixed(1)+' كم</small>':'')+'</article>').join('');
+  }
+
   async function loadAvailableRides(){
     const host=$('shareAvailableRides');if(!host)return;
     let q=supabase.from('rides').select('id,captain_id,vehicle_id,ride_mode,origin_name,destination_name,departure_at,available_seats,seat_price_egp,route_distance_m,route_duration_seconds,route_geometry')
@@ -1703,11 +1738,11 @@ function shareHome() {
     // The database trigger guarantees that every newly published ride uses a shared-service vehicle.
     // Do not query vehicles here: rider RLS intentionally limits direct vehicle reads to owners/admins.
     const rides=(data||[]).filter(r=>r.captain_id!==profile.id);
-    if(!rides.length){host.innerHTML='<p class="muted">لا توجد عروض كراسي متاحة حالياً.</p>';return;}
-    host.innerHTML=rides.map(r=>`<article class="share-item">
-      <b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b>
-      <small>${r.ride_mode==='live_share'?'فوري':'مجدول'} · ${new Date(r.departure_at).toLocaleString('ar-EG')}</small>
-      <p>المتاح: ${r.available_seats} · السعر المطلوب: ${Number(r.seat_price_egp).toLocaleString('ar-EG')} جنيه للكرسي</p>
+    if(!isCaptain)renderRiderShareRoutes(rides);
+    if(!rides.length){host.innerHTML='<p class="muted">لا توجد خطوط متاحة حالياً. ارجع لاحقاً لاكتشاف خطوط جديدة.</p>';return;}
+    host.innerHTML=rides.map(r=>`<article class="share-item rider-route-card">
+      <div class="rider-route-card-head"><span class="route-car-icon">🚗</span><div><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><small>${r.ride_mode==='live_share'?'رحلة فورية':'رحلة مجدولة'} · ${new Date(r.departure_at).toLocaleString('ar-EG')}</small></div></div>
+      <div class="rider-route-card-meta"><span>💺 ${r.available_seats} مقعد متاح</span><strong>${Number(r.seat_price_egp).toLocaleString('ar-EG')} جنيه <small>للكرسي</small></strong></div>
       ${r.route_distance_m?'<p class="muted">مسار قيادة: '+(r.route_distance_m/1000).toFixed(1)+' كم · زمن تقديري '+Math.round((r.route_duration_seconds||0)/60)+' دقيقة</p>':'<p class="muted">مسار الطريق التفصيلي غير متاح لهذا العرض.</p>'}
       <div class="share-actions"><input type="number" min="1" max="${r.available_seats}" value="1" id="ride-seats-${r.id}" aria-label="عدد الكراسي">
       <input type="number" min="0" step="0.5" value="${Number(r.seat_price_egp)}" id="ride-offer-${r.id}" aria-label="عرضك للكرسي"></div>
@@ -1743,7 +1778,8 @@ function shareHome() {
   window.__sekkaShareRideChannel=supabase.channel('sekka-shared-ride-seat-updates')
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'rides'},()=>loadAvailableRides())
     .subscribe();
-  if(isCaptain) loadCaptainSeatVehicles();
+  if(isCaptain){loadCaptainSeatVehicles();loadCaptainOwnShareRides();}
+  else initRiderShareMap();
   loadAvailableRides();
   loadMyShareRequests();
   loadLegacyShareBookings();
