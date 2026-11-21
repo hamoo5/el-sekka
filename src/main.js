@@ -368,9 +368,9 @@ async function linesPage(){
    e.preventDefault();const fd=new FormData(form),dateValue=String(fd.get('run_date')||''),time=form.dataset.time,btn=form.querySelector('button[type="submit"]');
    const departure=new Date(dateValue+'T'+time+':00');if(!dateValue||Number.isNaN(departure.getTime())){form.querySelector('.notice').textContent='اختر تاريخًا صحيحًا.';return;}
    busyButton(btn,true);
-   try{const {error}=await db.rpc('request_sekka_line_seats',{p_schedule_id:form.dataset.lineSchedule,p_departure_at:departure.toISOString(),p_pickup_stop_id:String(fd.get('pickup_stop')),p_dropoff_stop_id:String(fd.get('dropoff_stop')),p_seats:Number(fd.get('seats'))});if(error)throw error;form.querySelector('.notice').textContent='تم حجز مقعدك بنجاح.';form.querySelector('.notice').className='notice success';await refreshLineAvailability(form);}
+   try{const {error}=await db.rpc('request_sekka_line_seats',{p_schedule_id:form.dataset.lineSchedule,p_departure_at:departure.toISOString(),p_pickup_stop_id:String(fd.get('pickup_stop')),p_dropoff_stop_id:String(fd.get('dropoff_stop')),p_seats:Number(fd.get('seats'))});if(error)throw error;form.querySelector('.notice').textContent='تم حجز مقعدك بنجاح.';form.querySelector('.notice').className='notice success';}
    catch(err){form.querySelector('.notice').textContent=err.message==='not_enough_seats_for_segment'?'لم تعد هناك مقاعد كافية لهذا الجزء. اختر عددًا أقل أو ميعادًا آخر.':(err.message||'تعذر إتمام الحجز.');form.querySelector('.notice').className='notice error';}
-   finally{busyButton(btn,false);}
+   finally{busyButton(btn,false);await refreshLineAvailability(form);}
   };
  });
 }
