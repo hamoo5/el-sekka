@@ -18,7 +18,7 @@ const busyButton = (button, yes) => { if(button){button.disabled=yes;button.data
 function shell(content){
  root.innerHTML=`<header class="top"><a class="brand" href="#" data-view="home"><span class="mark">س</span><span><b>السكة</b><small>مشاركة الطريق.. على السكة</small></span></a><div class="top-actions">${session?'<span class="user-tag">'+esc(profile?.display_name||session.user.email)+'</span><button class="btn outline" id="logout">خروج</button>':''}</div></header>
  ${content}
- ${session?'<nav class="bottom" aria-label="التنقل الرئيسي"><button data-view="home">الرئيسية</button><button data-view="share">جاي في سكتك</button><button data-view="group">مشوارنا واحد</button><button data-view="lines">خطوط السكة</button><button data-view="trips">حجوزاتي</button><button data-view="account">حسابي</button></nav>':''}
+ ${session?'<nav class="bottom" aria-label="التنقل الرئيسي"><button data-view="home">الرئيسية</button>'+(profile?.account_type==='admin'?'<button data-view="admin">لوحة الإدارة</button>':'')+'<button data-view="share">جاي في سكتك</button><button data-view="group">مشوارنا واحد</button><button data-view="lines">خطوط السكة</button><button data-view="trips">حجوزاتي</button><button data-view="account">حسابي</button></nav>':''}
  <footer>السكة · منصة تنقّل ومشاركة طريق</footer>`;
  root.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();view=b.dataset.view;render();}));
  document.querySelector('#logout')?.addEventListener('click',async()=>{await db.auth.signOut();session=null;profile=null;view='home';render();});
@@ -63,7 +63,7 @@ function home(){
  </main>`);
 }
 function authPage(){
- shell(`<main class="wrap narrow"><section class="hero compact"><span class="eyebrow">السكة · تجربة تشغيل</span><h1>ابدأ مشوارك</h1><p>حساب مستقل للراكب أو الكابتن.</p></section>${card('تسجيل الدخول أو إنشاء حساب',`<div class="tabs"><button type="button" class="${authRole==='rider'?'selected':''}" data-role="rider">راكب</button><button type="button" class="${authRole==='captain'?'selected':''}" data-role="captain">كابتن</button><button type="button" class="${authRole==='admin'?'selected':''}" data-role="admin">إدارة</button></div><form id="authForm">${input('البريد الإلكتروني','email','email',true,'name@example.com')}${input('كلمة المرور','password','password',true,'6 أحرف على الأقل')}${authMode==='signup'?input('الاسم','name','text',true,'الاسم الظاهر'):''}<button class="btn primary full" type="submit">${authMode==='signup'?'إنشاء الحساب':'تسجيل الدخول'}</button><button class="text-btn" type="button" id="toggleAuth">${authMode==='signup'?'لديك حساب؟ تسجيل الدخول':'حساب جديد؟ أنشئ حسابًا'}</button><p id="notice" class="notice" role="status"></p></form>`)}<p class="muted center">النسخة التجريبية متصلة بقاعدة البيانات.</p></main>`);
+ shell(`<main class="wrap narrow"><section class="hero compact"><span class="eyebrow">السكة · تجربة تشغيل</span><h1>ابدأ مشوارك</h1><p>حساب مستقل للراكب أو الكابتن.</p></section>${card('تسجيل الدخول أو إنشاء حساب',`<div class="tabs"><button type="button" class="${authRole==='rider'?'selected':''}" data-role="rider">راكب</button><button type="button" class="${authRole==='captain'?'selected':''}" data-role="captain">كابتن</button><button type="button" class="${authRole==='admin'?'selected':''}" data-role="admin">إدارة</button></div><form id="authForm">${input('البريد الإلكتروني','email','email',true,'name@example.com')}${input('كلمة المرور','password','password',true,'6 أحرف على الأقل')}${authMode==='signup'?input('الاسم','name','text',true,'الاسم الظاهر'):''}<button class="btn primary full" type="submit">${authMode==='signup'?'إنشاء الحساب':'تسجيل الدخول'}</button><button class="text-btn" type="button" id="toggleAuth">${authMode==='signup'?'لديك حساب؟ تسجيل الدخول':'حساب جديد؟ أنشئ حسابًا'}</button><p id="notice" class="notice" role="status"></p></form>`)}<p class="muted center">${authRole==='admin'?'الدخول مخصص لحساب الإدارة المعتمد فقط. لا يمكن إنشاء حساب مدير من هنا.':'النسخة التجريبية متصلة بقاعدة البيانات.'}</p></main>`);
  root.querySelectorAll('[data-role]').forEach(b=>b.onclick=()=>{authRole=b.dataset.role;authPage();});
  document.querySelector('#toggleAuth').onclick=()=>{authMode=authMode==='signup'?'signin':'signup';authPage();};
  document.querySelector('#authForm').onsubmit=async e=>{
@@ -164,7 +164,25 @@ function attachLineStopMap(form){
  addButton.onclick=()=>{const name=nameInput?.value.trim()||selectedName;if(!selected){if(status)status.textContent='حدد مكان المحطة على الخريطة أولًا.';return;}if(!name){if(status)status.textContent='اكتب اسم المحطة أو انتظر تحديد اسم المكان.';return;}const rows=readStops();rows.push(name+' | '+selected.lat.toFixed(6)+' | '+selected.lng.toFixed(6));area.value=rows.join('\n');drawStops();if(nameInput)nameInput.value='';selected=null;selectedName='';addButton.disabled=true;if(marker){marker.remove();marker=null;}if(status)status.textContent='اتضافت المحطة. حدد المحطة التالية بالترتيب.';};
  drawStops();setTimeout(()=>map.invalidateSize(),150);return map;
 }
-function attachBookingMap(mapId,container){
+function projectPointToRoute(geometry,lat,lng){
+ if(!geometry||geometry.type!=='LineString'||!Array.isArray(geometry.coordinates)||geometry.coordinates.length<2)return null;
+ const latScale=110540,lngScale=111320*Math.cos(lat*Math.PI/180);
+ let walked=0,bestDistance=Infinity,bestOffset=0;
+ const points=geometry.coordinates;
+ for(let i=1;i<points.length;i++){
+  const a=points[i-1],b=points[i];
+  const ax=(a[0]-lng)*lngScale,ay=(a[1]-lat)*latScale;
+  const bx=(b[0]-lng)*lngScale,by=(b[1]-lat)*latScale;
+  const dx=bx-ax,dy=by-ay,len2=dx*dx+dy*dy;
+  const t=len2?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/len2)):0;
+  const px=ax+t*dx,py=ay+t*dy,distance=Math.hypot(px,py);
+  const segmentLength=Math.hypot((b[0]-a[0])*lngScale,(b[1]-a[1])*latScale);
+  if(distance<bestDistance){bestDistance=distance;bestOffset=walked+t*segmentLength;}
+  walked+=segmentLength;
+ }
+ return {distance_m:bestDistance,offset_m:bestOffset};
+}
+function attachBookingMap(mapId,container,rides=[]){
  const mapElement=document.getElementById(mapId);if(!mapElement||!container)return;
  if(!window.L){mapElement.textContent='تعذر تحميل الخريطة. حدّث الصفحة وحاول مرة أخرى.';return;}
  const map=window.L.map(mapElement).setView([30.0444,31.2357],11);
@@ -173,14 +191,18 @@ function attachBookingMap(mapId,container){
  const status=document.querySelector('[data-booking-map-status]');
  container.querySelectorAll('[data-booking-map-pick]').forEach(button=>button.addEventListener('click',()=>{
   targetForm=container.querySelector('form[data-book="'+button.dataset.rideId+'"]');targetPoint=button.dataset.bookingMapPick;
-  if(status)status.textContent='اضغط على الخريطة لتحديد '+(targetPoint==='pickup'?'مكان ركوبك':'مكان نزولك')+' في الرحلة المختارة.';
+  const selectedRide=rides.find(r=>r.id===button.dataset.rideId);
+  if(selectedRide?.route_geometry){const bounds=window.L.geoJSON(selectedRide.route_geometry).getBounds();if(bounds.isValid())map.fitBounds(bounds,{padding:[35,35],maxZoom:16});}
+  if(status)status.textContent='الخريطة قربت على مسار الرحلة. اختار نقطة قريبة من الخط الأخضر؛ النقاط البعيدة هتترفض.';
  }));
  container.querySelectorAll('[data-booking-current]').forEach(button=>button.addEventListener('click',()=>{
   const form=container.querySelector('form[data-book="'+button.dataset.rideId+'"]');
   if(!navigator.geolocation){if(status)status.textContent='تحديد موقعك غير مدعوم على هذا الجهاز.';return;}
   if(status)status.textContent='بنحدد مكانك الحالي…';
   navigator.geolocation.getCurrentPosition(async pos=>{
-   const lat=pos.coords.latitude,lng=pos.coords.longitude;map.setView([lat,lng],15);
+   const lat=pos.coords.latitude,lng=pos.coords.longitude,ride=rides.find(r=>r.id===button.dataset.rideId),projection=projectPointToRoute(ride?.route_geometry,lat,lng);
+   if(!projection||projection.distance_m>500){if(status)status.textContent='موقعك الحالي بعيد عن خط الرحلة بحوالي '+Math.round(projection?.distance_m||0)+' متر. اختار نقطة ركوب أقرب للخط أو اختر رحلة أخرى.';return;}
+   map.setView([lat,lng],15);
    form.querySelector('[name="pickup_lat"]').value=lat.toFixed(6);form.querySelector('[name="pickup_lng"]').value=lng.toFixed(6);
    const key=form.dataset.book+'-pickup';if(markers[key])markers[key].remove();markers[key]=window.L.marker([lat,lng]).addTo(map).bindPopup('مكان ركوبك').openPopup();
    const name=await reversePlaceName(lat,lng),nameInput=form.querySelector('[name="pickup_name"]');if(name&&nameInput)nameInput.value=name;
@@ -190,6 +212,10 @@ function attachBookingMap(mapId,container){
  map.on('click',async event=>{
   if(!targetForm||!targetPoint)return;
   const form=targetForm,key=targetPoint,lat=event.latlng.lat,lng=event.latlng.lng;
+  const ride=rides.find(r=>r.id===form.dataset.book),projection=projectPointToRoute(ride?.route_geometry,lat,lng);
+  if(!projection||projection.distance_m>500){if(status)status.textContent='النقطة بعيدة عن خط الرحلة بحوالي '+Math.round(projection?.distance_m||0)+' متر. اختار مكانًا أقرب للخط الأخضر.';return;}
+  const otherKey=key==='pickup'?'dropoff':'pickup',otherLat=Number(form.querySelector('[name="'+otherKey+'_lat"]')?.value),otherLng=Number(form.querySelector('[name="'+otherKey+'_lng"]')?.value);
+  if(Number.isFinite(otherLat)&&Number.isFinite(otherLng)&&otherLat!==0&&otherLng!==0){const otherProjection=projectPointToRoute(ride?.route_geometry,otherLat,otherLng);if(otherProjection&&((key==='pickup'&&projection.offset_m>=otherProjection.offset_m)||(key==='dropoff'&&projection.offset_m<=otherProjection.offset_m))){if(status)status.textContent='ترتيب النقطتين غير صحيح: لازم الراكب يركب قبل مكان النزول على نفس اتجاه الرحلة.';return;}}
   form.querySelector('[name="'+key+'_lat"]').value=lat.toFixed(6);form.querySelector('[name="'+key+'_lng"]').value=lng.toFixed(6);
   const markerKey=form.dataset.book+'-'+key;if(markers[markerKey])markers[markerKey].remove();
   markers[markerKey]=window.L.marker([lat,lng]).addTo(map).bindPopup(key==='pickup'?'مكان ركوبك':'مكان نزولك').openPopup();
@@ -204,6 +230,9 @@ function attachBookingMap(mapId,container){
 }
 async function sharePage(){
  if(profile?.account_type==='captain'){
+  const {data:activeRides,error:activeRidesError}=await db.from('rides').select('id,origin_name,destination_name,departure_at,ride_status').eq('captain_id',session.user.id) .in('ride_status',['open','full','in_progress']).order('departure_at',{ascending:true}).limit(1);
+  if(activeRidesError)throw activeRidesError;
+  if(activeRides?.length){const r=activeRides[0];shell(`<main class="wrap narrow"><div class="page-head"><span class="eyebrow">جاي في سكتك · مساحة الكابتن</span><h1>طريقك الحالي لسه مفتوح</h1><p>مش هنسمح بنشر طريق جديد قبل إغلاق الطريق الحالي.</p></div>${card('الطريق المفتوح',`<p><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b></p><p>ميعاد التحرك: ${date(r.departure_at)}</p><p>الحالة: ${r.ride_status==='full'?'اكتملت المقاعد':r.ride_status==='in_progress'?'جارية الآن':'مفتوح للحجز'}</p><p class="notice">ارجع لمساحة الكابتن وألغِ الطريق إذا لم تعد ستنفذه، أو اتركه حتى يتم إنهاؤه.</p>`)}<button class="btn outline full" data-view="captain">العودة لمساحة الكابتن</button></main>`);return;}
   const {data:vehicles}=await db.from('vehicles').select('id,vehicle_type,make,model,plate_number,approval_status,is_active').eq('captain_id',session.user.id).eq('approval_status','approved').eq('is_active',true);
   shell(`<main class="wrap narrow">
    <div class="page-head"><span class="eyebrow">جاي في سكتك · مساحة الكابتن</span><h1>انشر طريقك</h1><p>قول للركاب رايح فين وإمتى، وسيبهم يحجزوا مقاعد على نفس طريقك.</p></div>
@@ -257,7 +286,7 @@ async function sharePage(){
  if(error){box.innerHTML='<section class="panel">تعذر تحميل الرحلات. '+esc(error.message)+'</section>';return;}
  if(!data?.length){box.innerHTML='<section class="panel empty">مفيش طرق متاحة حاليًا. ارجع بعد شوية أو تابع الخطوط الثابتة.</section>';return;}
  box.innerHTML=data.map(r=>{const seats=Math.max(1,Math.min(13,Number(r.available_seats)||1)),km=Number(r.route_distance_m)>0?(Number(r.route_distance_m)/1000).toFixed(1):null,minutes=Number(r.route_duration_seconds)>0?Math.round(Number(r.route_duration_seconds)/60):null;return `<section class="panel ride rider-ride-card"><div class="ride-top"><span class="pill">متاح الآن · ${seats} مقعد</span><b class="ride-price">${money(r.seat_price_egp)} <small>/ المقعد</small></b></div><h3 class="rider-route-title"><span>${esc(r.origin_name)}</span><span class="route-arrow" aria-hidden="true">←</span><span>${esc(r.destination_name)}</span></h3><div class="ride-meta"><span>◷ ${date(r.departure_at)}</span>${km?`<span>↔ ${km} كم تقريبًا</span>`:''}${minutes?`<span>◴ ${minutes} دقيقة تقريبًا</span>`:''}</div><p class="ride-description">${esc(r.route_description||'الكابتن لم يضف محطات إضافية')}</p><form data-book="${r.id}" data-price="${r.seat_price_egp}" class="book-form"><div class="booking-point"><div class="booking-point-heading"><span class="point-number">1</span><b>مكان الركوب</b></div><div class="booking-fields"><label><input name="pickup_name" required placeholder="اسم مكان الركوب" aria-label="اسم مكان الركوب"></label><div class="map-pick-actions"><button type="button" class="btn outline" data-booking-current data-ride-id="${r.id}">موقعي الحالي</button><button type="button" class="btn outline" data-booking-map-pick="pickup" data-ride-id="${r.id}">حدد على الخريطة</button></div><input type="hidden" name="pickup_lat"><input type="hidden" name="pickup_lng"></div></div><div class="booking-point"><div class="booking-point-heading"><span class="point-number">2</span><b>مكان النزول</b></div><div class="booking-fields"><label><input name="dropoff_name" required placeholder="اسم مكان النزول" aria-label="اسم مكان النزول"></label><button type="button" class="btn outline" data-booking-map-pick="dropoff" data-ride-id="${r.id}">حدد على الخريطة</button><input type="hidden" name="dropoff_lat"><input type="hidden" name="dropoff_lng"></div></div><div class="booking-seat-row">${select('عدد المقاعد','seats',Array.from({length:seats},(_,i)=>[String(i+1),String(i+1)+' '+(i===0?'مقعد':'مقاعد')]))}<span class="muted">المتاح في الرحلة: ${seats}</span></div><button class="btn primary full">إرسال طلب الحجز</button><p class="notice" role="status"></p></form></section>`}).join('');
- const bookingMap=attachBookingMap('bookingMap',box);
+ const bookingMap=attachBookingMap('bookingMap',box,data);
  if(bookingMap&&window.L){
   const routeLayers=[];data.forEach(r=>{if(r.route_geometry){const layer=window.L.geoJSON(r.route_geometry).addTo(bookingMap);layer.bindPopup(esc(r.origin_name+' ← '+r.destination_name));routeLayers.push(layer);}});
   if(routeLayers.length){const bounds=window.L.featureGroup(routeLayers).getBounds();if(bounds.isValid())bookingMap.fitBounds(bounds,{padding:[20,20]});}
@@ -549,6 +578,7 @@ async function accountPage(){
  shell(`<main class="wrap narrow"><div class="page-head"><h1>حسابي</h1></div>${card('بيانات الحساب',`<p><b>الاسم:</b> ${esc(profile.display_name||'—')}</p><p><b>البريد:</b> ${esc(session.user.email)}</p><p><b>نوع الحساب:</b> ${esc(profile.account_type)}</p><button class="btn outline" data-view="trips">حجوزاتي</button>`)}</main>`);
 }
 async function captainHome(){
+ try{
   const [{data:appRow},{data:vehicles},{data:rides},{data:subscriptions}] = await Promise.all([
    db.from('captain_applications').select('application_status,admin_notes').eq('user_id',session.user.id).order('created_at',{ascending:false}).limit(1).maybeSingle(),
    db.from('vehicles').select('id,vehicle_type,make,model,plate_number,approval_status,is_active').eq('captain_id',session.user.id),
@@ -591,17 +621,20 @@ async function captainHome(){
     <details class="subscription-details" ${pendingSubscription?'':'open'}><summary>تقديم / تجديد الاشتراك</summary>${pendingSubscription?'<p class="notice">طلب الاشتراك قيد المراجعة بالفعل. لن تحتاج إلى إرسال طلب آخر.</p>':subscriptionForm}</details>
    </section>`;
   }
-  const rideStatusLabels={open:'مفتوح للحجز',full:'اكتملت المقاعد',cancelled:'ملغي',completed:'مكتمل'};
-  const ridesHtml=(rides||[]).map(r=>`<article class="request"><div class="ride-top"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><span class="pill">${esc(rideStatusLabels[r.ride_status]||'قيد المتابعة')}</span></div><p>${r.available_seats} مقعد متاح · ${money(r.seat_price_egp)} للمقعد</p><p class="muted">ميعاد التحرك: ${date(r.departure_at)}</p>${['open','full'].includes(r.ride_status)?'<button class="btn danger" data-cancel-ride="'+r.id+'">إلغاء الطريق</button>':''}</article>`).join('')||'<p>لم تنشر أي طريق حتى الآن.</p>';
+  const rideStatusLabels={open:'مفتوح للحجز',full:'اكتملت المقاعد',in_progress:'جارية الآن',cancelled:'ملغي',completed:'مكتمل'};
+  const activeRide=(rides||[]).find(r=>['open','full','in_progress'].includes(r.ride_status));
+  const ridesHtml=(rides||[]).map(r=>`<article class="request"><div class="ride-top"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><span class="pill">${esc(rideStatusLabels[r.ride_status]||'قيد المتابعة')}</span></div><p>${r.available_seats} مقعد متاح · ${money(r.seat_price_egp)} للمقعد</p><p class="muted">ميعاد التحرك: ${date(r.departure_at)}</p>${['open','full'].includes(r.ride_status)?'<button class="btn danger" data-cancel-ride="'+r.id+'">إلغاء الطريق</button>':''}${['open','full','in_progress'].includes(r.ride_status)&&new Date(r.departure_at).getTime()<=Date.now()?'<button class="btn primary" data-captain-complete-ride="'+r.id+'">تأكيد انتهاء الطريق</button>':''}</article>`).join('')||'<p>لم تنشر أي طريق حتى الآن.</p>';
   shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">مساحة الكابتن</span><h1>أهلاً ${esc(profile.display_name||'يا كابتن')}</h1><p>انشر طريقك ومقاعدك المتاحة، وتابع حجوزات الركاب.</p></div>
   ${subscriptionPanel}
   ${card('طلبات حجز المقاعد',captainBookingsHtml)}
-  ${card('رحلاتي المنشورة',`<div class="stack">${ridesHtml}</div><button class="btn primary" data-view="share">انشر طريقًا جديدًا</button>`)}
+  ${activeRide?card('تنبيه قبل نشر طريق جديد',`<p>عندك طريق لسه ${activeRide.ride_status==='full'?'مقاعده مكتملة ولم يُغلق':'مفتوح للحجز'}: <b>${esc(activeRide.origin_name)} ← ${esc(activeRide.destination_name)}</b>.</p><p>ألغِ الطريق أو أنهِه أولًا قبل نشر طريق آخر، حتى لا تتداخل رحلاتك.</p>`):''}
+  ${card('رحلاتي المنشورة',`<div class="stack">${ridesHtml}</div><button class="btn primary" data-view="share" ${activeRide?'disabled':''}>${activeRide?'لا يمكن نشر طريق جديد الآن':'انشر طريقًا جديدًا'}</button>`)}
   ${card('حالة طلب الانضمام','<p class="pill">'+esc(({pending:'قيد المراجعة',approved:'معتمد',rejected:'مرفوض',suspended:'موقوف مؤقتًا'})[appRow?.application_status]||'لم يتم التقديم')+'</p><p>'+esc(appRow?.admin_notes||({pending:'طلبك قيد المراجعة لدى الإدارة. لا تحتاج إلى إرسال طلب آخر الآن.',approved:'بياناتك معتمدة. تحديث المستندات أو بيانات المركبة سيعيد الطلب للمراجعة وقد يوقف النشر مؤقتًا حتى إعادة الاعتماد.',rejected:'راجع ملاحظات الإدارة ثم عدّل البيانات والمستندات وأعد التقديم.',suspended:'حسابك موقوف مؤقتًا. راجع ملاحظات الإدارة قبل طلب إعادة المراجعة.'})[appRow?.application_status]||'قدّم بياناتك ومستندات المركبة لاستكمال التفعيل.')+'</p>'+(appRow?.application_status==='pending'?'<p class="muted">طلبك وصل للإدارة بالفعل.</p>':'<button class="btn primary" data-view="apply">'+(appRow?.application_status==='rejected'?'تعديل البيانات وإعادة التقديم':appRow?.application_status==='approved'?'تحديث البيانات (إعادة مراجعة)':appRow?.application_status==='suspended'?'طلب إعادة المراجعة':'تقديم بيانات الكابتن')+'</button>'))}
   ${card('مركباتي',(vehicles||[]).map(v=>`<p>${esc(v.make)} ${esc(v.model)} · ${esc(v.plate_number)} — ${esc(v.approval_status)}</p>`).join('')||'<p>لا توجد مركبات مسجلة.</p>')}
   </main>`);
   document.querySelectorAll('[data-captain-booking]').forEach(btn=>btn.onclick=async()=>{busyButton(btn,true);try{const {error}=await db.rpc('captain_reply_booking',{p_booking_id:btn.dataset.booking,p_action:btn.dataset.captainBooking,p_counter_price:null});if(error)throw error;await captainHome();}catch(err){alert(err.message||'تعذر تحديث طلب الحجز.');busyButton(btn,false);}});
   document.querySelectorAll('[data-cancel-ride]').forEach(btn=>btn.onclick=async()=>{if(!confirm('إلغاء الطريق سيؤدي إلى إلغاء الحجوزات المرتبطة به. هل تريد المتابعة؟'))return;busyButton(btn,true);try{const {error}=await db.rpc('captain_cancel_shared_ride',{p_ride_id:btn.dataset.cancelRide});if(error)throw error;await captainHome();}catch(err){alert(err.message||'تعذر إلغاء الطريق.');busyButton(btn,false);}});
+  document.querySelectorAll('[data-captain-complete-ride]').forEach(btn=>btn.onclick=async()=>{if(!confirm('تأكيد انتهاء الطريق؟ سيتم إغلاقه وإلغاء أي طلبات لم يتم تأكيدها.'))return;busyButton(btn,true);try{const {error}=await db.rpc('complete_shared_ride',{p_ride_id:btn.dataset.captainCompleteRide});if(error)throw error;await captainHome();}catch(err){alert(err.message||'تعذر إنهاء الطريق.');busyButton(btn,false);}});
   document.querySelector('#copyPaymentNumber')?.addEventListener('click',async()=>{try{await navigator.clipboard.writeText('01010530716');const n=document.querySelector('#subscriptionNotice');if(n)n.textContent='تم نسخ الرقم.';}catch{alert('تعذر النسخ تلقائيًا. الرقم هو 01010530716');}});
   document.querySelector('#subscriptionForm')?.addEventListener('submit',async e=>{
    e.preventDefault();
@@ -624,7 +657,8 @@ async function captainHome(){
     else alert(err.message||'تعذر إرسال طلب الاشتراك.');
    }finally{busyButton(btn,false);}
   });
- }
+ }catch(err){shell(`<main class="wrap narrow"><section class="panel"><h1>تعذر تحميل مساحة الكابتن</h1><p class="notice error">${esc(err.message||'حدث خطأ أثناء تحميل البيانات.')}</p><button class="btn primary" id="retryCaptain">إعادة المحاولة</button></section></main>`);document.querySelector('#retryCaptain')?.addEventListener('click',()=>captainHome());}
+}
 function applyPage(){
  shell(`<main class="wrap narrow"><div class="page-head"><h1>تقديم بيانات الكابتن والمركبة</h1></div>${card('بيانات التقديم',`<form id="applyForm">${input('آخر 4 أرقام من الرقم القومي','national_id_last4','text',true,'1234')}${input('رقم رخصة القيادة','license_number')}${input('تاريخ انتهاء رخصة القيادة','license_expiry','date')}${input('تاريخ انتهاء البطاقة','national_id_expiry','date')}${input('تاريخ انتهاء رخصة المركبة','vehicle_license_expiry','date')}${select('نوع المركبة','vehicle_type',[['private_car','ملاكي'],['suzuki','سوزوكي'],['microbus','ميكروباص']])}${input('الماركة','make')}${input('الموديل','model')}${input('سنة الصنع','model_year','number')}${input('اللون','color')}${input('رقم اللوحة','plate_number')}${input('عدد الركاب','passenger_capacity','number')}${['has_ac','has_large_trunk','no_smoking','pets_allowed'].map((n,i)=>`<label class="check"><input type="checkbox" name="${n}" ${i===2?'checked':''}> ${['تكييف','شنطة كبيرة','ممنوع التدخين','يسمح بالحيوانات الأليفة'][i]}</label>`).join('')}<div class="upload-group"><h3>مستندات مطلوبة</h3><label>البطاقة الشخصية — الوجه الأمامي<input type="file" name="national_id_front" accept="image/jpeg,image/png,image/webp,image/heic" required></label><label>البطاقة الشخصية — الوجه الخلفي<input type="file" name="national_id_back" accept="image/jpeg,image/png,image/webp,image/heic" required></label><label>رخصة القيادة — الوجه الأمامي<input type="file" name="driver_license_front" accept="image/jpeg,image/png,image/webp,image/heic" required></label><label>رخصة القيادة — الوجه الخلفي<input type="file" name="driver_license_back" accept="image/jpeg,image/png,image/webp,image/heic" required></label><label>رخصة المركبة — الوجه الأمامي<input type="file" name="vehicle_license_front" accept="image/jpeg,image/png,image/webp,image/heic" required></label><label>رخصة المركبة — الوجه الخلفي<input type="file" name="vehicle_license_back" accept="image/jpeg,image/png,image/webp,image/heic" required></label></div><div class="upload-group"><h3>صور الكابتن والمركبة</h3><label>صورة شخصية<input type="file" name="profile_photo" accept="image/jpeg,image/png,image/webp,image/heic" required></label><label>صورة أمامية للمركبة<input type="file" name="vehicle_front" accept="image/jpeg,image/png,image/webp,image/heic" required></label><label>صورة جانبية للمركبة<input type="file" name="vehicle_side" accept="image/jpeg,image/png,image/webp,image/heic" required></label><label>صورة خلفية للمركبة<input type="file" name="vehicle_rear" accept="image/jpeg,image/png,image/webp,image/heic" required></label></div><button class="btn primary full">إرسال الطلب</button><p id="notice" class="notice"></p></form>`)}<button class="btn outline" data-view="captain">رجوع للوحة الكابتن</button></main>`);
  document.querySelector('#applyForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget),v=n=>String(f.get(n)||'').trim(),b=e.currentTarget.querySelector('button[type=submit]');busyButton(b,true);try{
@@ -642,11 +676,16 @@ f.set('national_id_last4',nationalDigits);f.set('model_year',String(year));f.set
 const upload=async(field,bucket)=>{const file=f.get(field);if(!(file instanceof File)||!file.size)throw Error('اختر كل المستندات والصور المطلوبة.');if(file.size>5*1024*1024)throw Error('حجم كل صورة يجب ألا يتجاوز 5 ميجابايت.');const path=session.user.id+'/'+Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');const {error}=await db.storage.from(bucket).upload(path,file,{upsert:false,contentType:file.type});if(error)throw error;return path;};const paths={};for(const key of ['national_id_front','national_id_back','driver_license_front','driver_license_back','vehicle_license_front','vehicle_license_back'])paths[key]=await upload(key,'captain-documents');for(const key of ['profile_photo','vehicle_front','vehicle_side','vehicle_rear'])paths[key]=await upload(key,'captain-media');const args={p_national_id_last4:v('national_id_last4'),p_national_id_expiry:v('national_id_expiry'),p_license_number:v('license_number'),p_license_expiry:v('license_expiry'),p_vehicle_license_expiry:v('vehicle_license_expiry'),p_national_id_front_path:paths.national_id_front,p_national_id_back_path:paths.national_id_back,p_driver_license_front_path:paths.driver_license_front,p_driver_license_back_path:paths.driver_license_back,p_vehicle_license_front_path:paths.vehicle_license_front,p_vehicle_license_back_path:paths.vehicle_license_back,p_vehicle_type:v('vehicle_type'),p_make:v('make'),p_model:v('model'),p_model_year:Number(v('model_year')),p_color:v('color'),p_plate_number:v('plate_number'),p_passenger_capacity:Number(v('passenger_capacity')),p_has_ac:f.has('has_ac'),p_has_large_trunk:f.has('has_large_trunk'),p_no_smoking:f.has('no_smoking'),p_pets_allowed:f.has('pets_allowed'),p_profile_photo_path:paths.profile_photo,p_vehicle_front_path:paths.vehicle_front,p_vehicle_side_path:paths.vehicle_side,p_vehicle_rear_path:paths.vehicle_rear};const {error}=await db.rpc('submit_captain_application_v3',args);if(error)throw error;notice('تم إرسال طلبك بنجاح.','success');setTimeout(()=>{view='captain';render();},700);}catch(err){const messages={invalid_application_data:'راجع البيانات: آخر 4 أرقام، تواريخ الانتهاء، سنة الصنع، سعة المركبة، والماركة والموديل واللون ورقم اللوحة.',vehicle_capacity_exceeded:'عدد الركاب أكبر من الحد المسموح لفئة المركبة.',captain_document_upload_missing:'تعذر العثور على أحد مستنداتك المرفوعة. أعد اختيار المستندات وحاول مرة أخرى.',captain_media_upload_missing:'تعذر العثور على إحدى صور الكابتن أو المركبة. أعد اختيار الصور وحاول مرة أخرى.'};notice(messages[err.message]||err.message||'تعذر إرسال الطلب.','error');}finally{busyButton(b,false);}};
 }
 async function adminHome(){
+ try{
  const [{data:apps,error:appsError},{data:subscriptions,error:subscriptionsError},{data:pendingLines,error:linesError}] = await Promise.all([
   db.from('captain_applications').select('id,user_id,application_status,admin_notes,national_id_last4,national_id_expiry,license_number,license_expiry,vehicle_license_expiry,national_id_front_path,national_id_back_path,driver_license_front_path,driver_license_back_path,vehicle_license_front_path,vehicle_license_back_path,vehicle_id,created_at').order('created_at',{ascending:false}).limit(50),
   db.from('captain_subscriptions').select('id,captain_id,plan_days,amount_egp,payment_reference,payment_proof_path,created_at').eq('payment_status','submitted').order('created_at',{ascending:true}).limit(50),
   db.from('sekka_lines').select('id,title,origin_name,destination_name,created_at').eq('approval_status','pending').order('created_at',{ascending:true}).limit(50)
  ]);
+ const {data:adminRides,error:adminRidesError}=await db.from('rides').select('id,captain_id,origin_name,destination_name,departure_at,ride_status,available_seats,seat_price_egp,created_at').order('departure_at',{ascending:false}).limit(100);
+ const adminCaptainIds=[...new Set((adminRides||[]).map(r=>r.captain_id).filter(Boolean))];
+ const {data:adminCaptainProfiles}=adminCaptainIds.length?await db.from('profiles').select('id,display_name').in('id',adminCaptainIds):{data:[]};
+ const adminCaptainMap=new Map((adminCaptainProfiles||[]).map(p=>[p.id,p.display_name]));
  const userIds=[...new Set((apps||[]).map(a=>a.user_id).filter(Boolean))];
  const vehicleIds=[...new Set((apps||[]).map(a=>a.vehicle_id).filter(Boolean))];
  const [{data:captainProfiles},{data:captainVehicles}] = await Promise.all([
@@ -677,7 +716,10 @@ async function adminHome(){
   const proofUrl=data?.signedUrl;
   return `<article class="request"><b>طلب اشتراك · ${s.plan_days===90?'3 شهور':'شهر واحد'} · ${money(s.amount_egp)}</b><p>رقم الكابتن: ${esc(String(s.captain_id).slice(0,8))}…</p><p>مرجع التحويل: ${esc(s.payment_reference||'—')}</p><p class="muted">${date(s.created_at)}</p>${proofUrl?`<p><a href="${esc(proofUrl)}" target="_blank" rel="noopener">عرض إثبات الدفع</a></p>`:'<p class="notice error">تعذر إنشاء رابط إثبات الدفع. تحقق من صلاحية قراءة الملفات.</p>'}<button class="btn primary" data-subscription-review="${s.id}" data-decision="approve">اعتماد الاشتراك</button> <button class="btn danger" data-subscription-review="${s.id}" data-decision="reject">رفض الطلب</button></article>`;
  })).join('')||'<p>لا توجد طلبات اشتراك قيد المراجعة.</p>';
- shell(`<main class="wrap"><div class="page-head"><h1>لوحة الإدارة</h1><p>مراجعة طلبات الكباتن والاشتراكات والخطوط. افتح المستندات قبل اتخاذ قرار الاعتماد.</p></div>
+ const adminRideLabels={open:'مفتوح للحجز',full:'اكتملت المقاعد',in_progress:'جارية الآن',cancelled:'ملغي',completed:'مكتمل'};
+ const adminRideRows=(adminRides||[]).map(r=>`<article class="request"><div class="ride-top"><b>${esc(adminCaptainMap.get(r.captain_id)||'كابتن')}</b><span class="pill">${esc(adminRideLabels[r.ride_status]||r.ride_status)}</span></div><p><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b></p><p>${date(r.departure_at)} · ${Number(r.available_seats)||0} مقعد متاح · ${money(r.seat_price_egp)} للمقعد</p>${['open','full'].includes(r.ride_status)?`<button class="btn danger" data-admin-cancel-ride="${r.id}">إلغاء الطريق إداريًا</button>`:''}${['open','full','in_progress'].includes(r.ride_status)&&new Date(r.departure_at).getTime()<=Date.now()?`<button class="btn primary" data-admin-complete-ride="${r.id}">تأكيد انتهاء الطريق</button>`:''}</article>`).join('')||'<p>لا توجد رحلات مسجلة.</p>';
+ shell(`<main class="wrap"><div class="page-head"><h1>لوحة الإدارة</h1><p>مراجعة طلبات الكباتن والاشتراكات والخطوط ومتابعة حالة الرحلات. افتح المستندات قبل اتخاذ قرار الاعتماد.</p></div>
+ ${card('متابعة الرحلات',adminRidesError?esc(adminRidesError.message):adminRideRows)}
  ${card('خطوط السكة قيد المراجعة',linesError?esc(linesError.message):(pendingLines||[]).map(l=>`<article class="request"><b>${esc(l.title)}</b><p>${esc(l.origin_name)} ← ${esc(l.destination_name)}</p><button class="btn primary" data-line-review="${l.id}" data-approve="true">اعتماد الخط</button> <button class="btn danger" data-line-review="${l.id}" data-approve="false">رفض الخط</button></article>`).join('')||'<p>لا توجد خطوط جديدة.</p>')}
  ${card('طلبات الاشتراك',subscriptionsError?esc(subscriptionsError.message):(pendingRows||'<p>لا توجد طلبات اشتراك قيد المراجعة.</p>'))}
  ${card('طلبات انضمام الكباتن',appsError?esc(appsError.message):(applicationRows||'<p>لا توجد طلبات.</p>'))}</main>`);
@@ -702,7 +744,20 @@ async function adminHome(){
    await adminHome();
   }catch(err){alert(err.message||'تعذر تحديث حالة الاشتراك.');busyButton(b,false);}
  });
+ document.querySelectorAll('[data-admin-cancel-ride]').forEach(b=>b.onclick=async()=>{
+  if(!confirm('تأكيد إلغاء الطريق إداريًا؟ سيتم إلغاء الحجوزات النشطة المرتبطة به وإبلاغ الركاب.'))return;
+  busyButton(b,true);
+  try{const {error}=await db.rpc('admin_cancel_shared_ride',{p_ride_id:b.dataset.adminCancelRide});if(error)throw error;await adminHome();}
+  catch(err){alert(err.message||'تعذر إلغاء الطريق.');busyButton(b,false);}
+ });
+ document.querySelectorAll('[data-admin-complete-ride]').forEach(b=>b.onclick=async()=>{
+  if(!confirm('تأكيد إنهاء الطريق؟ سيتم إغلاقه وإلغاء أي طلبات لم يتم تأكيدها.'))return;
+  busyButton(b,true);
+  try{const {error}=await db.rpc('complete_shared_ride',{p_ride_id:b.dataset.adminCompleteRide});if(error)throw error;await adminHome();}
+  catch(err){alert(err.message||'تعذر إنهاء الطريق.');busyButton(b,false);}
+ });
+ }catch(err){shell(`<main class="wrap narrow"><section class="panel"><h1>تعذر تحميل لوحة الإدارة</h1><p class="notice error">${esc(err.message||'حدث خطأ أثناء تحميل البيانات.')}</p><button class="btn primary" id="retryAdmin">إعادة المحاولة</button></section></main>`);document.querySelector('#retryAdmin')?.addEventListener('click',()=>adminHome());}
 }
 function render(){if(!session){authPage();return;}if(!profile){loadProfile().then(()=>{if(profile)render();else{authMode='signin';session=null;authPage();notice('تعذر تحميل ملف الحساب أو أن الحساب غير مفعّل. سجّل الدخول مرة أخرى.','error');}});return;}if(profile.account_type==='captain'&&view==='apply'){applyPage();return;}if(profile.account_type==='captain'&&view==='home')view='captain';if(profile.account_type==='admin'&&view==='home')view='admin';switch(view){case'home':home();break;case'share':sharePage();break;case'group':groupPage();break;case'lines':linesPage();break;case'trips':tripsPage();break;case'account':accountPage();break;case'captain':captainHome();break;case'admin':adminHome();break;case'apply':applyPage();break;default:home();}}
 db.auth.getSession().then(({data})=>{session=data.session;render();});
-db.auth.onAuthStateChange((_event,next)=>{session=next;profile=null;render();});
+db.auth.onAuthStateChange((event,next)=>{session=next;if(event==='SIGNED_OUT'){profile=null;view='home';render();}});
