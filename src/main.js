@@ -29,7 +29,38 @@ function select(label,name,opts,required=true){return `<label>${label}<select na
 function home(){
  if(profile?.account_type==='captain')return captainHome();
  if(profile?.account_type==='admin')return adminHome();
- shell(`<main class="wrap"><section class="hero"><span class="eyebrow">أهلاً بك في السكة</span><h1>كل مشوار له <em>سكة</em></h1><p>شارك الطريق مع كابتن رايح في نفس اتجاهك، واحجز مقعدًا على رحلة منشورة.</p><div class="actions"><button class="btn primary" data-view="share">دور على مقعد</button><button class="btn outline" data-view="trips">تابع حجوزاتي</button></div><div class="tiles"><button class="tile" data-view="share"><span>🛣️</span><b>جاي في سكتك</b><small>اختار طريقًا منشورًا واحجز مكانك</small></button><button class="tile" data-view="trips"><span>📋</span><b>حجوزاتي</b><small>تابع حجوزات المقاعد</small></button><button class="tile" data-view="group"><span>🤝</span><b>مشوارنا واحد</b><small>انشر مشوارك واستقبل عروضًا من كباتن في نفس الاتجاه</small></button><button class="tile" data-view="lines"><span>🚏</span><b>خطوط السكة</b><small>خطوط ثابتة ومواعيد منتظمة</small></button></div></main>`);
+ const firstName=String(profile?.display_name||'').trim().split(/\\s+/)[0];
+ shell(`<main class="wrap rider-home">
+  <section class="hero rider-hero">
+   <span class="eyebrow">أهلاً ${esc(firstName||'بك في السكة')}</span>
+   <h1>كل مشوار له <em>سكة</em></h1>
+   <p>وفّر في مشوارك وشارك الطريق مع كابتن رايح في نفس اتجاهك.</p>
+   <div class="actions rider-hero-actions">
+    <button class="btn primary" data-view="share"><span aria-hidden="true">⌕</span> دور على مقعد</button>
+    <button class="btn outline" data-view="trips">حجوزاتي</button>
+   </div>
+   <div class="rider-trust"><span>✓ حجز على طريق منشور</span><span>✓ مشاركة تكلفة المشوار</span></div>
+  </section>
+  <section class="rider-services" aria-labelledby="services-title">
+   <div class="section-intro"><div><span class="eyebrow">اختار طريقة تنقلك</span><h2 id="services-title">هتتحرك إزاي النهارده؟</h2></div><span class="muted">3 طرق للمشاركة</span></div>
+   <button class="rider-service featured" data-view="share">
+    <span class="service-icon" aria-hidden="true">🛣️</span>
+    <span class="service-copy"><b>جاي في سكتك</b><small>احجز مقعدًا مع كابتن ناشر طريقه بالفعل.</small><strong>دور على رحلة <span aria-hidden="true">←</span></strong></span>
+    <span class="service-arrow" aria-hidden="true">←</span>
+   </button>
+   <button class="rider-service" data-view="group">
+    <span class="service-icon" aria-hidden="true">🤝</span>
+    <span class="service-copy"><b>مشوارنا واحد</b><small>اطلب مشاركة مشوارك واستقبل عروض كباتن في نفس الاتجاه.</small><strong>اطلب مشاركة مشوار <span aria-hidden="true">←</span></strong></span>
+    <span class="service-arrow" aria-hidden="true">←</span>
+   </button>
+   <button class="rider-service" data-view="lines">
+    <span class="service-icon" aria-hidden="true">🚏</span>
+    <span class="service-copy"><b>خطوط السكة</b><small>اكتشف الخطوط الثابتة ومواعيد الرحلات واحجز مقعدك.</small><strong>استكشف الخطوط <span aria-hidden="true">←</span></strong></span>
+    <span class="service-arrow" aria-hidden="true">←</span>
+   </button>
+  </section>
+  <section class="rider-help"><span aria-hidden="true">💡</span><div><b>أول مرة تستخدم السكة؟</b><p>اختار الخدمة المناسبة، وحدد مكان ركوبك ونزولك، وتابع حالة طلبك من «حجوزاتي».</p></div><button class="text-btn" data-view="trips">حجوزاتي</button></section>
+ </main>`);
 }
 function authPage(){
  shell(`<main class="wrap narrow"><section class="hero compact"><span class="eyebrow">السكة · تجربة تشغيل</span><h1>ابدأ مشوارك</h1><p>حساب مستقل للراكب أو الكابتن.</p></section>${card('تسجيل الدخول أو إنشاء حساب',`<div class="tabs"><button type="button" class="${authRole==='rider'?'selected':''}" data-role="rider">راكب</button><button type="button" class="${authRole==='captain'?'selected':''}" data-role="captain">كابتن</button><button type="button" class="${authRole==='admin'?'selected':''}" data-role="admin">إدارة</button></div><form id="authForm">${input('البريد الإلكتروني','email','email',true,'name@example.com')}${input('كلمة المرور','password','password',true,'6 أحرف على الأقل')}${authMode==='signup'?input('الاسم','name','text',true,'الاسم الظاهر'):''}<button class="btn primary full" type="submit">${authMode==='signup'?'إنشاء الحساب':'تسجيل الدخول'}</button><button class="text-btn" type="button" id="toggleAuth">${authMode==='signup'?'لديك حساب؟ تسجيل الدخول':'حساب جديد؟ أنشئ حسابًا'}</button><p id="notice" class="notice" role="status"></p></form>`)}<p class="muted center">النسخة التجريبية متصلة بقاعدة البيانات.</p></main>`);
