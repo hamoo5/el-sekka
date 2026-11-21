@@ -230,7 +230,7 @@ function attachBookingMap(mapId,container,rides=[]){
 }
 async function sharePage(){
  if(profile?.account_type==='captain'){
-  const {data:activeRides,error:activeRidesError}=await db.from('rides').select('id,origin_name,destination_name,departure_at,ride_status').eq('captain_id',session.user.id).in('ride_status',['open','full']).order('departure_at',{ascending:true}).limit(1);
+  const {data:activeRides,error:activeRidesError}=await db.from('rides').select('id,origin_name,destination_name,departure_at,ride_status').eq('captain_id',session.user.id) .in('ride_status',['open','full','in_progress']).order('departure_at',{ascending:true}).limit(1);
   if(activeRidesError)throw activeRidesError;
   if(activeRides?.length){const r=activeRides[0];shell(`<main class="wrap narrow"><div class="page-head"><span class="eyebrow">جاي في سكتك · مساحة الكابتن</span><h1>طريقك الحالي لسه مفتوح</h1><p>مش هنسمح بنشر طريق جديد قبل إغلاق الطريق الحالي.</p></div>${card('الطريق المفتوح',`<p><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b></p><p>ميعاد التحرك: ${date(r.departure_at)}</p><p>الحالة: ${r.ride_status==='full'?'اكتملت المقاعد':'مفتوح للحجز'}</p><p class="notice">ارجع لمساحة الكابتن وألغِ الطريق إذا لم تعد ستنفذه، أو اتركه حتى يتم إنهاؤه.</p>`)}<button class="btn outline full" data-view="captain">العودة لمساحة الكابتن</button></main>`);return;}
   const {data:vehicles}=await db.from('vehicles').select('id,vehicle_type,make,model,plate_number,approval_status,is_active').eq('captain_id',session.user.id).eq('approval_status','approved').eq('is_active',true);
@@ -620,9 +620,9 @@ async function captainHome(){
     <details class="subscription-details" ${pendingSubscription?'':'open'}><summary>تقديم / تجديد الاشتراك</summary>${pendingSubscription?'<p class="notice">طلب الاشتراك قيد المراجعة بالفعل. لن تحتاج إلى إرسال طلب آخر.</p>':subscriptionForm}</details>
    </section>`;
   }
-  const rideStatusLabels={open:'مفتوح للحجز',full:'اكتملت المقاعد',cancelled:'ملغي',completed:'مكتمل'};
-  const activeRide=(rides||[]).find(r=>['open','full'].includes(r.ride_status));
-  const ridesHtml=(rides||[]).map(r=>`<article class="request"><div class="ride-top"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><span class="pill">${esc(rideStatusLabels[r.ride_status]||'قيد المتابعة')}</span></div><p>${r.available_seats} مقعد متاح · ${money(r.seat_price_egp)} للمقعد</p><p class="muted">ميعاد التحرك: ${date(r.departure_at)}</p>${['open','full'].includes(r.ride_status)?'<button class="btn danger" data-cancel-ride="'+r.id+'">إلغاء الطريق</button>':''}</article>`).join('')||'<p>لم تنشر أي طريق حتى الآن.</p>';
+  const rideStatusLabels={open:'مفتوح للحجز',full:'اكتملت المقاعد',in_progress:'جارية الآن',cancelled:'ملغي',completed:'مكتمل'};
+  const activeRide=(rides||[]).find(r=>['open','full','in_progress'].includes(r.ride_status));
+  const ridesHtml=(rides||[]).map(r=>`<article class="request"><div class="ride-top"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><span class="pill">${esc(rideStatusLabels[r.ride_status]||'قيد المتابعة')}</span></div><p>${r.available_seats} مقعد متاح · ${money(r.seat_price_egp)} للمقعد</p><p class="muted">ميعاد التحرك: ${date(r.departure_at)}</p>${['open','full'].includes(r.ride_status)?'<button class="btn danger" data-cancel-ride="'+r.id+'">إلغاء الطريق</button>':''}${['open','full','in_progress'].includes(r.ride_status)&&new Date(r.departure_at).getTime()<=Date.now()?'<button class="btn primary" data-captain-complete-ride="'+r.id+'">تأكيد انتهاء الطريق</button>':''}</article>`).join('')||'<p>لم تنشر أي طريق حتى الآن.</p>';
   shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">مساحة الكابتن</span><h1>أهلاً ${esc(profile.display_name||'يا كابتن')}</h1><p>انشر طريقك ومقاعدك المتاحة، وتابع حجوزات الركاب.</p></div>
   ${subscriptionPanel}
   ${card('طلبات حجز المقاعد',captainBookingsHtml)}
@@ -633,6 +633,7 @@ async function captainHome(){
   </main>`);
   document.querySelectorAll('[data-captain-booking]').forEach(btn=>btn.onclick=async()=>{busyButton(btn,true);try{const {error}=await db.rpc('captain_reply_booking',{p_booking_id:btn.dataset.booking,p_action:btn.dataset.captainBooking,p_counter_price:null});if(error)throw error;await captainHome();}catch(err){alert(err.message||'تعذر تحديث طلب الحجز.');busyButton(btn,false);}});
   document.querySelectorAll('[data-cancel-ride]').forEach(btn=>btn.onclick=async()=>{if(!confirm('إلغاء الطريق سيؤدي إلى إلغاء الحجوزات المرتبطة به. هل تريد المتابعة؟'))return;busyButton(btn,true);try{const {error}=await db.rpc('captain_cancel_shared_ride',{p_ride_id:btn.dataset.cancelRide});if(error)throw error;await captainHome();}catch(err){alert(err.message||'تعذر إلغاء الطريق.');busyButton(btn,false);}});
+  document.querySelectorAll('[data-captain-complete-ride]').forEach(btn=>btn.onclick=async()=>{if(!confirm('تأكيد انتهاء الطريق؟ سيتم إغلاقه وإلغاء أي طلبات لم يتم تأكيدها.'))return;busyButton(btn,true);try{const {error}=await db.rpc('complete_shared_ride',{p_ride_id:btn.dataset.captainCompleteRide});if(error)throw error;await captainHome();}catch(err){alert(err.message||'تعذر إنهاء الطريق.');busyButton(btn,false);}});
   document.querySelector('#copyPaymentNumber')?.addEventListener('click',async()=>{try{await navigator.clipboard.writeText('01010530716');const n=document.querySelector('#subscriptionNotice');if(n)n.textContent='تم نسخ الرقم.';}catch{alert('تعذر النسخ تلقائيًا. الرقم هو 01010530716');}});
   document.querySelector('#subscriptionForm')?.addEventListener('submit',async e=>{
    e.preventDefault();
@@ -712,8 +713,8 @@ async function adminHome(){
   const proofUrl=data?.signedUrl;
   return `<article class="request"><b>طلب اشتراك · ${s.plan_days===90?'3 شهور':'شهر واحد'} · ${money(s.amount_egp)}</b><p>رقم الكابتن: ${esc(String(s.captain_id).slice(0,8))}…</p><p>مرجع التحويل: ${esc(s.payment_reference||'—')}</p><p class="muted">${date(s.created_at)}</p>${proofUrl?`<p><a href="${esc(proofUrl)}" target="_blank" rel="noopener">عرض إثبات الدفع</a></p>`:'<p class="notice error">تعذر إنشاء رابط إثبات الدفع. تحقق من صلاحية قراءة الملفات.</p>'}<button class="btn primary" data-subscription-review="${s.id}" data-decision="approve">اعتماد الاشتراك</button> <button class="btn danger" data-subscription-review="${s.id}" data-decision="reject">رفض الطلب</button></article>`;
  })).join('')||'<p>لا توجد طلبات اشتراك قيد المراجعة.</p>';
- const adminRideLabels={open:'مفتوح للحجز',full:'اكتملت المقاعد',cancelled:'ملغي',completed:'مكتمل'};
- const adminRideRows=(adminRides||[]).map(r=>`<article class="request"><div class="ride-top"><b>${esc(adminCaptainMap.get(r.captain_id)||'كابتن')}</b><span class="pill">${esc(adminRideLabels[r.ride_status]||r.ride_status)}</span></div><p><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b></p><p>${date(r.departure_at)} · ${Number(r.available_seats)||0} مقعد متاح · ${money(r.seat_price_egp)} للمقعد</p>${['open','full'].includes(r.ride_status)?`<button class="btn danger" data-admin-cancel-ride="${r.id}">إلغاء الطريق إداريًا</button>`:''}</article>`).join('')||'<p>لا توجد رحلات مسجلة.</p>';
+ const adminRideLabels={open:'مفتوح للحجز',full:'اكتملت المقاعد',in_progress:'جارية الآن',cancelled:'ملغي',completed:'مكتمل'};
+ const adminRideRows=(adminRides||[]).map(r=>`<article class="request"><div class="ride-top"><b>${esc(adminCaptainMap.get(r.captain_id)||'كابتن')}</b><span class="pill">${esc(adminRideLabels[r.ride_status]||r.ride_status)}</span></div><p><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b></p><p>${date(r.departure_at)} · ${Number(r.available_seats)||0} مقعد متاح · ${money(r.seat_price_egp)} للمقعد</p>${['open','full'].includes(r.ride_status)?`<button class="btn danger" data-admin-cancel-ride="${r.id}">إلغاء الطريق إداريًا</button>`:''}${['open','full','in_progress'].includes(r.ride_status)&&new Date(r.departure_at).getTime()<=Date.now()?`<button class="btn primary" data-admin-complete-ride="${r.id}">تأكيد انتهاء الطريق</button>`:''}</article>`).join('')||'<p>لا توجد رحلات مسجلة.</p>';
  shell(`<main class="wrap"><div class="page-head"><h1>لوحة الإدارة</h1><p>مراجعة طلبات الكباتن والاشتراكات والخطوط ومتابعة حالة الرحلات. افتح المستندات قبل اتخاذ قرار الاعتماد.</p></div>
  ${card('متابعة الرحلات',adminRidesError?esc(adminRidesError.message):adminRideRows)}
  ${card('خطوط السكة قيد المراجعة',linesError?esc(linesError.message):(pendingLines||[]).map(l=>`<article class="request"><b>${esc(l.title)}</b><p>${esc(l.origin_name)} ← ${esc(l.destination_name)}</p><button class="btn primary" data-line-review="${l.id}" data-approve="true">اعتماد الخط</button> <button class="btn danger" data-line-review="${l.id}" data-approve="false">رفض الخط</button></article>`).join('')||'<p>لا توجد خطوط جديدة.</p>')}
@@ -745,6 +746,12 @@ async function adminHome(){
   busyButton(b,true);
   try{const {error}=await db.rpc('admin_cancel_shared_ride',{p_ride_id:b.dataset.adminCancelRide});if(error)throw error;await adminHome();}
   catch(err){alert(err.message||'تعذر إلغاء الطريق.');busyButton(b,false);}
+ });
+ document.querySelectorAll('[data-admin-complete-ride]').forEach(b=>b.onclick=async()=>{
+  if(!confirm('تأكيد إنهاء الطريق؟ سيتم إغلاقه وإلغاء أي طلبات لم يتم تأكيدها.'))return;
+  busyButton(b,true);
+  try{const {error}=await db.rpc('complete_shared_ride',{p_ride_id:b.dataset.adminCompleteRide});if(error)throw error;await adminHome();}
+  catch(err){alert(err.message||'تعذر إنهاء الطريق.');busyButton(b,false);}
  });
 }
 function render(){if(!session){authPage();return;}if(!profile){loadProfile().then(()=>{if(profile)render();else{authMode='signin';session=null;authPage();notice('تعذر تحميل ملف الحساب أو أن الحساب غير مفعّل. سجّل الدخول مرة أخرى.','error');}});return;}if(profile.account_type==='captain'&&view==='apply'){applyPage();return;}if(profile.account_type==='captain'&&view==='home')view='captain';if(profile.account_type==='admin'&&view==='home')view='admin';switch(view){case'home':home();break;case'share':sharePage();break;case'group':groupPage();break;case'lines':linesPage();break;case'trips':tripsPage();break;case'account':accountPage();break;case'captain':captainHome();break;case'admin':adminHome();break;case'apply':applyPage();break;default:home();}}
