@@ -198,11 +198,11 @@ function showBookingCancellationNotice(){
     toast.style.cssText='position:fixed;z-index:10000;top:calc(env(safe-area-inset-top,0px) + 14px);left:16px;right:16px;max-width:520px;margin:0 auto;padding:14px 16px;border-radius:14px;background:#183b31;color:#fff;box-shadow:0 8px 28px #0003;font-size:14px;line-height:1.6;text-align:right;direction:rtl';
     document.body.appendChild(toast);
   }
-  toast.textContent='تنبيه من السكة: تم إلغاء حجز مشاركة الطريق بواسطة الكابتن. افتح «مشاركة الطريق» لمراجعة التفاصيل.';
+  toast.textContent='تنبيه من السكة: تم إلغاء أحد حجوزات مشاركة الطريق المرتبطة بحسابك. افتح «مشاركة الطريق» لمراجعة التفاصيل.';
   clearTimeout(window.__sekkaBookingNoticeTimer);
   window.__sekkaBookingNoticeTimer=window.setTimeout(()=>toast?.remove(),7000);
   if(document.visibilityState==='hidden'&&'Notification' in window&&Notification.permission==='granted'){
-    try{new Notification('السكة: تم إلغاء حجزك',{body:'ألغى الكابتن خط المشاركة. افتح التطبيق لمراجعة حجوزاتك.',tag:'sekka-booking-cancelled'});}catch(_){}
+    try{new Notification('السكة: تم إلغاء حجزك',{body:'تم إلغاء أحد حجوزات مشاركة الطريق المرتبطة بحسابك. افتح التطبيق لمراجعة التفاصيل.',tag:'sekka-booking-cancelled'});}catch(_){}
   }
 }
 function startPassengerBookingUpdates(){
@@ -227,9 +227,9 @@ async function loadProfile() {
     .eq('id', session.user.id).maybeSingle();
   if (error) console.error(error);
   profile = data;
-  if(!profile){await supabase.auth.signOut();session=null;render();return;}
+  if(!profile){stopPassengerBookingUpdates();await supabase.auth.signOut();session=null;render();return;}
   const actualRole=profile.account_type||(profile.role==='captain'?'captain':profile.role==='admin'?'admin':'rider');
-  if(selectedAuthRole&&actualRole!=='admin'&&actualRole!==selectedAuthRole){await supabase.auth.signOut();session=null;profile=null;document.getElementById('msg')?.replaceChildren(document.createTextNode(selectedAuthRole==='admin'?'هذا الحساب لا يملك صلاحية دخول الإدارة.':'هذا البريد الإلكتروني مسجل كحساب '+(selectedAuthRole==='rider'?'كابتن ولا يمكن استخدامه كراكب، يرجى التسجيل ببريد إلكتروني منفصل.':'راكب ولا يمكن استخدامه ككابتن، يرجى التسجيل ببريد إلكتروني منفصل.')));return;}
+  if(selectedAuthRole&&actualRole!=='admin'&&actualRole!==selectedAuthRole){stopPassengerBookingUpdates();await supabase.auth.signOut();session=null;profile=null;document.getElementById('msg')?.replaceChildren(document.createTextNode(selectedAuthRole==='admin'?'هذا الحساب لا يملك صلاحية دخول الإدارة.':'هذا البريد الإلكتروني مسجل كحساب '+(selectedAuthRole==='rider'?'كابتن ولا يمكن استخدامه كراكب، يرجى التسجيل ببريد إلكتروني منفصل.':'راكب ولا يمكن استخدامه ككابتن، يرجى التسجيل ببريد إلكتروني منفصل.')));return;}
   profile.account_type=actualRole;
   startPassengerBookingUpdates();
   page=actualRole==='captain'?'captain':actualRole==='admin'?'admin':'trip';
