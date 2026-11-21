@@ -1633,12 +1633,21 @@ function shareHome() {
       const seats=Number($('ride-seats-'+id).value),offer=Number($('ride-offer-'+id).value);
       if(!Number.isInteger(seats)||seats<1||!Number.isFinite(offer)||offer<0){alert('راجع عدد الكراسي والسعر.');return;}
       b.disabled=true;
-      const {error}=await supabase.rpc('request_seats',{
-        p_ride_id:id,p_pickup_name:$('ride-pickup-'+id).value.trim(),
-        p_dropoff_name:$('ride-dropoff-'+id).value.trim(),
-        p_pickup_order:0,p_dropoff_order:1,p_seats:seats,p_offer:offer
-      });
-      if(error){alert(shareError(error));b.disabled=false;return;}
+      try{
+        const pickupName=$('ride-pickup-'+id).value.trim();
+        const dropoffName=$('ride-dropoff-'+id).value.trim();
+        if(!pickupName||!dropoffName)throw new Error('اكتب مكان الركوب والنزول.');
+        const pickup=await geocodeShareAddress(pickupName);
+        const dropoff=await geocodeShareAddress(dropoffName);
+        const {error}=await supabase.rpc('request_seats',{
+          p_ride_id:id,p_pickup_name:pickupName,p_dropoff_name:dropoffName,
+          p_pickup_order:0,p_dropoff_order:1,p_seats:seats,p_offer:offer,
+          p_pickup_lat:pickup.lat,p_pickup_lng:pickup.lng,
+          p_dropoff_lat:dropoff.lat,p_dropoff_lng:dropoff.lng
+        });
+        if(error)throw error;
+        b.textContent='تم إرسال طلبك للكابتن';b.disabled=true;
+      }catch(error){alert(shareError(error));b.disabled=false;return;}
       b.textContent='تم إرسال طلبك';b.disabled=true;
     }));
   }
