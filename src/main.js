@@ -2174,6 +2174,8 @@ async function applyCaptainPage() {
     .select('id,national_id_last4,national_id_expiry,license_number,license_expiry,vehicle_license_expiry,application_status,vehicle_id,national_id_front_path,national_id_back_path,driver_license_front_path,driver_license_back_path,vehicle_license_front_path,vehicle_license_back_path,vehicle:vehicles!captain_applications_vehicle_id_fkey(id,vehicle_type,make,model,model_year,color,plate_number,passenger_capacity,has_ac,has_large_trunk,no_smoking,pets_allowed,photo_front_path,photo_side_path,photo_rear_path)')
     .eq('user_id',profile.id).maybeSingle();
   const {data:profileData}=await supabase.from('profiles').select('avatar_path').eq('id',profile.id).maybeSingle();
+  // A slower document query must not replace a newer screen after navigation/auth refresh.
+  if (page !== 'apply-captain') return;
   if (existingError) {
     layout('<main class="wrap narrow"><section class="panel"><h2>تعذر تحميل بياناتك</h2><p class="muted">لم نتمكن من تحميل بيانات الطلب السابق.</p><button type="button" class="btn primary" id="back">العودة للرئيسية</button></section></main>');
     document.getElementById('back')?.addEventListener('click',()=>{page='home';render();});
