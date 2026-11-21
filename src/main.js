@@ -1174,7 +1174,7 @@ function shareHome() {
         <h2>انشر كراسي متاحة بمركبتك</h2>
         <p class="muted">انشر خطًا من مكان لمكان. النظام يحسب مسار قيادة تقريبيًا ويحفظه، ثم يطابق طلبات الركاب على الخط بحد انحراف 500 متر.</p>
         <form id="captainSeatOfferForm" class="form">
-          <label>المركبة<select id="seatOfferVehicle"><option value="">جارٍ تحميل المركبات...</option></select></label><p id="seatOfferVehicleStatus" class="notice" role="status" hidden></p>
+          <input id="seatOfferVehicle" type="hidden" value=""><div class="vehicle-summary" id="seatOfferVehicleSummary"><b>مركبتك المسجلة</b><span id="seatOfferVehicleStatus" class="notice" role="status">جارٍ تحميل بيانات مركبتك...</span></div>
           <label>نوع العرض<select id="seatOfferMode"><option value="live_share">فوري</option><option value="scheduled_share">مجدول</option></select></label>
           <label>بداية الخط (شارع أو معلم واضح)<input id="seatOfferOrigin" required maxlength="180" placeholder="مثال: حدائق المعادي"></label>
           <label>نهاية الخط (شارع أو معلم واضح)<input id="seatOfferDestination" required maxlength="180" placeholder="مثال: التجمع الخامس"></label>
@@ -1585,50 +1585,37 @@ function shareHome() {
   }
 
   async function loadCaptainSeatVehicles(){
-    const select=$('seatOfferVehicle'),status=$('seatOfferVehicleStatus'); if(!select)return;
-    select.disabled=true;
-    const [{data:vehicles,error:vehicleError},{data:subscriptions,error:subscriptionError}]=await Promise.all([
-      supabase.from('vehicles')
-        .select('id,vehicle_type,make,model,passenger_capacity,is_active')
-        .eq('captain_id',profile.id).eq('approval_status','approved')
-        .in('vehicle_type',sharedVehicleTypes),
-      supabase.from('captain_subscriptions')
-        .select('payment_status,starts_at,expires_at')
-        .eq('captain_id',profile.id).order('created_at',{ascending:false}).limit(5)
-    ]);
-    if(vehicleError){
-      select.innerHTML='<option value="">تعذر تحميل المركبات</option>';
-      if(status){status.hidden=false;status.textContent='تعذر تحميل بيانات المركبة. حدّث الصفحة وحاول مرة أخرى.';}
+    const vehicleInput=$('seatOfferVehicle'),status=$('seatOfferVehicleStatus'); if(!vehicleInput)return;
+    vehicleInput.value='';
+    const {data:vehicles,error}=await supabase.from('vehicles')
+      .select('id,vehicle_type,make,model,passenger_capacity,is_active')
+      .eq('captain_id',profile.id).eq('approval_status','approved')
+      .eq('vehicle_type','private_car').order('created_at',{ascending:false});
+    if(error){
+      if(status){status.textContent='تعذر تحميل بيانات مركبتك. حدّث الصفحة وحاول مرة أخرى.';status.className='notice error';}
       return;
     }
-    const eligible=(vehicles||[]).filter(v=>v.vehicle_type==='private_car'&&Number(v.passenger_capacity)>=1&&Number(v.passenger_capacity)<=3);
+    const eligible=(vehicles||[]).filter(v=>Number(v.passenger_capacity)>=1&&Number(v.passenger_capacity)<=3);
     if(!eligible.length){
-      select.innerHTML='<option value="">لا توجد مركبة ملاكي معتمدة بسعة حتى 3 ركاب</option>';
-      if(status){status.hidden=false;status.textContent='لا توجد مركبة ملاكي معتمدة ومطابقة لشروط مشاركة الطريق.';}
+      if(status){status.textContent='لا توجد سيارة ملاكي معتمدة مرتبطة بحسابك. راجع بيانات المركبة.';status.className='notice';}
       return;
     }
-    const activeVehicles=eligible.filter(v=>v.is_active===true);
-    if(activeVehicles.length){
-      select.innerHTML='<option value="">اختر مركبتك</option>'+activeVehicles.map(v=>`<option value="${v.id}">${esc([v.make,v.model].filter(Boolean).join(' ')||'ملاكي')} · ${v.passenger_capacity} مقعد</option>`).join('');
-      select.disabled=false;
-      if(status){status.hidden=true;status.textContent='';}
-      $('seatOfferSeats').max=String(Math.min(3,Math.max(...activeVehicles.map(v=>v.passenger_capacity))));
+    const active=eligible.filter(v=>v.is_active===true);
+    if(!active.length){
+      if(status){status.textContent='سيارتك الملاكي معتمدة، لكن غير مفعّلة حالياً. يلزم تفعيلها من الإدارة قبل نشر الخط.';status.className='notice';}
       return;
     }
-    select.innerHTML='<option value="">'+esc([eligible[0].make,eligible[0].model].filter(Boolean).join(' ')||'ملاكي')+' — غير مفعّلة حالياً</option>';
-    const now=Date.now();
-    const activeSubscription=(subscriptions||[]).some(s=>s.payment_status==='approved'&&s.starts_at&&s.expires_at&&new Date(s.starts_at).getTime()<=now&&new Date(s.expires_at).getTime()>now);
-    const pendingSubscription=(subscriptions||[]).some(s=>s.payment_status==='submitted');
-    if(status){
-      status.hidden=false;
-      status.textContent=subscriptionError
-        ?'المركبة معتمدة، لكن تعذر التحقق من الاشتراك. حدّث الصفحة أو راجع حسابك.'
-        :activeSubscription
-          ?'مركبتك معتمدة، لكن حالة تفعيلها غير متزامنة مع الاشتراك. لن نفعّلها تلقائياً؛ راجع حسابك أو تواصل مع الإدارة.'
-          :pendingSubscription
-            ?'مركبتك الملاكي معتمدة، لكن طلب اشتراكك ما زال قيد المراجعة. نشر خطوط السير يتاح بعد اعتماد الاشتراك وتفعيله.'
-            :'مركبتك الملاكي معتمدة، لكن نشر خطوط السير يتطلب اشتراك كابتن نشطاً. راجع قسم اشتراكي ومستنداتي.';
+    if(active.length>1){
+      if(status){status.textContent='يوجد أكثر من سيارة ملاكي نشطة على حسابك. راجع الإدارة لتحديد المركبة الأساسية.';status.className='notice';}
+      return;
     }
+    const vehicle=active[0];
+    vehicleInput.value=vehicle.id;
+    const capacity=Math.min(3,Number(vehicle.passenger_capacity));
+    const seatInput=$('seatOfferSeats');
+    seatInput.max=String(capacity);
+    if(Number(seatInput.value)>capacity)seatInput.value=String(capacity);
+    if(status){status.textContent=[vehicle.make,vehicle.model].filter(Boolean).join(' ')+' · ملاكي · '+capacity+' مقعد متاح كحد أقصى';status.className='notice success';}
   }
   $('seatOfferMode')?.addEventListener('change',()=>{
     const scheduled=$('seatOfferMode').value==='scheduled_share';
@@ -1677,13 +1664,20 @@ function shareHome() {
       $('seatOfferMapHint').textContent='تم رسم خط السير وإظهار البنزينات والبنوك والسوبر ماركت والصيدليات القريبة.';
     }catch(_){$('seatOfferMapHint').textContent='تم رسم خط السير. تعذر تحميل الأماكن القريبة مؤقتاً.';}
   };
+  async function fetchWithTimeout(url,options={},timeoutMs=12000){
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),timeoutMs);
+    try{return await fetch(url,{...options,signal:controller.signal});}
+    catch(error){if(error.name==='AbortError')throw new Error('استغرق الاتصال بالخريطة وقتاً أطول من اللازم. حدّد النقطتين من الخريطة وحاول مرة أخرى.');throw error;}
+    finally{clearTimeout(timer);}
+  }
   let shareLastGeocodeAt=0;
   async function geocodeShareAddress(query){
     const wait=Math.max(0,1100-(Date.now()-shareLastGeocodeAt));
     if(wait)await new Promise(resolve=>setTimeout(resolve,wait));
     shareLastGeocodeAt=Date.now();
     const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=eg&q='+encodeURIComponent(query+', Egypt');
-    const response=await fetch(url,{headers:{'Accept-Language':'ar'}});
+    const response=await fetchWithTimeout(url,{headers:{'Accept-Language':'ar'}},12000);
     if(!response.ok)throw new Error('تعذر البحث عن العنوان.');
     const rows=await response.json();
     if(!rows?.length)throw new Error('لم نتمكن من تحديد أحد العنوانين. اكتب اسم منطقة أو معلم أوضح.');
@@ -1691,7 +1685,7 @@ function shareHome() {
   }
   async function getShareRoadRoute(origin,destination){
     const url='https://router.project-osrm.org/route/v1/driving/'+origin.lng+','+origin.lat+';'+destination.lng+','+destination.lat+'?overview=full&geometries=geojson&steps=false';
-    const response=await fetch(url);
+    const response=await fetchWithTimeout(url,{},15000);
     if(!response.ok)throw new Error('تعذر حساب مسار الطريق. حاول مرة أخرى.');
     const data=await response.json();
     const route=data.routes?.[0];
@@ -1703,8 +1697,12 @@ function shareHome() {
     const msg=$('seatOfferMessage'),btn=e.currentTarget.querySelector('button[type="submit"]');
     const mode=$('seatOfferMode').value;
     if(!$('seatOfferVehicle')?.value){
-      msg.textContent=$('seatOfferVehicleStatus')?.textContent||'لا توجد مركبة مفعّلة لنشر خط السير.';
+      msg.textContent=$('seatOfferVehicleStatus')?.textContent||'لا توجد مركبة ملاكي معتمدة ونشطة مرتبطة بحسابك.';
       return;
+    }
+    const registeredCapacity=Number($('seatOfferSeats').max||0);
+    if(!registeredCapacity||Number($('seatOfferSeats').value)<1||Number($('seatOfferSeats').value)>registeredCapacity){
+      msg.textContent='عدد الكراسي لا يمكن أن يتجاوز سعة سيارتك المسجلة ('+registeredCapacity+').';return;
     }
     const originName=$('seatOfferOrigin').value.trim(),destinationName=$('seatOfferDestination').value.trim();
     const departure=mode==='scheduled_share'?new Date($('seatOfferDeparture').value):new Date(Date.now()+60000);
@@ -1717,8 +1715,8 @@ function shareHome() {
       const origin=seatOfferOriginMarker?seatOfferOriginMarker.getLatLng():await geocodeShareAddress(originName);
       const destination=seatOfferDestinationMarker?seatOfferDestinationMarker.getLatLng():await geocodeShareAddress(destinationName);
       const route=await getShareRoadRoute(origin,destination);
-      await showSeatOfferRouteAndPois(route,origin,destination);
-      msg.textContent='المسار: '+(route.distance/1000).toFixed(1)+' كم · وقت قيادة تقديري '+Math.round(route.duration/60)+' دقيقة. جارٍ النشر...';
+      showSeatOfferRouteAndPois(route,origin,destination).catch(()=>{});
+      msg.textContent='تم حساب المسار ('+(route.distance/1000).toFixed(1)+' كم · '+Math.round(route.duration/60)+' دقيقة). جارٍ حفظ الخط...';
       const {error}=await supabase.rpc('create_share_ride',{
         p_vehicle_id:$('seatOfferVehicle').value,p_ride_mode:mode,
         p_origin_name:originName,p_origin_lat:origin.lat,p_origin_lng:origin.lng,
