@@ -400,7 +400,7 @@ async function linesPage(){
   const form=document.querySelector('#lineCreateForm');
   attachLineStopMap(form);
   const lineVehicle=form?.querySelector('[name="vehicle_id"]'),lineSeats=form?.querySelector('[name="seats"]');
-  const syncLineSeats=()=>{if(!lineVehicle||!lineSeats)return;const vehicle=(vehicles||[]).find(v=>v.id===lineVehicle.value),max=Number(vehicle?.passenger_capacity)||({private_car:3,suzuki:6,microbus:13})[vehicle?.vehicle_type]||1,current=Number(lineSeats.value)||1;lineSeats.innerHTML=Array.from({length:max},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('');lineSeats.value=String(Math.min(current,max));};
+  const syncLineSeats=()=>{if(!lineVehicle||!lineSeats)return;const vehicle=(vehicles||[]).find(v=>v.id===lineVehicle.value),max=Number(vehicle?.passenger_capacity)||({private_car:3,suzuki:6,microbus:13})[vehicle?.vehicle_type]||1,current=Number(lineSeats.value)||1;lineSeats.min='1';lineSeats.max=String(max);lineSeats.value=String(Math.min(current,max));};
   lineVehicle?.addEventListener('change',syncLineSeats);syncLineSeats();
   if(form)form.onsubmit=async e=>{
    e.preventDefault();const fd=new FormData(form),v=k=>String(fd.get(k)||'').trim(),btn=form.querySelector('button[type="submit"]');busyButton(btn,true);
