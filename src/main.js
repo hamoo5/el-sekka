@@ -16,7 +16,7 @@ const busyButton = (button, yes) => { if(button){button.disabled=yes;button.data
 function shell(content){
  root.innerHTML=`<header class="top"><a class="brand" href="#" data-view="home"><span class="mark">س</span><span><b>السكة</b><small>مشاركة الطريق.. على السكة</small></span></a><div class="top-actions">${session?'<span class="user-tag">'+esc(profile?.display_name||session.user.email)+'</span><button class="btn outline" id="logout">خروج</button>':''}</div></header>
  ${content}
- ${session?'<nav class="bottom"><button data-view="home">الرئيسية</button><button data-view="share">جاي في سكتك</button><button data-view="group">مشوارنا واحد</button><button data-view="trips">حجوزاتي</button><button data-view="account">حسابي</button></nav>':''}
+ ${session?'<nav class="bottom"><button data-view="home">الرئيسية</button><button data-view="share">جاي في سكتك</button><button data-view="group">مشوارنا واحد</button><button data-view="lines">خطوط السكة</button><button data-view="trips">حجوزاتي</button><button data-view="account">حسابي</button></nav>':''}
  <footer>السكة · منصة تنقّل ومشاركة طريق</footer>`;
  root.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();view=b.dataset.view;render();}));
  document.querySelector('#logout')?.addEventListener('click',async()=>{await db.auth.signOut();session=null;profile=null;view='home';render();});
@@ -27,7 +27,7 @@ function select(label,name,opts,required=true){return `<label>${label}<select na
 function home(){
  if(profile?.account_type==='captain')return captainHome();
  if(profile?.account_type==='admin')return adminHome();
- shell(`<main class="wrap"><section class="hero"><span class="eyebrow">أهلاً بك في السكة</span><h1>كل مشوار له <em>سكة</em></h1><p>شارك الطريق مع كابتن رايح في نفس اتجاهك، واحجز مقعدًا على رحلة منشورة.</p><div class="actions"><button class="btn primary" data-view="share">جاي في سكتك</button><button class="btn outline" data-view="trips">حجوزاتي</button></div><div class="tiles"><button class="tile" data-view="share"><span>🛣️</span><b>جاي في سكتك</b><small>اعرض طريقك أو احجز مقعدًا</small></button><button class="tile" data-view="trips"><span>📋</span><b>حجوزاتي</b><small>تابع حجوزات المقاعد</small></button><button class="tile" data-view="group"><span>🤝</span><b>مشوارنا واحد</b><small>اطلب مشاركة طريق وتابع عروض الكباتن</small></button></div></main>`);
+ shell(`<main class="wrap"><section class="hero"><span class="eyebrow">أهلاً بك في السكة</span><h1>كل مشوار له <em>سكة</em></h1><p>شارك الطريق مع كابتن رايح في نفس اتجاهك، واحجز مقعدًا على رحلة منشورة.</p><div class="actions"><button class="btn primary" data-view="share">جاي في سكتك</button><button class="btn outline" data-view="trips">حجوزاتي</button></div><div class="tiles"><button class="tile" data-view="share"><span>🛣️</span><b>جاي في سكتك</b><small>اعرض طريقك أو احجز مقعدًا</small></button><button class="tile" data-view="trips"><span>📋</span><b>حجوزاتي</b><small>تابع حجوزات المقاعد</small></button><button class="tile" data-view="group"><span>🤝</span><b>مشوارنا واحد</b><small>اطلب مشاركة طريق وتابع عروض الكباتن</small></button><button class="tile" data-view="lines"><span>🚏</span><b>خطوط السكة</b><small>خطوط ثابتة ومواعيد منتظمة</small></button></div></main>`);
 }
 function authPage(){
  shell(`<main class="wrap narrow"><section class="hero compact"><span class="eyebrow">السكة · تجربة تشغيل</span><h1>ابدأ مشوارك</h1><p>حساب مستقل للراكب أو الكابتن.</p></section>${card('تسجيل الدخول أو إنشاء حساب',`<div class="tabs"><button type="button" class="${authRole==='rider'?'selected':''}" data-role="rider">راكب</button><button type="button" class="${authRole==='captain'?'selected':''}" data-role="captain">كابتن</button><button type="button" class="${authRole==='admin'?'selected':''}" data-role="admin">إدارة</button></div><form id="authForm">${input('البريد الإلكتروني','email','email',true,'name@example.com')}${input('كلمة المرور','password','password',true,'6 أحرف على الأقل')}${authMode==='signup'?input('الاسم','name','text',true,'الاسم الظاهر'):''}<button class="btn primary full" type="submit">${authMode==='signup'?'إنشاء الحساب':'تسجيل الدخول'}</button><button class="text-btn" type="button" id="toggleAuth">${authMode==='signup'?'لديك حساب؟ تسجيل الدخول':'حساب جديد؟ أنشئ حسابًا'}</button><p id="notice" class="notice" role="status"></p></form>`)}<p class="muted center">النسخة التجريبية متصلة بقاعدة البيانات.</p></main>`);
@@ -151,6 +151,92 @@ async function groupPage(){
  }
  await loadMyGroupRequests();
 }
+async function linesPage(){
+ const dayNames=['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+ if(profile?.account_type==='captain'){
+  const [{data:vehicles,error:vehicleError},{data:lines,error:lineError}]=await Promise.all([
+   db.from('vehicles').select('id,vehicle_type,make,model,plate_number,passenger_capacity').eq('captain_id',session.user.id).eq('approval_status','approved').eq('is_active',true),
+   db.from('sekka_lines').select('id,title,origin_name,destination_name,approval_status,is_active,created_at').eq('captain_id',session.user.id).order('created_at',{ascending:false}).limit(30)
+  ]);
+  let captainLineBookingsHtml='<p>لا توجد حجوزات على خطوطك حتى الآن.</p>';
+  const ownLineIds=(lines||[]).map(l=>l.id);
+  if(ownLineIds.length){
+   const {data:ownRuns}=await db.from('sekka_line_runs').select('id,line_id,departure_at').in('line_id',ownLineIds);
+   const ownRunIds=(ownRuns||[]).map(r=>r.id);
+   if(ownRunIds.length){
+    const {data:ownBookings}=await db.from('sekka_line_bookings').select('id,run_id,pickup_stop_id,dropoff_stop_id,seats_requested,total_price_egp,booking_status').in('run_id',ownRunIds).order('created_at',{ascending:false}).limit(50);
+    if(ownBookings?.length){
+     const ownStopIds=[...new Set(ownBookings.flatMap(b=>[b.pickup_stop_id,b.dropoff_stop_id]))];
+     const {data:ownStops}=await db.from('sekka_line_stops').select('id,stop_name').in('id',ownStopIds);
+     const ownStopMap=new Map((ownStops||[]).map(s=>[s.id,s.stop_name]));
+     const ownRunMap=new Map((ownRuns||[]).map(r=>[r.id,r.departure_at]));
+     captainLineBookingsHtml=ownBookings.map(b=>'<article class="request"><b>'+esc(ownStopMap.get(b.pickup_stop_id)||'ركوب')+' ← '+esc(ownStopMap.get(b.dropoff_stop_id)||'نزول')+'</b><p>'+b.seats_requested+' مقعد · '+money(b.total_price_egp)+' · '+esc(b.booking_status)+'</p><p class="muted">'+date(ownRunMap.get(b.run_id))+'</p></article>').join('');
+    }
+   }
+  }
+  shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">خطوط السكة · مساحة الكابتن</span><h1>أنشئ خطًا ثابتًا</h1><p>حدد المحطات وأيام التشغيل وميعاد التحرك. بعد مراجعة الإدارة سيظهر الخط للركاب.</p></div>
+  ${card('خط جديد',`<form id="lineCreateForm">
+   ${input('اسم الخط','title','text',true,'مثال: التجمع – مدينة نصر')}
+   ${select('المركبة','vehicle_id',(vehicles||[]).map(v=>[v.id,(v.make||'')+' '+(v.model||'')+' · '+v.plate_number+' · '+v.passenger_capacity+' مقعد']))}
+   ${input('محطة البداية','origin_name','text',true,'اسم أول محطة')}
+   ${input('محطة النهاية','destination_name','text',true,'اسم آخر محطة')}
+   ${input('وصف الخط','description','text',false,'المناطق التي يمر بها الخط')}
+   <label>المحطات بالترتيب (كل محطة في سطر: الاسم | خط العرض | خط الطول)<textarea name="stops" rows="5" required placeholder="محطة البداية | 30.01 | 31.40&#10;محطة وسطى | 30.03 | 31.42&#10;محطة النهاية | 30.05 | 31.45"></textarea></label>
+   <fieldset class="days-field"><legend>أيام تشغيل الخط</legend>${dayNames.map((d,i)=>'<label class="check"><input type="checkbox" name="days" value="'+i+'" '+(i<5?'checked':'')+'> '+d+'</label>').join('')}</fieldset>
+   ${input('ميعاد التحرك','departure_time','time',true)}
+   ${input('عدد المقاعد في الرحلة','seats','number',true,'حسب سعة المركبة')}
+   ${input('سعر المقعد بالجنيه','seat_price','number',true,'السعر الثابت للمقعد')}
+   <button class="btn primary full" type="submit" ${vehicles?.length?'':'disabled'}>إرسال الخط للمراجعة</button><p id="notice" class="notice" role="status"></p>
+  </form>`)}
+  ${vehicleError?'<p class="notice error">'+esc(vehicleError.message)+'</p>':''}
+  ${vehicles?.length?'':'<section class="panel notice">لا توجد مركبة معتمدة ونشطة لإنشاء الخط.</section>'}
+  <div class="page-head"><h2>خطوطي</h2></div><div class="stack">${lineError?'<section class="panel notice error">'+esc(lineError.message)+'</section>':(lines||[]).map(l=>'<section class="panel"><b>'+esc(l.title)+'</b><p>'+esc(l.origin_name)+' ← '+esc(l.destination_name)+'</p><span class="pill">'+esc(l.approval_status==='approved'?'معتمد':l.approval_status==='rejected'?'مرفوض':'قيد المراجعة')+'</span></section>').join('')||'<section class="panel empty">لم تنشئ خطوطًا بعد.</section>'}</div>
+  ${card('حجوزات الركاب على خطوطك',captainLineBookingsHtml)}
+  </main>`);
+  const form=document.querySelector('#lineCreateForm');
+  if(form)form.onsubmit=async e=>{
+   e.preventDefault();const fd=new FormData(form),v=k=>String(fd.get(k)||'').trim(),btn=form.querySelector('button[type="submit"]');busyButton(btn,true);
+   try{
+    const stops=v('stops').split(/\r?\n/).map(row=>row.split('|').map(x=>x.trim())).filter(parts=>parts.length>=3&&parts[0]);
+    if(stops.length<2)throw Error('أضف محطتين على الأقل، بداية ونهاية.');
+    const parsed=stops.map(([name,lat,lng])=>({name,lat:Number(lat),lng:Number(lng)}));
+    if(parsed.some(s=>!Number.isFinite(s.lat)||!Number.isFinite(s.lng)))throw Error('إحداثيات كل محطة يجب أن تكون أرقامًا صحيحة.');
+    if(parsed[0].name!==v('origin_name')||parsed[parsed.length-1].name!==v('destination_name'))throw Error('اسم أول محطة يجب أن يطابق البداية، وآخر محطة يجب أن تطابق النهاية.');
+    const days=fd.getAll('days').map(Number);if(!days.length)throw Error('حدد يوم تشغيل واحدًا على الأقل.');
+    const {error}=await db.rpc('create_sekka_line',{p_vehicle_id:v('vehicle_id'),p_title:v('title'),p_origin_name:v('origin_name'),p_destination_name:v('destination_name'),p_description:v('description')||null,p_stops:parsed,p_service_days:days,p_departure_time:v('departure_time'),p_seats:Number(v('seats')),p_seat_price:Number(v('seat_price'))});
+    if(error)throw error;notice('تم إرسال الخط للمراجعة. سيظهر للركاب بعد اعتماد الإدارة.','success');await linesPage();
+   }catch(err){notice(err.message||'تعذر إنشاء الخط.','error');}
+   finally{busyButton(btn,false);}
+  };
+  return;
+ }
+ shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">خطوط السكة</span><h1>خطوط ثابتة ومواعيد منتظمة</h1><p>اختار الخط وميعاد الرحلة ومحطتي الركوب والنزول واحجز مقعدك.</p></div><div id="availableLines" class="stack">جارٍ تحميل الخطوط…</div></main>`);
+ const box=document.querySelector('#availableLines');
+ const {data:lines,error}=await db.from('sekka_lines').select('id,title,origin_name,destination_name,description').eq('approval_status','approved').eq('is_active',true).order('title').limit(50);
+ if(error){box.innerHTML='<section class="panel notice error">'+esc(error.message)+'</section>';return;}
+ if(!lines?.length){box.innerHTML='<section class="panel empty">لا توجد خطوط معتمدة متاحة حاليًا.</section>';return;}
+ const ids=lines.map(l=>l.id);
+ const [{data:schedules,error:sErr},{data:stops,error:stErr}]=await Promise.all([
+  db.from('sekka_line_schedules').select('id,line_id,service_days,departure_time,seats_total,seat_price_egp').in('line_id',ids).eq('is_active',true),
+  db.from('sekka_line_stops').select('id,line_id,stop_order,stop_name,can_pickup,can_dropoff').in('line_id',ids).order('stop_order')
+ ]);
+ if(sErr||stErr){box.innerHTML='<section class="panel notice error">'+esc((sErr||stErr).message)+'</section>';return;}
+ box.innerHTML=lines.map(line=>{
+  const lineSchedules=(schedules||[]).filter(s=>s.line_id===line.id),lineStops=(stops||[]).filter(s=>s.line_id===line.id);
+  return `<section class="panel"><h2>${esc(line.title)}</h2><h3>${esc(line.origin_name)} ← ${esc(line.destination_name)}</h3><p>${esc(line.description||'خط معتمد من السكة')}</p><p class="muted">المحطات: ${lineStops.map(s=>esc(s.stop_name)).join(' ← ')}</p>${lineSchedules.map(s=>{
+   const pickup=lineStops.filter(x=>x.can_pickup),dropoff=lineStops.filter(x=>x.can_dropoff);
+   return `<form class="line-book-form" data-line-schedule="${s.id}" data-time="${String(s.departure_time).slice(0,5)}"><div class="ride-top"><b>ميعاد ${String(s.departure_time).slice(0,5)}</b><span class="pill">${s.seats_total} مقعد</span></div><p>أيام التشغيل: ${(s.service_days||[]).map(d=>dayNames[d]).join('، ')} · ${money(s.seat_price_egp)} للمقعد</p><label>تاريخ الرحلة<input type="date" name="run_date" min="${new Date().toISOString().slice(0,10)}" max="${new Date(Date.now()+90*86400000).toISOString().slice(0,10)}" required></label><label>محطة الركوب<select name="pickup_stop" required>${pickup.map(x=>'<option value="'+x.id+'">'+esc(x.stop_name)+'</option>').join('')}</select></label><label>محطة النزول<select name="dropoff_stop" required>${dropoff.map(x=>'<option value="'+x.id+'">'+esc(x.stop_name)+'</option>').join('')}</select></label><label>عدد المقاعد<select name="seats">${Array.from({length:Math.min(13,s.seats_total)},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('')}</select></label><button class="btn primary full" type="submit">احجز في الخط</button><p class="notice" role="status"></p></form>`;
+  }).join('')||'<p class="muted">لا توجد مواعيد نشطة لهذا الخط.</p>'}</section>`;
+ }).join('');
+ box.querySelectorAll('[data-line-schedule]').forEach(form=>form.onsubmit=async e=>{
+  e.preventDefault();const fd=new FormData(form),dateValue=String(fd.get('run_date')||''),time=form.dataset.time,btn=form.querySelector('button[type="submit"]');
+  const departure=new Date(dateValue+'T'+time+':00');if(!dateValue||Number.isNaN(departure.getTime())){form.querySelector('.notice').textContent='اختر تاريخًا صحيحًا.';return;}
+  busyButton(btn,true);
+  try{const {error}=await db.rpc('request_sekka_line_seats',{p_schedule_id:form.dataset.lineSchedule,p_departure_at:departure.toISOString(),p_pickup_stop_id:String(fd.get('pickup_stop')),p_dropoff_stop_id:String(fd.get('dropoff_stop')),p_seats:Number(fd.get('seats'))});if(error)throw error;form.querySelector('.notice').textContent='تم حجز مقعدك بنجاح.';form.querySelector('.notice').className='notice success';}
+  catch(err){form.querySelector('.notice').textContent=err.message||'تعذر إتمام الحجز.';form.querySelector('.notice').className='notice error';}
+  finally{busyButton(btn,false);}
+ });
+}
 async function tripsPage(){
   shell(`<main class="wrap"><div class="page-head"><h1>حجوزاتي</h1><p>تابع طلبات المقاعد على الرحلات المنشورة.</p></div><div id="myTrips" class="stack">جارٍ التحميل…</div></main>`);
   const box=document.querySelector('#myTrips');
@@ -158,6 +244,14 @@ async function tripsPage(){
   if(error){box.innerHTML='<section class="panel empty">تعذر تحميل الحجوزات. '+esc(error.message)+'</section>';return;}
   const rows=data||[];
   box.innerHTML=rows.length?rows.map(x=>`<section class="panel"><div class="ride-top"><b>${esc(x.pickup_name)} ← ${esc(x.dropoff_name)}</b><span class="pill">${esc(x.booking_status)}</span></div><p>${money(x.agreed_price_egp)} · ${date(x.created_at)}</p></section>`).join(''):'<section class="panel empty">لا توجد حجوزات مسجلة حتى الآن.</section>';
+  const {data:lineBookings}=await db.from('sekka_line_bookings').select('id,run_id,pickup_stop_id,dropoff_stop_id,seats_requested,total_price_egp,booking_status,created_at').eq('passenger_id',session.user.id).order('created_at',{ascending:false}).limit(30);
+  if(lineBookings?.length){
+   const stopIds=[...new Set(lineBookings.flatMap(b=>[b.pickup_stop_id,b.dropoff_stop_id]))],runIds=[...new Set(lineBookings.map(b=>b.run_id))];
+   const [{data:stops},{data:runs}]=await Promise.all([db.from('sekka_line_stops').select('id,stop_name').in('id',stopIds),db.from('sekka_line_runs').select('id,departure_at').in('id',runIds)]);
+   const stopMap=new Map((stops||[]).map(s=>[s.id,s.stop_name])),runMap=new Map((runs||[]).map(r=>[r.id,r.departure_at]));
+   box.insertAdjacentHTML('beforeend','<section class="panel"><h2>حجوزات خطوط السكة</h2>'+lineBookings.map(b=>'<article class="request"><b>'+esc(stopMap.get(b.pickup_stop_id)||'محطة الركوب')+' ← '+esc(stopMap.get(b.dropoff_stop_id)||'محطة النزول')+'</b><p>'+esc(b.booking_status)+' · '+b.seats_requested+' مقعد · '+money(b.total_price_egp)+'</p><p class="muted">'+date(runMap.get(b.run_id))+'</p>'+(b.booking_status==='confirmed'?'<button class="btn danger" data-line-cancel="'+b.id+'">إلغاء الحجز</button>':'')+'</article>').join('')+'</section>');
+   box.querySelectorAll('[data-line-cancel]').forEach(btn=>btn.onclick=async()=>{if(!confirm('تأكيد إلغاء حجز خط السكة؟'))return;busyButton(btn,true);try{const {error}=await db.rpc('cancel_sekka_line_booking',{p_booking_id:btn.dataset.lineCancel});if(error)throw error;await tripsPage();}catch(err){alert(err.message||'تعذر إلغاء الحجز.');busyButton(btn,false);}});
+  }
  }
 async function accountPage(){
  if(profile.account_type==='captain'){captainHome();return;}
@@ -232,9 +326,10 @@ function applyPage(){
  document.querySelector('#applyForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget),v=n=>String(f.get(n)||'').trim(),b=e.currentTarget.querySelector('button[type=submit]');busyButton(b,true);try{const upload=async(field,bucket)=>{const file=f.get(field);if(!(file instanceof File)||!file.size)throw Error('اختر كل المستندات والصور المطلوبة.');if(file.size>5*1024*1024)throw Error('حجم كل صورة يجب ألا يتجاوز 5 ميجابايت.');const path=session.user.id+'/'+Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');const {error}=await db.storage.from(bucket).upload(path,file,{upsert:false,contentType:file.type});if(error)throw error;return path;};const paths={};for(const key of ['national_id_front','national_id_back','driver_license_front','driver_license_back','vehicle_license_front','vehicle_license_back'])paths[key]=await upload(key,'captain-documents');for(const key of ['profile_photo','vehicle_front','vehicle_side','vehicle_rear'])paths[key]=await upload(key,'captain-media');const args={p_national_id_last4:v('national_id_last4'),p_national_id_expiry:v('national_id_expiry'),p_license_number:v('license_number'),p_license_expiry:v('license_expiry'),p_vehicle_license_expiry:v('vehicle_license_expiry'),p_national_id_front_path:paths.national_id_front,p_national_id_back_path:paths.national_id_back,p_driver_license_front_path:paths.driver_license_front,p_driver_license_back_path:paths.driver_license_back,p_vehicle_license_front_path:paths.vehicle_license_front,p_vehicle_license_back_path:paths.vehicle_license_back,p_vehicle_type:v('vehicle_type'),p_make:v('make'),p_model:v('model'),p_model_year:Number(v('model_year')),p_color:v('color'),p_plate_number:v('plate_number'),p_passenger_capacity:Number(v('passenger_capacity')),p_has_ac:f.has('has_ac'),p_has_large_trunk:f.has('has_large_trunk'),p_no_smoking:f.has('no_smoking'),p_pets_allowed:f.has('pets_allowed'),p_profile_photo_path:paths.profile_photo,p_vehicle_front_path:paths.vehicle_front,p_vehicle_side_path:paths.vehicle_side,p_vehicle_rear_path:paths.vehicle_rear};const {error}=await db.rpc('submit_captain_application_v3',args);if(error)throw error;notice('تم إرسال طلبك بنجاح.','success');setTimeout(()=>{view='captain';render();},700);}catch(err){notice(err.message||'تعذر إرسال الطلب.','error');}finally{busyButton(b,false);}};
 }
 async function adminHome(){
- const [{data:apps,error:appsError},{data:subscriptions,error:subscriptionsError}] = await Promise.all([
+ const [{data:apps,error:appsError},{data:subscriptions,error:subscriptionsError},{data:pendingLines,error:linesError}] = await Promise.all([
   db.from('captain_applications').select('id,user_id,application_status,national_id_last4,license_number,created_at').order('created_at',{ascending:false}).limit(50),
-  db.from('captain_subscriptions').select('id,captain_id,plan_days,amount_egp,payment_reference,payment_proof_path,created_at').eq('payment_status','submitted').order('created_at',{ascending:true}).limit(50)
+  db.from('captain_subscriptions').select('id,captain_id,plan_days,amount_egp,payment_reference,payment_proof_path,created_at').eq('payment_status','submitted').order('created_at',{ascending:true}).limit(50),
+  db.from('sekka_lines').select('id,title,origin_name,destination_name,created_at').eq('approval_status','pending').order('created_at',{ascending:true}).limit(50)
  ]);
  const pendingRows=await Promise.all((subscriptions||[]).map(async s=>{
   const {data}=await db.storage.from('captain-payment-proofs').createSignedUrl(s.payment_proof_path,600);
@@ -242,9 +337,11 @@ async function adminHome(){
   return `<article class="request"><b>طلب اشتراك · ${s.plan_days===90?'3 شهور':'شهر واحد'} · ${money(s.amount_egp)}</b><p>رقم الكابتن: ${esc(String(s.captain_id).slice(0,8))}…</p><p>مرجع التحويل: ${esc(s.payment_reference||'—')}</p><p class="muted">${date(s.created_at)}</p>${proofUrl?`<p><a href="${esc(proofUrl)}" target="_blank" rel="noopener">عرض إثبات الدفع</a></p>`:'<p class="notice error">تعذر إنشاء رابط إثبات الدفع. تحقق من صلاحية قراءة الملفات.</p>'}<button class="btn primary" data-subscription-review="${s.id}" data-decision="approve">اعتماد الاشتراك</button> <button class="btn danger" data-subscription-review="${s.id}" data-decision="reject">رفض الطلب</button></article>`;
  })).join('');
  shell(`<main class="wrap"><div class="page-head"><h1>لوحة الإدارة</h1><p>مراجعة طلبات الكباتن والاشتراكات.</p></div>
+ ${card('خطوط السكة قيد المراجعة',linesError?esc(linesError.message):(pendingLines||[]).map(l=>`<article class="request"><b>${esc(l.title)}</b><p>${esc(l.origin_name)} ← ${esc(l.destination_name)}</p><button class="btn primary" data-line-review="${l.id}" data-approve="true">اعتماد الخط</button> <button class="btn danger" data-line-review="${l.id}" data-approve="false">رفض الخط</button></article>`).join('')||'<p>لا توجد خطوط جديدة.</p>')}
  ${card('طلبات الاشتراك',subscriptionsError?esc(subscriptionsError.message):(pendingRows||'<p>لا توجد طلبات اشتراك قيد المراجعة.</p>'))}
  ${card('طلبات انضمام الكباتن',appsError?esc(appsError.message):(apps||[]).map(a=>`<article class="request"><b>${esc(a.national_id_last4||'—')} · ${esc(a.license_number||'—')}</b><p>${esc(a.application_status)} · ${date(a.created_at)}</p><button class="btn outline" data-review="${a.id}" data-status="approved">اعتماد</button> <button class="btn danger" data-review="${a.id}" data-status="rejected">رفض</button></article>`).join('')||'<p>لا توجد طلبات.</p>')}</main>`);
  document.querySelectorAll('[data-review]').forEach(b=>b.onclick=async()=>{const {error}=await db.rpc('review_captain_application_v2',{p_application_id:b.dataset.review,p_decision:b.dataset.status,p_admin_notes:null});if(error)alert(error.message);else adminHome();});
+ document.querySelectorAll('[data-line-review]').forEach(b=>b.onclick=async()=>{busyButton(b,true);try{const {error}=await db.rpc('admin_review_sekka_line',{p_line_id:b.dataset.lineReview,p_approve:b.dataset.approve==='true'});if(error)throw error;await adminHome();}catch(err){alert(err.message||'تعذر مراجعة الخط.');busyButton(b,false);}});
  document.querySelectorAll('[data-subscription-review]').forEach(b=>b.onclick=async()=>{
   const decision=b.dataset.decision;
   if(!confirm(decision==='approve'?'تأكيد اعتماد الاشتراك؟':'تأكيد رفض طلب الاشتراك؟'))return;
@@ -256,6 +353,6 @@ async function adminHome(){
   }catch(err){alert(err.message||'تعذر تحديث حالة الاشتراك.');busyButton(b,false);}
  });
 }
-function render(){if(!session){authPage();return;}if(!profile){loadProfile().then(()=>{if(profile)render();else{authMode='signin';session=null;authPage();notice('تعذر تحميل ملف الحساب أو أن الحساب غير مفعّل. سجّل الدخول مرة أخرى.','error');}});return;}if(profile.account_type==='captain'&&view==='apply'){applyPage();return;}if(profile.account_type==='captain'&&view==='home')view='captain';if(profile.account_type==='admin'&&view==='home')view='admin';switch(view){case'home':home();break;case'share':sharePage();break;case'group':groupPage();break;case'trips':tripsPage();break;case'account':accountPage();break;case'captain':captainHome();break;case'admin':adminHome();break;case'apply':applyPage();break;default:home();}}
+function render(){if(!session){authPage();return;}if(!profile){loadProfile().then(()=>{if(profile)render();else{authMode='signin';session=null;authPage();notice('تعذر تحميل ملف الحساب أو أن الحساب غير مفعّل. سجّل الدخول مرة أخرى.','error');}});return;}if(profile.account_type==='captain'&&view==='apply'){applyPage();return;}if(profile.account_type==='captain'&&view==='home')view='captain';if(profile.account_type==='admin'&&view==='home')view='admin';switch(view){case'home':home();break;case'share':sharePage();break;case'group':groupPage();break;case'lines':linesPage();break;case'trips':tripsPage();break;case'account':accountPage();break;case'captain':captainHome();break;case'admin':adminHome();break;case'apply':applyPage();break;default:home();}}
 db.auth.getSession().then(({data})=>{session=data.session;render();});
 db.auth.onAuthStateChange((_event,next)=>{session=next;profile=null;render();});
