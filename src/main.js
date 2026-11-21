@@ -84,8 +84,9 @@ function layout(body) {
       <button type="button" data-nav-page="trips" class="${page==='trips'||page==='trip-status'?'active':''}"><span>📋</span><small>مشاويري</small></button>
       <button type="button" data-nav-page="profile" class="${page==='profile'||page==='rewards'?'active':''}"><span>👤</span><small>حسابي</small></button>
     </nav>` : `<nav class="app-bottom-nav"><button type="button" data-nav-page="admin" class="${page==='admin'?'active':''}"><span>⚙️</span><small>الإدارة</small></button><button type="button" data-nav-page="profile"><span>👤</span><small>حسابي</small></button></nav>` : ''}
-    <footer>السكة © 2026 · منصة تنقل ومشاركة طريق</footer>`;
+    <footer>السكة © 2026 · منصة تنقل ومشاركة طريق${!session && page==='home' && !selectedAuthRole ? '<a class="admin-entry-link" id="adminEntry" href="#">دخول الإدارة</a>' : ''}</footer>`;
   document.querySelectorAll('[data-nav-page]').forEach(button=>button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();const target=button.dataset.navPage;if(!target)return;page=target;try{sessionStorage.setItem(PAGE_STORAGE_KEY,page);}catch(_){}render();}));
+  document.querySelector('#adminEntry')?.addEventListener('click',event=>{event.preventDefault();selectedAuthRole='admin';try{sessionStorage.setItem('el-sekka-auth-role','admin');}catch(_){}render();});
   document.querySelector('#logout')?.addEventListener('click', async () => {
     await supabase.auth.signOut();session=null;profile=null;page='home';selectedAuthRole='';
     try{sessionStorage.removeItem(PAGE_STORAGE_KEY);sessionStorage.removeItem('el-sekka-auth-role');}catch(_){}
@@ -125,16 +126,17 @@ function auth() {
     }));
     return;
   }
-  const roleLabel=selectedAuthRole==='captain'?'كابتن':'راكب';
+  const adminLogin=selectedAuthRole==='admin';
+  const roleLabel=adminLogin?'الإدارة':selectedAuthRole==='captain'?'كابتن':'راكب';
   layout(`<main class="wrap narrow">
-    <button type="button" class="back" id="changeAuthRole">← تغيير نوع الحساب</button>
-    <section class="hero compact"><span class="tag">السكة · حساب ${roleLabel}</span><h1>${selectedAuthRole==='captain'?'مساحة الكابتن':'مساحة الراكب'}</h1><p>سجّل الدخول أو أنشئ حساباً مستقلاً لهذا الدور.</p></section>
+    <button type="button" class="back" id="changeAuthRole">← ${adminLogin?'العودة لاختيار الحساب':'تغيير نوع الحساب'}</button>
+    <section class="hero compact"><span class="tag">السكة · حساب ${roleLabel}</span><h1>${adminLogin?'دخول الإدارة':selectedAuthRole==='captain'?'مساحة الكابتن':'مساحة الراكب'}</h1><p>${adminLogin?'سجّل الدخول بالبريد الإلكتروني المصرح له بالإدارة.':'سجّل الدخول أو أنشئ حساباً مستقلاً لهذا الدور.'}</p></section>
     <form class="panel form" id="authForm">
       <label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email" placeholder="name@example.com"></label>
       <label id="referralCodeField" hidden>كود دعوة (اختياري)<input name="referral_code" maxlength="10" value="${esc(new URLSearchParams(window.location.search).get('ref') || '')}" placeholder="SEKKA-XXXX" autocomplete="off"></label>
       <label>كلمة المرور<input name="password" type="password" minlength="6" required autocomplete="current-password" placeholder="••••••••"></label>
       <button class="btn primary" type="submit" id="authSubmit">تسجيل الدخول</button>
-      <button class="btn outline" type="button" id="authModeToggle">إنشاء حساب جديد</button>
+      <button class="btn outline" type="button" id="authModeToggle" ${adminLogin?'hidden':''}>إنشاء حساب جديد</button>
       <p id="msg" class="message" role="status" aria-live="polite"></p>
     </form>
   </main>`);
@@ -148,7 +150,7 @@ function auth() {
     e.preventDefault();const d=new FormData(form);
     await authAction(signupMode?'signup':'signin',d.get('email'),d.get('password'),signupMode?d.get('referral_code'):'');
   });
-  modeToggle.addEventListener('click',()=>{
+  if(!adminLogin)modeToggle.addEventListener('click',()=>{
     signupMode=!signupMode;referralField.hidden=!signupMode;
     submitButton.textContent=signupMode?'إنشاء الحساب':'تسجيل الدخول';
     modeToggle.textContent=signupMode?'لديك حساب؟ تسجيل الدخول':'إنشاء حساب جديد';
@@ -160,6 +162,8 @@ function auth() {
 async function authAction(mode,email,password,referralCode='') {
   const msg=document.querySelector('#msg'),cleanEmail=String(email||'').trim().toLowerCase();
   if(!cleanEmail||!password){msg.textContent='أدخل البريد الإلكتروني وكلمة المرور.';return;}
+  if(selectedAuthRole==='admin'&&mode!=='signin'){msg.textContent='دخول الإدارة متاح للحسابات المعتمدة فقط.';return;}
+  if(selectedAuthRole!=='admin'){
   msg.textContent='جارٍ التحقق من نوع الحساب...';
   const {data:mismatch,error:roleCheckError}=await supabase.rpc('check_signup_email_role',{p_email:cleanEmail,p_expected_role:selectedAuthRole});
   if(roleCheckError){msg.textContent='تعذر التحقق من نوع الحساب حالياً. حاول مرة أخرى.';return;}
@@ -168,6 +172,7 @@ async function authAction(mode,email,password,referralCode='') {
       ?'هذا البريد الإلكتروني مسجل كحساب كابتن ولا يمكن استخدامه كراكب، يرجى التسجيل ببريد إلكتروني منفصل.'
       :'هذا البريد الإلكتروني مسجل كحساب راكب ولا يمكن استخدامه ككابتن، يرجى التسجيل ببريد إلكتروني منفصل.';
     return;
+  }
   }
   msg.textContent='جارٍ التنفيذ...';
   const result=mode==='signup'
@@ -2491,7 +2496,7 @@ function render() {
   if (page === 'trip-options') return tripForm();
   if (page === 'share') return shareHome();
   if (page === 'apply-captain') return applyCaptainPage();
-  if (page === 'admin') return profile?.role === 'admin' ? adminApplicationsPage() : (page='home',render());
+  if (page === 'admin') return (profile?.account_type === 'admin' || profile?.role === 'admin') ? adminApplicationsPage() : (page='home',render());
   if (page === 'captain') return profile?.account_type === 'captain' ? (page='share',shareHome()) : (page='home',render());
   page = 'home'; home();
 }
