@@ -166,13 +166,17 @@ async function groupPage(){
   if(vehicleError||requestError){box.innerHTML='<section class="panel notice error">'+esc((vehicleError||requestError).message)+'</section>';return;}
   if(!vehicles?.length){box.innerHTML='<section class="panel empty">لا توجد مركبة معتمدة ونشطة على حسابك.</section>';return;}
   if(!requests?.length){box.innerHTML='<section class="panel empty">لا توجد طلبات مشاركة طريق متاحة حاليًا.</section>';return;}
+  const {data:captainExistingOffers}=await db.from('share_route_negotiations').select('id,request_id,requester_offer_egp,captain_counter_offer_egp,agreed_price_egp,negotiation_status,created_at').eq('captain_id',session.user.id).order('created_at',{ascending:false}).limit(50);
+  const handledRequestIds=new Set((captainExistingOffers||[]).map(o=>o.request_id));
+  const visibleRequests=requests.filter(r=>!handledRequestIds.has(r.id));
+  if(!visibleRequests.length){box.innerHTML='<section class="panel empty">لا توجد طلبات جديدة للرد عليها. عروضك السابقة ظاهرة بالأسفل.</section>'; }
   const distanceMeters=(aLat,aLng,bLat,bLng)=>{
    const rad=n=>n*Math.PI/180, dLat=rad(bLat-aLat),dLng=rad(bLng-aLng);
    const h=Math.sin(dLat/2)**2+Math.cos(rad(aLat))*Math.cos(rad(bLat))*Math.sin(dLng/2)**2;
    return 6371000*2*Math.asin(Math.sqrt(Math.min(1,h)));
   };
   const groups=[];
-  requests.forEach(r=>{
+  visibleRequests.forEach(r=>{
    const group=groups.find(g=>{
     const first=g.requests[0],pref=r.preferred_vehicle_type;
     return g.requests.length<10&&g.seatsTotal+r.seats_requested<=13
@@ -188,7 +192,7 @@ async function groupPage(){
    const first=g.requests[0],key=first.id,ids=g.requests.map(r=>r.id);
    return `<section class="panel"><div class="ride-top"><span class="pill">${g.requests.length>1?'مجموعة طلبات متقاربة':'طلب مشاركة طريق'}</span><b>${g.requests.length} طلب · ${g.seatsTotal} مقعد</b></div><h3>${esc(first.origin_name)} ← ${esc(first.destination_name)}</h3><p class="muted">مطابقة تقريبية: بداية ونهاية في نطاق 2 كم وميعاد في نطاق 30 دقيقة.</p><div class="stack">${g.requests.map(r=>'<article class="request"><b>'+esc(r.origin_name)+' ← '+esc(r.destination_name)+'</b><p>'+r.seats_requested+' مقعد · '+money(r.requester_seat_price_egp)+' للمقعد · '+date(r.departure_at)+'</p></article>').join('')}</div><label>المركبة المناسبة<select data-vehicle-for="${key}">${vehicles.map(v=>`<option value="${v.id}">${esc(v.make||'')} ${esc(v.model||'')} · ${esc(({private_car:'ملاكي',suzuki:'سوزوكي',microbus:'ميكروباص'})[v.vehicle_type]||v.vehicle_type)} · ${esc(v.plate_number||'')} · سعة ${v.passenger_capacity}</option>`).join('')}</select></label><div class="actions"><button class="btn primary" data-group-action="accept" data-request-ids="${ids.join(',')}" data-group-key="${key}">قبول ${g.requests.length>1?'المجموعة':'الطلب'}</button><button class="btn outline" data-group-action="counter" data-request-ids="${ids.join(',')}" data-group-key="${key}">عرض سعر موحد للمجموعة</button></div></section>`;
   }).join('');
-  const {data:myOffers}=await db.from('share_route_negotiations').select('id,request_id,requester_offer_egp,captain_counter_offer_egp,agreed_price_egp,negotiation_status,created_at').eq('captain_id',session.user.id).order('created_at',{ascending:false}).limit(50);
+  const myOffers=captainExistingOffers;
   if(myOffers?.length){
    const offerRequestIds=[...new Set(myOffers.map(o=>o.request_id))];
    const {data:offerRequests}=await db.from('share_route_requests').select('id,origin_name,destination_name,departure_at,seats_requested').in('id',offerRequestIds);
