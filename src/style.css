@@ -1653,3 +1653,7 @@ body[data-page="trip-options"] .map-locate-button{
 body[data-page="share"] .share-rule{font-size:12px}
 body[data-page="share"] .share-rule summary{cursor:pointer}
 @media(max-width:420px){.share-hero{padding:18px 15px}.share-hero-points{gap:5px}.share-hero-points span{font-size:9px;padding:6px 8px}.rider-share-map{height:260px!important}.rider-route-card-meta{align-items:flex-start;flex-direction:column}}
+
+
+/* Small, discreet administrator entry on the public account chooser */
+.admin-entry-link{display:inline-block;margin-inline-start:10px;padding:5px 10px;border:1px solid #ffffff24;border-radius:999px;color:#9eafc2;text-decoration:none;font-size:11px;font-weight:700;transition:color .18s,border-color .18s,background .18s}.admin-entry-link:hover,.admin-entry-link:focus-visible{color:#b7f36b;border-color:#b7f36b88;background:#b7f36b0d;outline:none}
