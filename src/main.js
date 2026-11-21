@@ -16,7 +16,7 @@ const busyButton = (button, yes) => { if(button){button.disabled=yes;button.data
 function shell(content){
  root.innerHTML=`<header class="top"><a class="brand" href="#" data-view="home"><span class="mark">س</span><span><b>السكة</b><small>مشاركة الطريق.. على السكة</small></span></a><div class="top-actions">${session?'<span class="user-tag">'+esc(profile?.display_name||session.user.email)+'</span><button class="btn outline" id="logout">خروج</button>':''}</div></header>
  ${content}
- ${session?'<nav class="bottom"><button data-view="home">الرئيسية</button><button data-view="share">جاي في سكتك</button><button data-view="trips">حجوزاتي</button><button data-view="account">حسابي</button></nav>':''}
+ ${session?'<nav class="bottom"><button data-view="home">الرئيسية</button><button data-view="share">جاي في سكتك</button><button data-view="group">مشوارنا واحد</button><button data-view="trips">حجوزاتي</button><button data-view="account">حسابي</button></nav>':''}
  <footer>السكة · منصة تنقّل ومشاركة طريق</footer>`;
  root.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();view=b.dataset.view;render();}));
  document.querySelector('#logout')?.addEventListener('click',async()=>{await db.auth.signOut();session=null;profile=null;view='home';render();});
@@ -27,7 +27,7 @@ function select(label,name,opts,required=true){return `<label>${label}<select na
 function home(){
  if(profile?.account_type==='captain')return captainHome();
  if(profile?.account_type==='admin')return adminHome();
- shell(`<main class="wrap"><section class="hero"><span class="eyebrow">أهلاً بك في السكة</span><h1>كل مشوار له <em>سكة</em></h1><p>شارك الطريق مع كابتن رايح في نفس اتجاهك، واحجز مقعدًا على رحلة منشورة.</p><div class="actions"><button class="btn primary" data-view="share">جاي في سكتك</button><button class="btn outline" data-view="trips">حجوزاتي</button></div><div class="tiles"><button class="tile" data-view="share"><span>🛣️</span><b>جاي في سكتك</b><small>اعرض طريقك أو احجز مقعدًا</small></button><button class="tile" data-view="trips"><span>📋</span><b>حجوزاتي</b><small>تابع حجوزات المقاعد</small></button><button class="tile" data-view="share"><span>🤝</span><b>مشوارنا واحد</b><small>مشاركة المقاعد على نفس المسار</small></button></div></main>`);
+ shell(`<main class="wrap"><section class="hero"><span class="eyebrow">أهلاً بك في السكة</span><h1>كل مشوار له <em>سكة</em></h1><p>شارك الطريق مع كابتن رايح في نفس اتجاهك، واحجز مقعدًا على رحلة منشورة.</p><div class="actions"><button class="btn primary" data-view="share">جاي في سكتك</button><button class="btn outline" data-view="trips">حجوزاتي</button></div><div class="tiles"><button class="tile" data-view="share"><span>🛣️</span><b>جاي في سكتك</b><small>اعرض طريقك أو احجز مقعدًا</small></button><button class="tile" data-view="trips"><span>📋</span><b>حجوزاتي</b><small>تابع حجوزات المقاعد</small></button><button class="tile" data-view="group"><span>🤝</span><b>مشوارنا واحد</b><small>اطلب مشاركة طريق وتابع عروض الكباتن</small></button></div></main>`);
 }
 function authPage(){
  shell(`<main class="wrap narrow"><section class="hero compact"><span class="eyebrow">السكة · تجربة تشغيل</span><h1>ابدأ مشوارك</h1><p>حساب مستقل للراكب أو الكابتن.</p></section>${card('تسجيل الدخول أو إنشاء حساب',`<div class="tabs"><button type="button" class="${authRole==='rider'?'selected':''}" data-role="rider">راكب</button><button type="button" class="${authRole==='captain'?'selected':''}" data-role="captain">كابتن</button><button type="button" class="${authRole==='admin'?'selected':''}" data-role="admin">إدارة</button></div><form id="authForm">${input('البريد الإلكتروني','email','email',true,'name@example.com')}${input('كلمة المرور','password','password',true,'6 أحرف على الأقل')}${authMode==='signup'?input('الاسم','name','text',true,'الاسم الظاهر'):''}<button class="btn primary full" type="submit">${authMode==='signup'?'إنشاء الحساب':'تسجيل الدخول'}</button><button class="text-btn" type="button" id="toggleAuth">${authMode==='signup'?'لديك حساب؟ تسجيل الدخول':'حساب جديد؟ أنشئ حسابًا'}</button><p id="notice" class="notice" role="status"></p></form>`)}<p class="muted center">النسخة التجريبية متصلة بقاعدة البيانات.</p></main>`);
@@ -77,6 +77,79 @@ async function sharePage(){
  if(!data?.length){box.innerHTML='<section class="panel empty">لا توجد رحلات منشورة متاحة حاليًا. ارجع لاحقًا.</section>';return;}
  box.innerHTML=data.map(r=>`<section class="panel ride"><div class="ride-top"><span class="pill">متاح · ${r.available_seats} مقعد</span><b>${money(r.seat_price_egp)} <small>/ مقعد</small></b></div><h3>${esc(r.origin_name)} ← ${esc(r.destination_name)}</h3><p>${esc(r.route_description||'مسار يحدده الكابتن')}</p><p class="muted">${date(r.departure_at)}</p><form data-book="${r.id}" data-price="${r.seat_price_egp}" class="book-form">${input('مكان الركوب','pickup_name','text',true,'اسم نقطة الركوب')}${input('خط عرض الركوب','pickup_lat','number',true,'30.01')}${input('خط طول الركوب','pickup_lng','number',true,'31.40')}${input('مكان النزول','dropoff_name','text',true,'اسم نقطة النزول')}${input('خط عرض النزول','dropoff_lat','number',true,'30.05')}${input('خط طول النزول','dropoff_lng','number',true,'31.35')}${select('عدد المقاعد','seats',Array.from({length:Math.min(6,r.available_seats)},(_,i)=>[String(i+1),String(i+1)]))}<button class="btn primary">طلب حجز</button></form></section>`).join('');
  box.querySelectorAll('[data-book]').forEach(form=>form.onsubmit=async e=>{e.preventDefault();const f=new FormData(form),n=Number(f.get('seats')),val=k=>String(f.get(k)||'').trim(),b=form.querySelector('button');busyButton(b,true);try{const {data,error}=await db.rpc('request_seats',{p_ride_id:form.dataset.book,p_pickup_name:val('pickup_name'),p_dropoff_name:val('dropoff_name'),p_pickup_order:0,p_dropoff_order:1,p_seats:n,p_offer:Number(form.dataset.price),p_pickup_lat:Number(val('pickup_lat')),p_pickup_lng:Number(val('pickup_lng')),p_dropoff_lat:Number(val('dropoff_lat')),p_dropoff_lng:Number(val('dropoff_lng'))});if(error)throw error;notice('تم إرسال طلب الحجز.','success');}catch(err){notice(err.message||'تعذر الحجز','error');}finally{busyButton(b,false);}});
+}
+async function groupPage(){
+ if(profile?.account_type==='captain'){
+  const [{data:vehicles,error:vehicleError},{data:requests,error:requestError}]=await Promise.all([
+   db.from('vehicles').select('id,vehicle_type,make,model,plate_number').eq('captain_id',session.user.id).eq('approval_status','approved').eq('is_active',true),
+   db.from('share_route_requests').select('id,requester_id,ride_mode,origin_name,destination_name,route_description,departure_at,preferred_vehicle_type,seats_requested,requester_seat_price_egp,request_status').eq('request_status','open').neq('requester_id',session.user.id).order('departure_at',{ascending:true}).limit(30)
+  ]);
+  shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">مشوارنا واحد · مساحة الكابتن</span><h1>طلبات مشاركة الطريق</h1><p>اختار الطلب المناسب لطريقك ومركبتك، واقبل السعر المقترح أو قدم عرضًا بديلًا.</p></div><div id="groupRequests" class="stack"></div></main>`);
+  const box=document.querySelector('#groupRequests');
+  if(vehicleError||requestError){box.innerHTML='<section class="panel notice error">'+esc((vehicleError||requestError).message)+'</section>';return;}
+  if(!vehicles?.length){box.innerHTML='<section class="panel empty">لا توجد مركبة معتمدة ونشطة على حسابك.</section>';return;}
+  if(!requests?.length){box.innerHTML='<section class="panel empty">لا توجد طلبات مشاركة طريق متاحة حاليًا.</section>';return;}
+  box.innerHTML=requests.map(r=>`<section class="panel"><div class="ride-top"><span class="pill">طلب مفتوح</span><b>${r.seats_requested} مقعد</b></div><h3>${esc(r.origin_name)} ← ${esc(r.destination_name)}</h3><p>${esc(r.route_description||'بدون تفاصيل إضافية')}</p><p class="muted">${date(r.departure_at)} · النوع المفضل: ${esc(({private_car:'ملاكي',suzuki:'سوزوكي',microbus:'ميكروباص'})[r.preferred_vehicle_type]||'أي مركبة')}</p><p>السعر المقترح للمقعد: <b>${money(r.requester_seat_price_egp)}</b></p><label>المركبة المناسبة<select data-vehicle-for="${r.id}">${vehicles.map(v=>`<option value="${v.id}">${esc(v.make||'')} ${esc(v.model||'')} · ${esc(({private_car:'ملاكي',suzuki:'سوزوكي',microbus:'ميكروباص'})[v.vehicle_type]||v.vehicle_type)} · ${esc(v.plate_number||'')}</option>`).join('')}</select></label><div class="actions"><button class="btn primary" data-group-action="accept" data-request="${r.id}">قبول السعر</button><button class="btn outline" data-group-action="counter" data-request="${r.id}">تقديم سعر بديل</button></div></section>`).join('');
+  box.querySelectorAll('[data-group-action]').forEach(btn=>btn.onclick=async()=>{
+   const vehicle=box.querySelector('[data-vehicle-for="'+btn.dataset.request+'"]')?.value;
+   if(!vehicle)return;
+   let price=null;
+   if(btn.dataset.groupAction==='counter'){const raw=prompt('اكتب السعر المقترح للمقعد بالجنيه:');if(raw===null)return;price=Number(raw);if(!Number.isFinite(price)||price<0){alert('أدخل سعرًا صحيحًا.');return;}}
+   busyButton(btn,true);
+   try{const {error}=await db.rpc('captain_reply_share_route_request',{p_request_id:btn.dataset.request,p_vehicle_id:vehicle,p_action:btn.dataset.groupAction,p_counter_price:price});if(error)throw error;await groupPage();}
+   catch(err){alert(err.message||'تعذر إرسال الرد.');busyButton(btn,false);}
+  });
+  return;
+ }
+ shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">مشوارنا واحد</span><h1>شارك مشوارك مع ناس في نفس السكة</h1><p>انشر اتجاهك وميعادك وعدد المقاعد. الكباتن القريبون من نفس المسار يقدروا يردوا على طلبك بعرض مناسب.</p></div>
+ ${card('طلب مشاركة طريق',`<form id="groupRequestForm">
+ ${input('من','origin_name','text',true,'منطقة الانطلاق')}
+ ${input('خط عرض البداية','origin_lat','number',true,'30.01')}
+ ${input('خط طول البداية','origin_lng','number',true,'31.40')}
+ ${input('إلى','destination_name','text',true,'الوجهة')}
+ ${input('خط عرض الوجهة','destination_lat','number',true,'30.05')}
+ ${input('خط طول الوجهة','destination_lng','number',true,'31.35')}
+ ${input('تفاصيل الطريق أو مناطق المرور','route_description','text',false,'اختياري')}
+ ${input('ميعاد التحرك','departure_at','datetime-local',true)}
+ ${select('نوع المركبة المفضل','vehicle_type',[['','أي نوع متاح'],['private_car','ملاكي'],['suzuki','سوزوكي'],['microbus','ميكروباص']],false)}
+ ${select('عدد المقاعد المطلوبة','seats',Array.from({length:6},(_,i)=>[String(i+1),String(i+1)]))}
+ ${input('السعر المقترح للمقعد بالجنيه','seat_price','number',true,'مثال: 30')}
+ <button class="btn primary full" type="submit">نشر طلب مشاركة الطريق</button><p id="notice" class="notice" role="status"></p></form>`)}
+ <div class="page-head"><h2>طلباتي وعروض الكباتن</h2></div><div id="myGroupRequests" class="stack">جارٍ تحميل طلباتك…</div></main>`);
+ const form=document.querySelector('#groupRequestForm');
+ const dt=form.querySelector('[name="departure_at"]');
+ dt.value=new Date(Date.now()+60*60*1000).toISOString().slice(0,16);
+ form.onsubmit=async e=>{
+  e.preventDefault();const fd=new FormData(form),v=k=>String(fd.get(k)||'').trim(),btn=form.querySelector('button[type="submit"]');busyButton(btn,true);
+  try{
+   const coords=['origin_lat','origin_lng','destination_lat','destination_lng'].map(k=>Number(v(k)));
+   if(coords.some(n=>!Number.isFinite(n)))throw Error('راجع إحداثيات البداية والنهاية.');
+   const price=Number(v('seat_price'));if(!Number.isFinite(price)||price<0)throw Error('أدخل سعرًا صحيحًا للمقعد.');
+   const {error}=await db.rpc('create_share_route_request',{p_ride_mode:'scheduled_share',p_origin_name:v('origin_name'),p_origin_lat:coords[0],p_origin_lng:coords[1],p_destination_name:v('destination_name'),p_destination_lat:coords[2],p_destination_lng:coords[3],p_route_description:v('route_description')||null,p_departure_at:new Date(v('departure_at')).toISOString(),p_seats:Number(v('seats')),p_seat_price:price,p_vehicle_type:v('vehicle_type')||null});
+   if(error)throw error;notice('تم نشر طلبك. سيظهر للكباتن المطابقين.','success');form.reset();dt.value=new Date(Date.now()+60*60*1000).toISOString().slice(0,16);await loadMyGroupRequests();
+  }catch(err){notice(err.message||'تعذر نشر الطلب.','error');}
+  finally{busyButton(btn,false);}
+ };
+ async function loadMyGroupRequests(){
+  const box=document.querySelector('#myGroupRequests');if(!box)return;
+  const [{data:requests,error:rErr},{data:negotiations,error:nErr}]=await Promise.all([
+   db.from('share_route_requests').select('id,origin_name,destination_name,departure_at,seats_requested,requester_seat_price_egp,request_status,created_at').eq('requester_id',session.user.id).order('created_at',{ascending:false}).limit(30),
+   db.from('share_route_negotiations').select('id,request_id,captain_id,requester_offer_egp,captain_counter_offer_egp,agreed_price_egp,negotiation_status,created_at').eq('requester_id',session.user.id).order('created_at',{ascending:false}).limit(50)
+  ]);
+  if(rErr||nErr){box.innerHTML='<section class="panel notice error">'+esc((rErr||nErr).message)+'</section>';return;}
+  if(!requests?.length){box.innerHTML='<section class="panel empty">لم تنشر طلبات مشاركة طريق بعد.</section>';return;}
+  const byRequest=new Map(requests.map(r=>[r.id,r]));
+  const offers=(negotiations||[]).map(n=>{const r=byRequest.get(n.request_id);if(!r)return '';const status=({pending:'بانتظار رد الكابتن',counter_offer:'الكابتن قدم عرضًا بديلًا',accepted:'وافق الكابتن · في انتظار تأكيدك',confirmed:'تم تأكيد المشاركة',cancelled:'تم إلغاء التفاوض'})[n.negotiation_status]||n.negotiation_status;return `<article class="request"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><p>${status}</p><p>عرضك: ${money(n.requester_offer_egp)} ${n.captain_counter_offer_egp!==null?' · عرض الكابتن: '+money(n.captain_counter_offer_egp):''} ${n.agreed_price_egp!==null?' · السعر المتفق عليه: '+money(n.agreed_price_egp):''}</p>${n.negotiation_status==='counter_offer'?'<button class="btn primary" data-rider-action="accept" data-negotiation="'+n.id+'">قبول عرض الكابتن</button> <button class="btn outline" data-rider-action="counter" data-negotiation="'+n.id+'">عرض سعر آخر</button>':''}${n.negotiation_status==='accepted'?'<button class="btn primary" data-rider-action="confirm" data-negotiation="'+n.id+'">تأكيد المشاركة</button>':''}</article>`;}).join('');
+  const requestsHtml=requests.map(r=>`<article class="request"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><p>${esc(r.request_status)} · ${r.seats_requested} مقعد · ${money(r.requester_seat_price_egp)} للمقعد</p><p class="muted">${date(r.departure_at)}</p></article>`).join('');
+  box.innerHTML='<section class="panel"><h3>عروض الكباتن</h3>'+(offers||'<p>لا توجد عروض حتى الآن.</p>')+'</section><section class="panel"><h3>طلباتك المنشورة</h3>'+requestsHtml+'</section>';
+  box.querySelectorAll('[data-rider-action]').forEach(btn=>btn.onclick=async()=>{
+   let offer=null;if(btn.dataset.riderAction==='counter'){const raw=prompt('اكتب السعر الجديد للمقعد بالجنيه:');if(raw===null)return;offer=Number(raw);if(!Number.isFinite(offer)||offer<0){alert('أدخل سعرًا صحيحًا.');return;}}
+   busyButton(btn,true);
+   try{let result;if(btn.dataset.riderAction==='confirm')result=await db.rpc('confirm_share_route_match',{p_negotiation_id:btn.dataset.negotiation});else result=await db.rpc('requester_reply_share_route',{p_negotiation_id:btn.dataset.negotiation,p_action:btn.dataset.riderAction,p_new_offer:offer});if(result.error)throw result.error;await loadMyGroupRequests();}
+   catch(err){alert(err.message||'تعذر تحديث العرض.');busyButton(btn,false);}
+  });
+ }
+ await loadMyGroupRequests();
 }
 async function tripsPage(){
   shell(`<main class="wrap"><div class="page-head"><h1>حجوزاتي</h1><p>تابع طلبات المقاعد على الرحلات المنشورة.</p></div><div id="myTrips" class="stack">جارٍ التحميل…</div></main>`);
@@ -183,6 +256,6 @@ async function adminHome(){
   }catch(err){alert(err.message||'تعذر تحديث حالة الاشتراك.');busyButton(b,false);}
  });
 }
-function render(){if(!session){authPage();return;}if(!profile){loadProfile().then(()=>{if(profile)render();else{authMode='signin';session=null;authPage();notice('تعذر تحميل ملف الحساب أو أن الحساب غير مفعّل. سجّل الدخول مرة أخرى.','error');}});return;}if(profile.account_type==='captain'&&view==='apply'){applyPage();return;}if(profile.account_type==='captain'&&view==='home')view='captain';if(profile.account_type==='admin'&&view==='home')view='admin';switch(view){case'home':home();break;case'share':sharePage();break;case'trips':tripsPage();break;case'account':accountPage();break;case'captain':captainHome();break;case'admin':adminHome();break;case'apply':applyPage();break;default:home();}}
+function render(){if(!session){authPage();return;}if(!profile){loadProfile().then(()=>{if(profile)render();else{authMode='signin';session=null;authPage();notice('تعذر تحميل ملف الحساب أو أن الحساب غير مفعّل. سجّل الدخول مرة أخرى.','error');}});return;}if(profile.account_type==='captain'&&view==='apply'){applyPage();return;}if(profile.account_type==='captain'&&view==='home')view='captain';if(profile.account_type==='admin'&&view==='home')view='admin';switch(view){case'home':home();break;case'share':sharePage();break;case'group':groupPage();break;case'trips':tripsPage();break;case'account':accountPage();break;case'captain':captainHome();break;case'admin':adminHome();break;case'apply':applyPage();break;default:home();}}
 db.auth.getSession().then(({data})=>{session=data.session;render();});
 db.auth.onAuthStateChange((_event,next)=>{session=next;profile=null;render();});
