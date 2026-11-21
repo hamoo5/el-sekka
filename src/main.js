@@ -1672,8 +1672,8 @@ function shareHome() {
     }
     btn.disabled=true;msg.textContent='جارٍ تحديد العناوين وحساب مسار الطريق...';
     try{
-      const origin=await geocodeShareAddress(originName);
-      const destination=await geocodeShareAddress(destinationName);
+      const origin=seatOfferOriginMarker?seatOfferOriginMarker.getLatLng():await geocodeShareAddress(originName);
+      const destination=seatOfferDestinationMarker?seatOfferDestinationMarker.getLatLng():await geocodeShareAddress(destinationName);
       const route=await getShareRoadRoute(origin,destination);
       await showSeatOfferRouteAndPois(route,origin,destination);
       msg.textContent='المسار: '+(route.distance/1000).toFixed(1)+' كم · وقت قيادة تقديري '+Math.round(route.duration/60)+' دقيقة. جارٍ النشر...';
