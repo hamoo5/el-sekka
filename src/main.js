@@ -1616,6 +1616,29 @@ function shareHome() {
   };
   const retrySeatOfferMap=()=>{if(!$('seatOfferMap'))return;if(!window.L){setTimeout(retrySeatOfferMap,180);return;}initSeatOfferMap();};
   retrySeatOfferMap();
+  const showSeatOfferRouteAndPois=async(route,origin,destination)=>{
+    if(!seatOfferMap||!window.L)return;
+    if(window.__seatOfferRouteLayer)seatOfferMap.removeLayer(window.__seatOfferRouteLayer);
+    window.__seatOfferRouteLayer=window.L.geoJSON(route.geometry,{style:{color:'#a8ff45',weight:6,opacity:.95}}).addTo(seatOfferMap);
+    seatOfferMap.fitBounds(window.__seatOfferRouteLayer.getBounds(),{padding:[30,30]});
+    if(window.__seatOfferPoiLayer)seatOfferMap.removeLayer(window.__seatOfferPoiLayer);
+    window.__seatOfferPoiLayer=window.L.layerGroup().addTo(seatOfferMap);
+    const lat=(origin.lat+destination.lat)/2,lng=(origin.lng+destination.lng)/2;
+    const query='[out:json][timeout:15];(node(around:1800,'+lat+','+lng+')[amenity~"^(fuel|bank|pharmacy)$"];way(around:1800,'+lat+','+lng+')[amenity~"^(fuel|bank|pharmacy)$"];node(around:1800,'+lat+','+lng+')[shop=supermarket];way(around:1800,'+lat+','+lng+')[shop=supermarket];);out center tags;';
+    const categories={fuel:['⛽','بنزينة'],bank:['🏦','بنك'],pharmacy:['💊','صيدلية'],supermarket:['🛒','سوبر ماركت']};
+    try{
+      const response=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(query),headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'}});
+      if(!response.ok)throw new Error('poi');
+      const data=await response.json();
+      (data.elements||[]).forEach(item=>{
+        const a=item.lat??item.center?.lat,b=item.lon??item.center?.lon;if(!Number.isFinite(a)||!Number.isFinite(b))return;
+        const key=item.tags?.amenity||item.tags?.shop,category=categories[key];if(!category)return;
+        const icon=window.L.divIcon({className:'sekka-poi-icon',html:'<span>'+category[0]+'</span>',iconSize:[30,30],iconAnchor:[15,15]});
+        window.L.marker([a,b],{icon}).bindPopup('<b>'+esc(item.tags?.name||category[1])+'</b><br>'+category[1]).addTo(window.__seatOfferPoiLayer);
+      });
+      $('seatOfferMapHint').textContent='تم رسم خط السير وإظهار البنزينات والبنوك والسوبر ماركت والصيدليات القريبة.';
+    }catch(_){$('seatOfferMapHint').textContent='تم رسم خط السير. تعذر تحميل الأماكن القريبة مؤقتاً.';}
+  };
   let shareLastGeocodeAt=0;
   async function geocodeShareAddress(query){
     const wait=Math.max(0,1100-(Date.now()-shareLastGeocodeAt));
@@ -1652,6 +1675,7 @@ function shareHome() {
       const origin=await geocodeShareAddress(originName);
       const destination=await geocodeShareAddress(destinationName);
       const route=await getShareRoadRoute(origin,destination);
+      await showSeatOfferRouteAndPois(route,origin,destination);
       msg.textContent='المسار: '+(route.distance/1000).toFixed(1)+' كم · وقت قيادة تقديري '+Math.round(route.duration/60)+' دقيقة. جارٍ النشر...';
       const {error}=await supabase.rpc('create_share_ride',{
         p_vehicle_id:$('seatOfferVehicle').value,p_ride_mode:mode,
