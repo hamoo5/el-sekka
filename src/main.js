@@ -1014,10 +1014,10 @@ async function tripStatusPage(tripId){
         <div class="trip-route-line"><b>من</b><span>${esc(trip.origin_name)}</span></div>
         <div class="trip-route-line"><b>إلى</b><span>${esc(trip.destination_name)}</span></div>
         <div class="fare-line"><span>السعر الثابت</span><strong>${Number(trip.fixed_fare_egp||0).toLocaleString('ar-EG')} جنيه</strong></div>
-        <p class="muted">عدد الركاب: ${esc(trip.passenger_count)} · المركبة: ${esc(trip.vehicle_type)}</p>
+        <p class="muted">عدد الركاب: ${esc(trip.passenger_count)} · المركبة: ${esc(({private_car:'ملاكي',taxi:'تاكسي',suzuki:'سوزوكي',microbus:'ميكروباص',scooter:'اسكوتر',motorcycle:'دراجة نارية'})[trip.vehicle_type]||trip.vehicle_type)}</p>
         ${trip.pickup_note?'<p><b>ملاحظة الركوب:</b> '+esc(trip.pickup_note)+'</p>':''}
         ${preferenceLabels.length?'<div class="fixed-trip-preferences">'+preferenceLabels.map(x=>'<span>'+x+'</span>').join('')+'</div>':''}
-        ${active?'<div class="driver-summary"><b>الكابتن: '+esc(captainName||'بانتظار بيانات الكابتن')+'</b><small>المركبة: '+esc([vehicle?.make,vehicle?.model,vehicle?.color].filter(Boolean).join(' ')||'—')++'</small></div>':''}
+        ${active?'<div class="driver-summary"><b>الكابتن: '+esc(captainName||'بانتظار بيانات الكابتن')+'</b><small>المركبة: '+esc([vehicle?.make,vehicle?.model,vehicle?.color].filter(Boolean).join(' ')||'—')+'</small></div>':''}
         ${trip.request_status==='searching'?'<div class="notice">طلبك ظاهر للكباتن المعتمدين. هنحدث الحالة هنا عند قبول كابتن.</div>':''}
         ${trip.request_status==='completed'?'<div class="notice">وصلت بالسلامة. انتهت مشاركة الموقع والمحادثة.</div>':''}
         ${trip.request_status==='cancelled'?'<div class="notice">تم إلغاء الرحلة.</div>':''}
