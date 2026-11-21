@@ -76,7 +76,7 @@ function layout(body) {
     </header>
     ${body}
     ${session && profile && page !== 'track' ? captain ? `<nav class="app-bottom-nav captain-nav" aria-label="تنقل الكابتن">
-      <button type="button" data-nav-page="captain" class="${page==='captain'?'active':''}"><span>📍</span><small>طلبات المشاوير</small></button>
+      <button type="button" data-nav-page="share" class="${page==='share'?'active':''}"><span>🛣️</span><small>خطوطي ومقاعدي</small></button>
       <button type="button" data-nav-page="captain-account" class="${page==='captain-account'?'active':''}"><span>💳</span><small>اشتراكي ومستنداتي</small></button>
       <button type="button" data-nav-page="profile" class="${page==='profile'?'active':''}"><span>👤</span><small>حسابي</small></button>
     </nav>` : rider ? `<nav class="app-bottom-nav rider-nav" aria-label="تنقل الراكب">
@@ -2323,13 +2323,13 @@ function render() {
     const allowed=type==='admin'
       ?['admin','profile']
       :type==='captain'
-        ?['captain','captain-account','apply-captain','profile','rewards','trip-status']
+        ?['captain','share','captain-account','apply-captain','profile','rewards','trip-status']
         :['home','trip','trip-search','trip-options','share','trips','profile','rewards','trip-status'];
-    if(!allowed.includes(page))page=type==='admin'?'admin':type==='captain'?'captain':'trip';
+    if(!allowed.includes(page))page=type==='admin'?'admin':type==='captain'?'share':'trip';
   }
   if (page === 'trip-status') return tripStatusPage(currentTripId);
   if (page === 'captain-account') return captainDashboardPage();
-  if (page === 'home') return profile?.account_type==='captain'?(page='captain',captainDashboardPage()):(page='trip',riderStartPage());
+  if (page === 'home') return profile?.account_type==='captain'?(page='share',shareHome()):(page='trip',riderStartPage());
   if (page === 'rewards') return rewardsPage();
   if (page === 'trips') return tripsPage();
   if (page === 'profile') return profilePage();
@@ -2339,7 +2339,7 @@ function render() {
   if (page === 'share') return shareHome();
   if (page === 'apply-captain') return applyCaptainPage();
   if (page === 'admin') return profile?.role === 'admin' ? adminApplicationsPage() : (page='home',render());
-  if (page === 'captain') return profile?.account_type === 'captain' ? captainDashboardPage() : (page='home',render());
+  if (page === 'captain') return profile?.account_type === 'captain' ? (page='share',shareHome()) : (page='home',render());
   page = 'home'; home();
 }
 
