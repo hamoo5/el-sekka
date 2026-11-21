@@ -1656,6 +1656,10 @@ function shareHome() {
     }));
   }
 
+  if(window.__sekkaShareRideChannel) supabase.removeChannel(window.__sekkaShareRideChannel);
+  window.__sekkaShareRideChannel=supabase.channel('sekka-shared-ride-seat-updates')
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'rides'},()=>loadAvailableRides())
+    .subscribe();
   if(isCaptain) loadCaptainSeatVehicles();
   loadAvailableRides();
   loadMyShareRequests();
