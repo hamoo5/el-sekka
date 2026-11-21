@@ -1869,6 +1869,36 @@ function shareHome() {
   });
 
   let riderShareMap=null,riderShareRouteLayer=null,riderShareMarkerLayer=null,riderSharePoiLayer=null,riderShareMapAttempts=0,riderSharePoiSignature='';
+  let riderCurrentLocation=null,riderLocationMarker=null;
+  function distanceToRideRouteMeters(ride,point){
+    const coords=ride.route_geometry?.coordinates;
+    if(!coords||coords.length<2)return Number.POSITIVE_INFINITY;
+    const scaleX=111320*Math.cos(point.lat*Math.PI/180),scaleY=111320;
+    let best=Number.POSITIVE_INFINITY;
+    for(let i=1;i<coords.length;i++){
+      const ax=(coords[i-1][0]-point.lng)*scaleX,ay=(coords[i-1][1]-point.lat)*scaleY;
+      const bx=(coords[i][0]-point.lng)*scaleX,by=(coords[i][1]-point.lat)*scaleY;
+      const dx=bx-ax,dy=by-ay,den=dx*dx+dy*dy;
+      const t=den?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/den)):0;
+      best=Math.min(best,Math.hypot(ax+t*dx,ay+t*dy));
+    }
+    return best;
+  }
+  $('sortRidesNearMe')?.addEventListener('click',()=>{
+    const status=$('rideLocationStatus'),button=$('sortRidesNearMe');
+    if(!navigator.geolocation){if(status)status.textContent='المتصفح لا يدعم تحديد الموقع.';return;}
+    button.disabled=true;if(status)status.textContent='جارٍ تحديد موقعك لترتيب الخطوط الأقرب...';
+    navigator.geolocation.getCurrentPosition(position=>{
+      riderCurrentLocation={lat:position.coords.latitude,lng:position.coords.longitude};
+      if(status)status.textContent='تم تحديد موقعك. ترتيب الخطوط حسب أقرب نقطة من مسار كل خط (مسافة تقريبية).';
+      button.disabled=false;
+      if(riderShareMap){riderShareMap.setView([riderCurrentLocation.lat,riderCurrentLocation.lng],11);}
+      loadAvailableRides();
+    },error=>{
+      button.disabled=false;
+      if(status)status.textContent=error.code===1?'لم تسمح بالوصول للموقع. يمكنك تفعيل إذن الموقع من إعدادات المتصفح.':'تعذر تحديد موقعك الآن. تحقق من تشغيل GPS وحاول مرة أخرى.';
+    },{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
+  });
   function initRiderShareMap(){
     const el=$('riderShareMap');if(!el||riderShareMap)return;
     if(!window.L){if(riderShareMapAttempts++<40)setTimeout(initRiderShareMap,180);return;}
@@ -1957,6 +1987,7 @@ function shareHome() {
     host.innerHTML=rides.map(r=>`<article class="share-item rider-route-card">
       <div class="rider-route-card-head"><span class="route-car-icon">🚗</span><div><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><small>${r.ride_mode==='live_share'?'رحلة فورية':'رحلة مجدولة'} · ${new Date(r.departure_at).toLocaleString('ar-EG')}</small></div></div>
       <div class="rider-route-card-meta"><span>💺 ${r.available_seats} مقعد متاح</span><strong>${Number(r.seat_price_egp).toLocaleString('ar-EG')} جنيه <small>للكرسي</small></strong></div>
+      ${riderCurrentLocation?'<p class="muted">يبعد عنك نحو '+(distanceToRideRouteMeters(r,riderCurrentLocation)/1000).toFixed(1)+' كم من أقرب نقطة بالمسار (تقريبي).</p>':''}
       ${r.route_distance_m?'<p class="muted">مسار قيادة: '+(r.route_distance_m/1000).toFixed(1)+' كم · زمن تقديري '+Math.round((r.route_duration_seconds||0)/60)+' دقيقة</p>':'<p class="muted">مسار الطريق التفصيلي غير متاح لهذا العرض.</p>'}
       <div class="share-actions"><label>عدد الكراسي<input type="number" min="1" max="${r.available_seats}" value="1" id="ride-seats-${r.id}"></label>
       <div class="fixed-fare-note">السعر ثابت: ${Number(r.seat_price_egp).toLocaleString('ar-EG')} جنيه للكرسي</div></div>
