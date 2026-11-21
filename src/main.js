@@ -1868,7 +1868,7 @@ function shareHome() {
   });
 
   let riderShareMap=null,riderShareRouteLayer=null,riderShareMarkerLayer=null,riderSharePoiLayer=null,riderShareMapAttempts=0,riderSharePoiSignature='';
-  let riderCurrentLocation=null,riderLocationMarker=null,showFarRides=false;
+  let riderCurrentLocation=null,riderLocationMarker=null,showFarRides=false,riderMapSelection=null;
   function distanceToRideRouteMeters(ride,point){
     const coords=ride.route_geometry?.coordinates;
     if(!coords||coords.length<2)return Number.POSITIVE_INFINITY;
@@ -1906,7 +1906,7 @@ function shareHome() {
   function initRiderShareMap(){
     const el=$('riderShareMap');if(!el||riderShareMap)return;
     if(!window.L){if(riderShareMapAttempts++<40)setTimeout(initRiderShareMap,180);return;}
-    riderShareMap=window.L.map(el,{zoomControl:true}).setView([30.0444,31.2357],10);
+    riderShareMap=window.L.map(el,{zoomControl:true}).setView([30.0444,31.2357],10);\n    riderShareMap.on('click',async event=>{if(!riderMapSelection)return;const selection=riderMapSelection,field=document.getElementById('ride-'+selection.kind+'-'+selection.rideId);if(!field)return;const point=event.latlng;field.value=await reversePlace(point.lat,point.lng);field.dataset.lat=String(point.lat);field.dataset.lng=String(point.lng);riderMapSelection=null;const status=document.getElementById('rideLocationStatus');if(status)status.textContent='تم تحديد '+(selection.kind==='pickup'?'نقطة الركوب':'نقطة النزول')+' من الخريطة. اختار النقطة الثانية أو أرسل طلب الحجز.';if(riderShareMarkerLayer)window.L.marker([point.lat,point.lng]).bindPopup(selection.kind==='pickup'?'نقطة الركوب':'نقطة النزول').addTo(riderShareMarkerLayer).openPopup();});
     window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(riderShareMap);
     riderShareRouteLayer=window.L.layerGroup().addTo(riderShareMap);
     riderShareMarkerLayer=window.L.layerGroup().addTo(riderShareMap);
@@ -2023,11 +2023,10 @@ function shareHome() {
       ${r.route_distance_m?'<p class="muted">مسار قيادة: '+(r.route_distance_m/1000).toFixed(1)+' كم · زمن تقديري '+Math.round((r.route_duration_seconds||0)/60)+' دقيقة</p>':'<p class="muted">مسار الطريق التفصيلي غير متاح لهذا العرض.</p>'}
       <div class="share-actions"><label>عدد الكراسي<input type="number" min="1" max="${r.available_seats}" value="1" id="ride-seats-${r.id}"></label>
       <div class="fixed-fare-note">السعر ثابت: ${Number(r.seat_price_egp).toLocaleString('ar-EG')} جنيه للكرسي · الإجمالي: <strong id="ride-total-fare-${r.id}">${Number(r.seat_price_egp).toLocaleString('ar-EG')}</strong> جنيه</div></div>
-      <div class="share-actions"><input id="ride-pickup-${r.id}" placeholder="نقطة ركوب واضحة على الخط (موقف أو معلم)" value="${esc(r.origin_name)}">
-      <input id="ride-dropoff-${r.id}" placeholder="نقطة نزول واضحة على الخط (موقف أو معلم)" value="${esc(r.destination_name)}"></div>
+      <div class="share-actions route-point-fields"><label>نقطة الركوب<input id="ride-pickup-${r.id}" placeholder="موقف أو معلم على الخط" value="${esc(r.origin_name)}"><button type="button" class="btn outline" data-route-point="${r.id}" data-kind="pickup">اختار الركوب من الخريطة</button></label><label>نقطة النزول<input id="ride-dropoff-${r.id}" placeholder="موقف أو معلم على الخط" value="${esc(r.destination_name)}"><button type="button" class="btn outline" data-route-point="${r.id}" data-kind="dropoff">اختار النزول من الخريطة</button></label><small class="muted">اختار نقطة على المسار أو اكتب أقرب موقف/معلم. لازم الركوب والنزول يكونوا على بُعد 500 متر أو أقل من الخط.</small></div>
       <button class="btn primary" data-book-share-ride="${r.id}">إرسال طلب حجز بالسعر المعلن</button>
     </article>`).join('');
-    host.querySelectorAll('[id^="ride-seats-"]').forEach(input=>input.addEventListener('input',()=>{
+    host.querySelectorAll('[data-route-point]').forEach(button=>button.addEventListener('click',()=>{riderMapSelection={rideId:button.dataset.routePoint,kind:button.dataset.kind};const status=document.getElementById('rideLocationStatus');if(status)status.textContent='اضغط على المكان المناسب على خط السير في الخريطة لتحديد '+(riderMapSelection.kind==='pickup'?'نقطة الركوب':'نقطة النزول')+'.';document.getElementById('riderShareMap')?.scrollIntoView({behavior:'smooth',block:'center'});}));\n    host.querySelectorAll('[id^="ride-pickup-"],[id^="ride-dropoff-"]').forEach(input=>input.addEventListener('input',()=>{delete input.dataset.lat;delete input.dataset.lng;}));\n    host.querySelectorAll('[id^="ride-seats-"]').forEach(input=>input.addEventListener('input',()=>{
       const id=input.id.slice('ride-seats-'.length);
       const ride=(window.__sekkaAvailableRides||[]).find(item=>item.id===id);
       const total=document.getElementById('ride-total-fare-'+id);
@@ -2040,11 +2039,9 @@ function shareHome() {
       if(!ride||!Number.isInteger(seats)||seats<1||seats>Number(ride.available_seats)||!Number.isFinite(offer)||offer<0){alert('راجع عدد الكراسي المتاحة.');return;}
       b.disabled=true;
       try{
-        const pickupName=$('ride-pickup-'+id).value.trim();
-        const dropoffName=$('ride-dropoff-'+id).value.trim();
+        const pickupField=$('ride-pickup-'+id),dropoffField=$('ride-dropoff-'+id);\n        const pickupName=pickupField.value.trim();\n        const dropoffName=dropoffField.value.trim();
         if(!pickupName||!dropoffName)throw new Error('اكتب مكان الركوب والنزول.');
-        const pickup=await geocodeShareAddress(pickupName);
-        const dropoff=await geocodeShareAddress(dropoffName);
+        const pickup=pickupField.dataset.lat?{lat:Number(pickupField.dataset.lat),lng:Number(pickupField.dataset.lng)}:await geocodeShareAddress(pickupName);\n        const dropoff=dropoffField.dataset.lat?{lat:Number(dropoffField.dataset.lat),lng:Number(dropoffField.dataset.lng)}:await geocodeShareAddress(dropoffName);
         const {error}=await supabase.rpc('request_seats',{
           p_ride_id:id,p_pickup_name:pickupName,p_dropoff_name:dropoffName,
           p_pickup_order:0,p_dropoff_order:1,p_seats:seats,p_offer:offer,
