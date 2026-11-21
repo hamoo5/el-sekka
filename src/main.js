@@ -121,7 +121,7 @@ function setup() {
       <section class="hero">
         <span class="tag">EL SEKKA · V2</span>
         <h1>كل الطرق <em>تبدأ من هنا</em></h1>
-        <p>احجز مشواراً عادياً فورياً أو مجدولاً بسعر ثابت، أو شارك كرسياً بالسعر والتفاوض بين الطرفين.</p>
+        <p>احجز مشواراً عادياً فورياً أو مجدولاً بسعر ثابت، أو شارك كرسياً بسعر ثابت ومعلن قبل إرسال طلب الحجز.</p>
       </section>
       <section class="panel">
         <h2>الاتصال بقاعدة البيانات غير مضبوط</h2>
@@ -370,7 +370,7 @@ async function home() {
         <div id="homeSavedPlaces" class="saved-place-list"></div>
         <div id="repeatLastTrip"></div>
       </section>
-      <section class="panel"><h3>اختار طريقك</h3><p class="muted">في المشوار العادي السعر يحدده النظام. وفي مشاركة الكرسي السعر بالتفاوض وموافقة الطرفين.</p></section>
+      <section class="panel"><h3>اختار طريقك</h3><p class="muted">في المشوار العادي ومشاركة الطريق يظهر السعر قبل الطلب. لا يوجد تفاوض على السعر.</p></section>
     </main>`);
   const saved = savedPassengerDestinations();
   const placesBox = document.getElementById('homeSavedPlaces');
@@ -1267,7 +1267,7 @@ function shareHome() {
       <details class="panel share-rule">
         <summary><b>كيف تعمل مشاركة الطريق؟</b></summary>
         <p>الكابتن ينشر خط سير وموعدًا وعدد كراسي. الراكب يختار نقطة ركوب ونزول على نفس الخط، ولازم كل نقطة تكون على بُعد 500 متر أو أقل من المسار.</p>
-        <p>السعر الظاهر قبل إرسال الطلب، والكابتن يراجع الطلب ويقبله أو يرفضه. الكرسي يتحجز عند القبول، ويُحسب إشغال المقاعد على الجزء المشترك من الطريق.</p>
+        <p>السعر ثابت ومعلن قبل إرسال الطلب، ولا يوجد تفاوض. الكابتن يراجع طلب الحجز ويقبله أو يرفضه. الكرسي يتحجز عند القبول، ويُحسب إشغال المقاعد على الجزء المشترك من الطريق.</p>
       </details>
       <section class="panel" hidden>
         <h2>انشر طلب مشاركة طريق</h2>
@@ -1327,7 +1327,7 @@ function shareHome() {
       </section>` : ''}
       ${isCaptain ? '<section class="panel" hidden><h2>متابعة تفاوضاتك ككابتن</h2><div id="shareCaptainNegotiations" class="share-list">جارٍ تحميل التفاوضات...</div></section>' : ''}
       <section class="panel"><h2>حجوزات الكراسي الحالية</h2><div id="legacyShareBookings" class="share-list">جارٍ تحميل الحجوزات...</div></section>
-      ${isCaptain?'<section class="panel captain-own-routes-panel"><div class="share-section-heading"><div><span class="tag">لوحة الكابتن</span><h2>خطوطي المنشورة</h2><p class="muted">تابع العروض التي نشرتها والمقاعد المتاحة فيها.</p></div><span class="share-section-icon">🛣️</span></div><div id="captainOwnShareRides" class="share-list">جارٍ تحميل خطوطك...</div></section>':'<section class="panel rider-route-discovery"><div class="share-section-heading"><div><span class="tag">اكتشف الطريق</span><h2>الخطوط المتاحة حولك</h2><p class="muted">المسارات الحقيقية المنشورة من الكباتن، مع نقاط البداية والنهاية.</p></div><span class="share-section-icon">🧭</span></div><div id="riderShareMap" class="trip-map rider-share-map" role="application" aria-label="خريطة خطوط مشاركة الطريق"></div><div class="map-legend"><span>🟢 بداية الخط</span><span>🔴 نهاية الخط</span><span>🟩 مسار الكابتن</span></div><button type="button" class="btn outline" id="sortRidesNearMe">📍 ترتيب الخطوط حسب موقعي</button><p id="rideLocationStatus" class="muted" aria-live="polite">اعرض الأقرب إليك باستخدام موقع هاتفك.</p><div id="shareAvailableRides" class="share-list rider-share-list">جارٍ تحميل الخطوط المتاحة...</div></section>'}
+      ${isCaptain?'<section class="panel captain-own-routes-panel"><div class="share-section-heading"><div><span class="tag">لوحة الكابتن</span><h2>خطوطي المنشورة</h2><p class="muted">تابع العروض التي نشرتها والمقاعد المتاحة فيها.</p></div><span class="share-section-icon">🛣️</span></div><div id="captainOwnShareRides" class="share-list">جارٍ تحميل خطوطك...</div></section>':'<section class="panel rider-route-discovery"><div class="share-section-heading"><div><span class="tag">اكتشف الطريق</span><h2>الخطوط المتاحة حولك</h2><p class="muted">المسارات الحقيقية المنشورة من الكباتن، مع نقاط البداية والنهاية.</p></div><span class="share-section-icon">🧭</span></div><div id="riderShareMap" class="trip-map rider-share-map" role="application" aria-label="خريطة خطوط مشاركة الطريق"></div><div class="map-legend"><span>🟢 بداية الخط</span><span>🔴 نهاية الخط</span><span>🟩 مسار الكابتن</span></div><button type="button" class="btn outline" id="sortRidesNearMe">📍 ترتيب الخطوط حسب موقعي</button><p id="rideLocationStatus" class="muted" aria-live="polite">اعرض الأقرب إليك باستخدام موقع هاتفك. يُستخدم الموقع للترتيب فقط ولا يُحفظ.</p><div id="shareAvailableRides" class="share-list rider-share-list">جارٍ تحميل الخطوط المتاحة...</div></section>'}
       <section class="panel" hidden>        <h2>طلباتي وردود الكباتن</h2>
         <div id="shareMyRequests" class="share-list">جارٍ تحميل طلباتك...</div>
       </section>
@@ -1993,11 +1993,17 @@ function shareHome() {
       ${riderCurrentLocation?'<p class="muted">يبعد عنك نحو '+(distanceToRideRouteMeters(r,riderCurrentLocation)/1000).toFixed(1)+' كم من أقرب نقطة بالمسار (تقريبي).</p>':''}
       ${r.route_distance_m?'<p class="muted">مسار قيادة: '+(r.route_distance_m/1000).toFixed(1)+' كم · زمن تقديري '+Math.round((r.route_duration_seconds||0)/60)+' دقيقة</p>':'<p class="muted">مسار الطريق التفصيلي غير متاح لهذا العرض.</p>'}
       <div class="share-actions"><label>عدد الكراسي<input type="number" min="1" max="${r.available_seats}" value="1" id="ride-seats-${r.id}"></label>
-      <div class="fixed-fare-note">السعر ثابت: ${Number(r.seat_price_egp).toLocaleString('ar-EG')} جنيه للكرسي</div></div>
+      <div class="fixed-fare-note">السعر ثابت: ${Number(r.seat_price_egp).toLocaleString('ar-EG')} جنيه للكرسي · الإجمالي: <strong id="ride-total-fare-${r.id}">${Number(r.seat_price_egp).toLocaleString('ar-EG')}</strong> جنيه</div></div>
       <div class="share-actions"><input id="ride-pickup-${r.id}" placeholder="مكان صعودك (على الخط)" value="${esc(r.origin_name)}">
       <input id="ride-dropoff-${r.id}" placeholder="مكان نزولك (بعد الركوب على الخط)" value="${esc(r.destination_name)}"></div>
       <button class="btn primary" data-book-share-ride="${r.id}">إرسال طلب حجز بالسعر المعلن</button>
     </article>`).join('');
+    host.querySelectorAll('[id^="ride-seats-"]').forEach(input=>input.addEventListener('input',()=>{
+      const id=input.id.slice('ride-seats-'.length);
+      const ride=(window.__sekkaAvailableRides||[]).find(item=>item.id===id);
+      const total=document.getElementById('ride-total-fare-'+id);
+      if(ride&&total)total.textContent=(Number(ride.seat_price_egp)*Math.max(1,Number(input.value)||1)).toLocaleString('ar-EG');
+    }));
     host.querySelectorAll('[data-book-share-ride]').forEach(b=>b.addEventListener('click',async()=>{
       const id=b.dataset.bookShareRide;
       const ride=(window.__sekkaAvailableRides||[]).find(item=>item.id===id);
