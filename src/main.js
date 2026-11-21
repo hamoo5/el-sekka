@@ -251,7 +251,7 @@ async function groupPage(){
   if(!vehicles?.length){box.innerHTML='<section class="panel empty">لا توجد مركبة معتمدة ونشطة على حسابك.</section>';return;}
   const requestList=requests||[];
   const {data:captainExistingOffers}=await db.from('share_route_negotiations').select('id,request_id,requester_offer_egp,captain_counter_offer_egp,agreed_price_egp,negotiation_status,created_at').eq('captain_id',session.user.id).order('created_at',{ascending:false}).limit(50);
-  const handledRequestIds=new Set((captainExistingOffers||[]).map(o=>o.request_id));
+  const handledRequestIds=new Set((captainExistingOffers||[]).filter(o=>o.negotiation_status!=='pending').map(o=>o.request_id));
   const visibleRequests=requestList.filter(r=>!handledRequestIds.has(r.id));
   if(!visibleRequests.length){box.innerHTML='<section class="panel empty">لا توجد طلبات جديدة للرد عليها. عروضك السابقة ظاهرة بالأسفل.</section>'; }
   const distanceMeters=(aLat,aLng,bLat,bLng)=>{
@@ -281,7 +281,7 @@ async function groupPage(){
    const offerRequestIds=[...new Set(myOffers.map(o=>o.request_id))];
    const {data:offerRequests}=await db.from('share_route_requests').select('id,origin_name,destination_name,departure_at,seats_requested').in('id',offerRequestIds);
    const offerMap=new Map((offerRequests||[]).map(r=>[r.id,r]));
-   box.insertAdjacentHTML('beforeend','<section class="panel"><h2>عروضك وحجوزاتك على مشوارنا واحد</h2>'+myOffers.map(o=>{const r=offerMap.get(o.request_id);if(!r)return '';const status=({pending:'بانتظار رد الراكب',counter_offer:'عرضك ينتظر رد الراكب · السعة محجوزة مؤقتًا',accepted:'الراكب وافق · في انتظار التأكيد',confirmed:'تم تأكيد المشاركة',cancelled:'تم رفض العرض أو إلغاؤه'})[o.negotiation_status]||o.negotiation_status;return '<article class="request"><b>'+esc(r.origin_name)+' ← '+esc(r.destination_name)+'</b><p>'+status+' · '+r.seats_requested+' مقعد</p><p class="muted">'+date(r.departure_at)+' · '+money(o.agreed_price_egp??o.captain_counter_offer_egp??o.requester_offer_egp)+' للمقعد</p></article>';}).join('')+'</section>');
+   box.insertAdjacentHTML('beforeend','<section class="panel"><h2>عروضك وحجوزاتك على مشوارنا واحد</h2>'+myOffers.map(o=>{const r=offerMap.get(o.request_id);if(!r)return '';const status=({pending:'الراكب اقترح سعرًا جديدًا · محتاج ردك',counter_offer:'عرضك ينتظر رد الراكب · السعة محجوزة مؤقتًا',accepted:'الراكب وافق · في انتظار التأكيد',confirmed:'تم تأكيد المشاركة',cancelled:'تم رفض العرض أو إلغاؤه',rejected:'الراكب رفض العرض'})[o.negotiation_status]||o.negotiation_status;return '<article class="request"><b>'+esc(r.origin_name)+' ← '+esc(r.destination_name)+'</b><p>'+status+' · '+r.seats_requested+' مقعد</p><p class="muted">'+date(r.departure_at)+' · '+money(o.agreed_price_egp??o.captain_counter_offer_egp??o.requester_offer_egp)+' للمقعد</p></article>';}).join('')+'</section>');
   }
   box.querySelectorAll('[data-group-action]').forEach(btn=>btn.onclick=async()=>{
    const vehicle=box.querySelector('[data-vehicle-for="'+btn.dataset.groupKey+'"]')?.value;if(!vehicle)return;
