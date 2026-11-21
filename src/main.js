@@ -1692,7 +1692,7 @@ function shareHome() {
     finally{btn.disabled=false;}
   });
 
-  let riderShareMap=null,riderShareRouteLayer=null,riderShareMarkerLayer=null,riderShareMapAttempts=0;
+  let riderShareMap=null,riderShareRouteLayer=null,riderShareMarkerLayer=null,riderSharePoiLayer=null,riderShareMapAttempts=0,riderSharePoiSignature='';
   function initRiderShareMap(){
     const el=$('riderShareMap');if(!el||riderShareMap)return;
     if(!window.L){if(riderShareMapAttempts++<40)setTimeout(initRiderShareMap,180);return;}
@@ -1700,7 +1700,9 @@ function shareHome() {
     window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(riderShareMap);
     riderShareRouteLayer=window.L.layerGroup().addTo(riderShareMap);
     riderShareMarkerLayer=window.L.layerGroup().addTo(riderShareMap);
+    riderSharePoiLayer=window.L.layerGroup().addTo(riderShareMap);
     requestAnimationFrame(()=>riderShareMap?.invalidateSize());
+    loadAvailableRides();
   }
   function renderRiderShareRoutes(rides){
     if(!riderShareMap||!window.L)return;
@@ -1720,6 +1722,33 @@ function shareHome() {
     if(bounds.length){const all=window.L.latLngBounds(bounds.flatMap(b=>[b.getSouthWest(),b.getNorthEast()]));riderShareMap.fitBounds(all,{padding:[24,24],maxZoom:13});}
     else riderShareMap.setView([30.0444,31.2357],10);
     setTimeout(()=>riderShareMap?.invalidateSize(),100);
+    loadRiderSharePois(rides);
+  }
+  async function loadRiderSharePois(rides){
+    const signature=rides.filter(r=>r.route_geometry?.coordinates?.length).map(r=>r.id).sort().join('|');
+    if(!signature||signature===riderSharePoiSignature)return;
+    riderSharePoiSignature=signature;riderSharePoiLayer?.clearLayers();
+    const clauses=[];
+    rides.filter(r=>r.route_geometry?.coordinates?.length).slice(0,5).forEach(ride=>{
+      const coords=ride.route_geometry.coordinates,steps=[0,Math.floor((coords.length-1)/3),Math.floor(2*(coords.length-1)/3),coords.length-1];
+      [...new Set(steps)].forEach(i=>{const p=coords[i];clauses.push('node(around:350,'+p[1]+','+p[0]+')[amenity~"^(fuel|bank|pharmacy)$"];way(around:350,'+p[1]+','+p[0]+')[amenity~"^(fuel|bank|pharmacy)$"];node(around:350,'+p[1]+','+p[0]+')[shop=supermarket];way(around:350,'+p[1]+','+p[0]+')[shop=supermarket];');});
+    });
+    if(!clauses.length)return;
+    const query='[out:json][timeout:18];('+clauses.join('')+');out center tags;';
+    const categories={fuel:['⛽','بنزينة'],bank:['🏦','بنك'],pharmacy:['💊','صيدلية'],supermarket:['🛒','سوبر ماركت']};
+    try{
+      const response=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(query),headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'}});
+      if(!response.ok)throw new Error('poi');
+      const data=await response.json(),seen=new Set();
+      (data.elements||[]).forEach(item=>{
+        const lat=item.lat??item.center?.lat,lng=item.lon??item.center?.lon;
+        if(!Number.isFinite(lat)||!Number.isFinite(lng))return;
+        const type=item.tags?.amenity||item.tags?.shop,category=categories[type];if(!category)return;
+        const key=type+':'+lat.toFixed(4)+':'+lng.toFixed(4);if(seen.has(key))return;seen.add(key);
+        const icon=window.L.divIcon({className:'sekka-poi-icon',html:'<span>'+category[0]+'</span>',iconSize:[30,30],iconAnchor:[15,15]});
+        window.L.marker([lat,lng],{icon}).bindPopup('<b>'+esc(item.tags?.name||category[1])+'</b><br>'+category[1]).addTo(riderSharePoiLayer);
+      });
+    }catch(_){riderSharePoiSignature='';}
   }
   async function loadCaptainOwnShareRides(){
     const host=$('captainOwnShareRides');if(!host)return;
