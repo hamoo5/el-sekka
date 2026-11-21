@@ -404,7 +404,7 @@ async function linesPage(){
     const parsed=stops.map(([name,lat,lng])=>({name,lat:Number(lat),lng:Number(lng)}));
     if(parsed.some(s=>!Number.isFinite(s.lat)||!Number.isFinite(s.lng)))throw Error('إحداثيات كل محطة يجب أن تكون أرقامًا صحيحة.');
     if(parsed[0].name!==v('origin_name')||parsed[parsed.length-1].name!==v('destination_name'))throw Error('اسم أول محطة يجب أن يطابق البداية، وآخر محطة يجب أن تطابق النهاية.');
-    const days=fd.getAll('days').map(Number);if(!days.length)throw Error('حدد يوم تشغيل واحدًا على الأقل.');
+    const days=fd.getAll('days').map(Number);if(!days.length)throw Error('حدد يوم تشغيل واحدًا على الأقل.');const selectedVehicle=(vehicles||[]).find(v=>v.id===v('vehicle_id'));const seatCount=Number(v('seats')),seatLimit=Number(selectedVehicle?.passenger_capacity)||({private_car:3,suzuki:6,microbus:13})[selectedVehicle?.vehicle_type]||0;if(!selectedVehicle)throw Error('اختار المركبة المستخدمة في الخط.');if(!Number.isInteger(seatCount)||seatCount<1||seatCount>seatLimit)throw Error('عدد المقاعد لازم يكون من 1 إلى سعة المركبة ('+seatLimit+').');if(!Number.isFinite(Number(v('seat_price')))||Number(v('seat_price'))<=0)throw Error('اكتب سعرًا أكبر من صفر للمقعد.');
     const {error}=await db.rpc('create_sekka_line',{p_vehicle_id:v('vehicle_id'),p_title:v('title'),p_origin_name:v('origin_name'),p_destination_name:v('destination_name'),p_description:v('description')||null,p_stops:parsed,p_service_days:days,p_departure_time:v('departure_time'),p_seats:Number(v('seats')),p_seat_price:Number(v('seat_price'))});
     if(error)throw error;notice('تم إرسال الخط للمراجعة. سيظهر للركاب بعد اعتماد الإدارة.','success');await linesPage();
    }catch(err){notice(err.message||'تعذر إنشاء الخط.','error');}
@@ -452,7 +452,7 @@ async function linesPage(){
    e.preventDefault();const fd=new FormData(form),dateValue=String(fd.get('run_date')||''),time=form.dataset.time,btn=form.querySelector('button[type="submit"]');
    const departure=new Date(dateValue+'T'+time+':00');if(!dateValue||Number.isNaN(departure.getTime())){form.querySelector('.notice').textContent='اختر تاريخًا صحيحًا.';return;}
    busyButton(btn,true);
-   try{const {error}=await db.rpc('request_sekka_line_seats',{p_schedule_id:form.dataset.lineSchedule,p_departure_at:departure.toISOString(),p_pickup_stop_id:String(fd.get('pickup_stop')),p_dropoff_stop_id:String(fd.get('dropoff_stop')),p_seats:Number(fd.get('seats'))});if(error)throw error;form.querySelector('.notice').textContent='تم حجز مقعدك بنجاح.';form.querySelector('.notice').className='notice success';}
+   try{const {error}=await db.rpc('request_sekka_line_seats',{p_schedule_id:form.dataset.lineSchedule,p_departure_at:departure.toISOString(),p_pickup_stop_id:String(fd.get('pickup_stop')),p_dropoff_stop_id:String(fd.get('dropoff_stop')),p_seats:Number(fd.get('seats'))});if(error)throw error;form.querySelector('.notice').textContent='تم إرسال طلبك. تابع حالته من صفحة حجوزاتي.';form.querySelector('.notice').className='notice success';}
    catch(err){form.querySelector('.notice').textContent=err.message==='not_enough_seats_for_segment'?'لم تعد هناك مقاعد كافية لهذا الجزء. اختر عددًا أقل أو ميعادًا آخر.':(err.message||'تعذر إتمام الحجز.');form.querySelector('.notice').className='notice error';}
    finally{busyButton(btn,false);await refreshLineAvailability(form);}
   };
