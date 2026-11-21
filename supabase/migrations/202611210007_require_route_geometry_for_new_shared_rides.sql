@@ -1,0 +1,2 @@
+revoke execute on function public.create_share_ride(uuid,text,text,double precision,double precision,text,double precision,double precision,text,timestamptz,integer,numeric) from public,anon,authenticated;
+revoke execute on function public.request_seats(uuid,text,text,integer,integer,integer,numeric) from public,anon,authenticated;
