@@ -16,7 +16,7 @@ const busyButton = (button, yes) => { if(button){button.disabled=yes;button.data
 function shell(content){
  root.innerHTML=`<header class="top"><a class="brand" href="#" data-view="home"><span class="mark">س</span><span><b>السكة</b><small>مشاركة الطريق.. على السكة</small></span></a><div class="top-actions">${session?'<span class="user-tag">'+esc(profile?.display_name||session.user.email)+'</span><button class="btn outline" id="logout">خروج</button>':''}</div></header>
  ${content}
- ${session?'<nav class="bottom"><button data-view="home">الرئيسية</button><button data-view="share">جاي في سكتك</button><button data-view="group">مشوارنا واحد</button><button data-view="trips">حجوزاتي</button><button data-view="account">حسابي</button></nav>':''}
+ ${session?'<nav class="bottom"><button data-view="home">الرئيسية</button><button data-view="share">جاي في سكتك</button><button data-view="group">مشوارنا واحد</button><button data-view="lines">خطوط السكة</button><button data-view="trips">حجوزاتي</button><button data-view="account">حسابي</button></nav>':''}
  <footer>السكة · منصة تنقّل ومشاركة طريق</footer>`;
  root.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();view=b.dataset.view;render();}));
  document.querySelector('#logout')?.addEventListener('click',async()=>{await db.auth.signOut();session=null;profile=null;view='home';render();});
@@ -27,7 +27,7 @@ function select(label,name,opts,required=true){return `<label>${label}<select na
 function home(){
  if(profile?.account_type==='captain')return captainHome();
  if(profile?.account_type==='admin')return adminHome();
- shell(`<main class="wrap"><section class="hero"><span class="eyebrow">أهلاً بك في السكة</span><h1>كل مشوار له <em>سكة</em></h1><p>شارك الطريق مع كابتن رايح في نفس اتجاهك، واحجز مقعدًا على رحلة منشورة.</p><div class="actions"><button class="btn primary" data-view="share">جاي في سكتك</button><button class="btn outline" data-view="trips">حجوزاتي</button></div><div class="tiles"><button class="tile" data-view="share"><span>🛣️</span><b>جاي في سكتك</b><small>اعرض طريقك أو احجز مقعدًا</small></button><button class="tile" data-view="trips"><span>📋</span><b>حجوزاتي</b><small>تابع حجوزات المقاعد</small></button><button class="tile" data-view="group"><span>🤝</span><b>مشوارنا واحد</b><small>اطلب مشاركة طريق وتابع عروض الكباتن</small></button></div></main>`);
+ shell(`<main class="wrap"><section class="hero"><span class="eyebrow">أهلاً بك في السكة</span><h1>كل مشوار له <em>سكة</em></h1><p>شارك الطريق مع كابتن رايح في نفس اتجاهك، واحجز مقعدًا على رحلة منشورة.</p><div class="actions"><button class="btn primary" data-view="share">جاي في سكتك</button><button class="btn outline" data-view="trips">حجوزاتي</button></div><div class="tiles"><button class="tile" data-view="share"><span>🛣️</span><b>جاي في سكتك</b><small>اعرض طريقك أو احجز مقعدًا</small></button><button class="tile" data-view="trips"><span>📋</span><b>حجوزاتي</b><small>تابع حجوزات المقاعد</small></button><button class="tile" data-view="group"><span>🤝</span><b>مشوارنا واحد</b><small>اطلب مشاركة طريق وتابع عروض الكباتن</small></button><button class="tile" data-view="lines"><span>🚏</span><b>خطوط السكة</b><small>خطوط ثابتة ومواعيد منتظمة</small></button></div></main>`);
 }
 function authPage(){
  shell(`<main class="wrap narrow"><section class="hero compact"><span class="eyebrow">السكة · تجربة تشغيل</span><h1>ابدأ مشوارك</h1><p>حساب مستقل للراكب أو الكابتن.</p></section>${card('تسجيل الدخول أو إنشاء حساب',`<div class="tabs"><button type="button" class="${authRole==='rider'?'selected':''}" data-role="rider">راكب</button><button type="button" class="${authRole==='captain'?'selected':''}" data-role="captain">كابتن</button><button type="button" class="${authRole==='admin'?'selected':''}" data-role="admin">إدارة</button></div><form id="authForm">${input('البريد الإلكتروني','email','email',true,'name@example.com')}${input('كلمة المرور','password','password',true,'6 أحرف على الأقل')}${authMode==='signup'?input('الاسم','name','text',true,'الاسم الظاهر'):''}<button class="btn primary full" type="submit">${authMode==='signup'?'إنشاء الحساب':'تسجيل الدخول'}</button><button class="text-btn" type="button" id="toggleAuth">${authMode==='signup'?'لديك حساب؟ تسجيل الدخول':'حساب جديد؟ أنشئ حسابًا'}</button><p id="notice" class="notice" role="status"></p></form>`)}<p class="muted center">النسخة التجريبية متصلة بقاعدة البيانات.</p></main>`);
@@ -151,6 +151,74 @@ async function groupPage(){
  }
  await loadMyGroupRequests();
 }
+async function linesPage(){
+ const dayNames=['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+ if(profile?.account_type==='captain'){
+  const [{data:vehicles,error:vehicleError},{data:lines,error:lineError}]=await Promise.all([
+   db.from('vehicles').select('id,vehicle_type,make,model,plate_number,passenger_capacity').eq('captain_id',session.user.id).eq('approval_status','approved').eq('is_active',true),
+   db.from('sekka_lines').select('id,title,origin_name,destination_name,approval_status,is_active,created_at').eq('captain_id',session.user.id).order('created_at',{ascending:false}).limit(30)
+  ]);
+  shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">خطوط السكة · مساحة الكابتن</span><h1>أنشئ خطًا ثابتًا</h1><p>حدد المحطات وأيام التشغيل وميعاد التحرك. بعد مراجعة الإدارة سيظهر الخط للركاب.</p></div>
+  ${card('خط جديد',`<form id="lineCreateForm">
+   ${input('اسم الخط','title','text',true,'مثال: التجمع – مدينة نصر')}
+   ${select('المركبة','vehicle_id',(vehicles||[]).map(v=>[v.id,(v.make||'')+' '+(v.model||'')+' · '+v.plate_number+' · '+v.passenger_capacity+' مقعد']))}
+   ${input('محطة البداية','origin_name','text',true,'اسم أول محطة')}
+   ${input('محطة النهاية','destination_name','text',true,'اسم آخر محطة')}
+   ${input('وصف الخط','description','text',false,'المناطق التي يمر بها الخط')}
+   <label>المحطات بالترتيب (كل محطة في سطر: الاسم | خط العرض | خط الطول)<textarea name="stops" rows="5" required placeholder="محطة البداية | 30.01 | 31.40&#10;محطة وسطى | 30.03 | 31.42&#10;محطة النهاية | 30.05 | 31.45"></textarea></label>
+   <fieldset class="days-field"><legend>أيام تشغيل الخط</legend>${dayNames.map((d,i)=>'<label class="check"><input type="checkbox" name="days" value="'+i+'" '+(i<5?'checked':'')+'> '+d+'</label>').join('')}</fieldset>
+   ${input('ميعاد التحرك','departure_time','time',true)}
+   ${input('عدد المقاعد في الرحلة','seats','number',true,'حسب سعة المركبة')}
+   ${input('سعر المقعد بالجنيه','seat_price','number',true,'السعر الثابت للمقعد')}
+   <button class="btn primary full" type="submit" ${vehicles?.length?'':'disabled'}>إرسال الخط للمراجعة</button><p id="notice" class="notice" role="status"></p>
+  </form>`)}
+  ${vehicleError?'<p class="notice error">'+esc(vehicleError.message)+'</p>':''}
+  ${vehicles?.length?'':'<section class="panel notice">لا توجد مركبة معتمدة ونشطة لإنشاء الخط.</section>'}
+  <div class="page-head"><h2>خطوطي</h2></div><div class="stack">${lineError?'<section class="panel notice error">'+esc(lineError.message)+'</section>':(lines||[]).map(l=>'<section class="panel"><b>'+esc(l.title)+'</b><p>'+esc(l.origin_name)+' ← '+esc(l.destination_name)+'</p><span class="pill">'+esc(l.approval_status==='approved'?'معتمد':l.approval_status==='rejected'?'مرفوض':'قيد المراجعة')+'</span></section>').join('')||'<section class="panel empty">لم تنشئ خطوطًا بعد.</section>'}</div></main>`);
+  const form=document.querySelector('#lineCreateForm');
+  if(form)form.onsubmit=async e=>{
+   e.preventDefault();const fd=new FormData(form),v=k=>String(fd.get(k)||'').trim(),btn=form.querySelector('button[type="submit"]');busyButton(btn,true);
+   try{
+    const stops=v('stops').split(/\r?\n/).map(row=>row.split('|').map(x=>x.trim())).filter(parts=>parts.length>=3&&parts[0]);
+    if(stops.length<2)throw Error('أضف محطتين على الأقل، بداية ونهاية.');
+    const parsed=stops.map(([name,lat,lng])=>({name,lat:Number(lat),lng:Number(lng)}));
+    if(parsed.some(s=>!Number.isFinite(s.lat)||!Number.isFinite(s.lng)))throw Error('إحداثيات كل محطة يجب أن تكون أرقامًا صحيحة.');
+    if(parsed[0].name!==v('origin_name')||parsed[parsed.length-1].name!==v('destination_name'))throw Error('اسم أول محطة يجب أن يطابق البداية، وآخر محطة يجب أن تطابق النهاية.');
+    const days=fd.getAll('days').map(Number);if(!days.length)throw Error('حدد يوم تشغيل واحدًا على الأقل.');
+    const {error}=await db.rpc('create_sekka_line',{p_vehicle_id:v('vehicle_id'),p_title:v('title'),p_origin_name:v('origin_name'),p_destination_name:v('destination_name'),p_description:v('description')||null,p_stops:parsed,p_service_days:days,p_departure_time:v('departure_time'),p_seats:Number(v('seats')),p_seat_price:Number(v('seat_price'))});
+    if(error)throw error;notice('تم إرسال الخط للمراجعة. سيظهر للركاب بعد اعتماد الإدارة.','success');await linesPage();
+   }catch(err){notice(err.message||'تعذر إنشاء الخط.','error');}
+   finally{busyButton(btn,false);}
+  };
+  return;
+ }
+ shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">خطوط السكة</span><h1>خطوط ثابتة ومواعيد منتظمة</h1><p>اختار الخط وميعاد الرحلة ومحطتي الركوب والنزول واحجز مقعدك.</p></div><div id="availableLines" class="stack">جارٍ تحميل الخطوط…</div></main>`);
+ const box=document.querySelector('#availableLines');
+ const {data:lines,error}=await db.from('sekka_lines').select('id,title,origin_name,destination_name,description').eq('approval_status','approved').eq('is_active',true).order('title').limit(50);
+ if(error){box.innerHTML='<section class="panel notice error">'+esc(error.message)+'</section>';return;}
+ if(!lines?.length){box.innerHTML='<section class="panel empty">لا توجد خطوط معتمدة متاحة حاليًا.</section>';return;}
+ const ids=lines.map(l=>l.id);
+ const [{data:schedules,error:sErr},{data:stops,error:stErr}]=await Promise.all([
+  db.from('sekka_line_schedules').select('id,line_id,service_days,departure_time,seats_total,seat_price_egp').in('line_id',ids).eq('is_active',true),
+  db.from('sekka_line_stops').select('id,line_id,stop_order,stop_name,can_pickup,can_dropoff').in('line_id',ids).order('stop_order')
+ ]);
+ if(sErr||stErr){box.innerHTML='<section class="panel notice error">'+esc((sErr||stErr).message)+'</section>';return;}
+ box.innerHTML=lines.map(line=>{
+  const lineSchedules=(schedules||[]).filter(s=>s.line_id===line.id),lineStops=(stops||[]).filter(s=>s.line_id===line.id);
+  return `<section class="panel"><h2>${esc(line.title)}</h2><h3>${esc(line.origin_name)} ← ${esc(line.destination_name)}</h3><p>${esc(line.description||'خط معتمد من السكة')}</p><p class="muted">المحطات: ${lineStops.map(s=>esc(s.stop_name)).join(' ← ')}</p>${lineSchedules.map(s=>{
+   const pickup=lineStops.filter(x=>x.can_pickup),dropoff=lineStops.filter(x=>x.can_dropoff);
+   return `<form class="line-book-form" data-line-schedule="${s.id}" data-time="${String(s.departure_time).slice(0,5)}"><div class="ride-top"><b>ميعاد ${String(s.departure_time).slice(0,5)}</b><span class="pill">${s.seats_total} مقعد</span></div><p>أيام التشغيل: ${(s.service_days||[]).map(d=>dayNames[d]).join('، ')} · ${money(s.seat_price_egp)} للمقعد</p><label>تاريخ الرحلة<input type="date" name="run_date" min="${new Date().toISOString().slice(0,10)}" max="${new Date(Date.now()+90*86400000).toISOString().slice(0,10)}" required></label><label>محطة الركوب<select name="pickup_stop" required>${pickup.map(x=>'<option value="'+x.id+'">'+esc(x.stop_name)+'</option>').join('')}</select></label><label>محطة النزول<select name="dropoff_stop" required>${dropoff.map(x=>'<option value="'+x.id+'">'+esc(x.stop_name)+'</option>').join('')}</select></label><label>عدد المقاعد<select name="seats">${Array.from({length:Math.min(13,s.seats_total)},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('')}</select></label><button class="btn primary full" type="submit">احجز في الخط</button><p class="notice" role="status"></p></form>`;
+  }).join('')||'<p class="muted">لا توجد مواعيد نشطة لهذا الخط.</p>'}</section>`;
+ }).join('');
+ box.querySelectorAll('[data-line-schedule]').forEach(form=>form.onsubmit=async e=>{
+  e.preventDefault();const fd=new FormData(form),dateValue=String(fd.get('run_date')||''),time=form.dataset.time,btn=form.querySelector('button[type="submit"]');
+  const departure=new Date(dateValue+'T'+time+':00');if(!dateValue||Number.isNaN(departure.getTime())){form.querySelector('.notice').textContent='اختر تاريخًا صحيحًا.';return;}
+  busyButton(btn,true);
+  try{const {error}=await db.rpc('request_sekka_line_seats',{p_schedule_id:form.dataset.lineSchedule,p_departure_at:departure.toISOString(),p_pickup_stop_id:String(fd.get('pickup_stop')),p_dropoff_stop_id:String(fd.get('dropoff_stop')),p_seats:Number(fd.get('seats'))});if(error)throw error;form.querySelector('.notice').textContent='تم حجز مقعدك بنجاح.';form.querySelector('.notice').className='notice success';}
+  catch(err){form.querySelector('.notice').textContent=err.message||'تعذر إتمام الحجز.';form.querySelector('.notice').className='notice error';}
+  finally{busyButton(btn,false);}
+ });
+}
 async function tripsPage(){
   shell(`<main class="wrap"><div class="page-head"><h1>حجوزاتي</h1><p>تابع طلبات المقاعد على الرحلات المنشورة.</p></div><div id="myTrips" class="stack">جارٍ التحميل…</div></main>`);
   const box=document.querySelector('#myTrips');
@@ -256,6 +324,6 @@ async function adminHome(){
   }catch(err){alert(err.message||'تعذر تحديث حالة الاشتراك.');busyButton(b,false);}
  });
 }
-function render(){if(!session){authPage();return;}if(!profile){loadProfile().then(()=>{if(profile)render();else{authMode='signin';session=null;authPage();notice('تعذر تحميل ملف الحساب أو أن الحساب غير مفعّل. سجّل الدخول مرة أخرى.','error');}});return;}if(profile.account_type==='captain'&&view==='apply'){applyPage();return;}if(profile.account_type==='captain'&&view==='home')view='captain';if(profile.account_type==='admin'&&view==='home')view='admin';switch(view){case'home':home();break;case'share':sharePage();break;case'group':groupPage();break;case'trips':tripsPage();break;case'account':accountPage();break;case'captain':captainHome();break;case'admin':adminHome();break;case'apply':applyPage();break;default:home();}}
+function render(){if(!session){authPage();return;}if(!profile){loadProfile().then(()=>{if(profile)render();else{authMode='signin';session=null;authPage();notice('تعذر تحميل ملف الحساب أو أن الحساب غير مفعّل. سجّل الدخول مرة أخرى.','error');}});return;}if(profile.account_type==='captain'&&view==='apply'){applyPage();return;}if(profile.account_type==='captain'&&view==='home')view='captain';if(profile.account_type==='admin'&&view==='home')view='admin';switch(view){case'home':home();break;case'share':sharePage();break;case'group':groupPage();break;case'lines':linesPage();break;case'trips':tripsPage();break;case'account':accountPage();break;case'captain':captainHome();break;case'admin':adminHome();break;case'apply':applyPage();break;default:home();}}
 db.auth.getSession().then(({data})=>{session=data.session;render();});
 db.auth.onAuthStateChange((_event,next)=>{session=next;profile=null;render();});
