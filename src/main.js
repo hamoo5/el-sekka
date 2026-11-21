@@ -84,7 +84,7 @@ function layout(body) {
       <button type="button" data-nav-page="trips" class="${page==='trips'||page==='trip-status'?'active':''}"><span>📋</span><small>مشاويري</small></button>
       <button type="button" data-nav-page="profile" class="${page==='profile'||page==='rewards'?'active':''}"><span>👤</span><small>حسابي</small></button>
     </nav>` : `<nav class="app-bottom-nav"><button type="button" data-nav-page="admin" class="${page==='admin'?'active':''}"><span>⚙️</span><small>الإدارة</small></button><button type="button" data-nav-page="profile"><span>👤</span><small>حسابي</small></button></nav>` : ''}
-    <footer>السكة © 2026 · منصة تنقل ومشاركة طريق${!session && page==='home' && !selectedAuthRole ? '<a class="admin-entry-link" id="adminEntry" href="#">دخول الإدارة</a>' : ''}</footer>`;
+    <footer>السكة © 2026 · منصة تنقل ومشاركة طريق${!session && !selectedAuthRole ? '<a class="admin-entry-link" id="adminEntry" href="#">دخول الإدارة</a>' : ''}</footer>`;
   document.querySelectorAll('[data-nav-page]').forEach(button=>button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();const target=button.dataset.navPage;if(!target)return;page=target;try{sessionStorage.setItem(PAGE_STORAGE_KEY,page);}catch(_){}render();}));
   document.querySelector('#adminEntry')?.addEventListener('click',event=>{event.preventDefault();selectedAuthRole='admin';try{sessionStorage.setItem('el-sekka-auth-role','admin');}catch(_){}render();});
   document.querySelector('#logout')?.addEventListener('click', async () => {
@@ -192,7 +192,7 @@ async function loadProfile() {
   profile = data;
   if(!profile){await supabase.auth.signOut();session=null;render();return;}
   const actualRole=profile.account_type||(profile.role==='captain'?'captain':profile.role==='admin'?'admin':'rider');
-  if(selectedAuthRole&&actualRole!=='admin'&&actualRole!==selectedAuthRole){await supabase.auth.signOut();session=null;profile=null;document.getElementById('msg')?.replaceChildren(document.createTextNode(selectedAuthRole==='rider'?'هذا البريد الإلكتروني مسجل كحساب كابتن ولا يمكن استخدامه كراكب، يرجى التسجيل ببريد إلكتروني منفصل.':'هذا البريد الإلكتروني مسجل كحساب راكب ولا يمكن استخدامه ككابتن، يرجى التسجيل ببريد إلكتروني منفصل.'));return;}
+  if(selectedAuthRole&&actualRole!=='admin'&&actualRole!==selectedAuthRole){await supabase.auth.signOut();session=null;profile=null;document.getElementById('msg')?.replaceChildren(document.createTextNode(selectedAuthRole==='admin'?'هذا الحساب لا يملك صلاحية دخول الإدارة.':'هذا البريد الإلكتروني مسجل كحساب '+(selectedAuthRole==='rider'?'كابتن ولا يمكن استخدامه كراكب، يرجى التسجيل ببريد إلكتروني منفصل.':'راكب ولا يمكن استخدامه ككابتن، يرجى التسجيل ببريد إلكتروني منفصل.')));return;}
   profile.account_type=actualRole;
   page=actualRole==='captain'?'captain':actualRole==='admin'?'admin':'trip';
   if (profile?.role === 'captain') {
