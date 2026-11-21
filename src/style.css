@@ -1746,3 +1746,13 @@ html.trip-night body[data-page="trip-options"] .vehicle-card[aria-pressed="true"
 html.trip-night body[data-page="trip-options"] .vehicle-card.selected{
   background:#302516!important;border-color:#F59E0B!important;
 }
+
+/* Six ordinary-trip vehicle types: three columns on normal phones, two on very narrow screens. */
+body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+}
+@media(max-width:360px){
+  body[data-page="trip-options"] .passenger-bottom-sheet .vehicle-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+}
