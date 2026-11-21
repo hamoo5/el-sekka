@@ -27,3 +27,18 @@ textarea:focus{border-color:#c6f36a;box-shadow:0 0 0 3px #c6f36a20}
 .book-form{display:grid;grid-template-columns:1fr;align-items:stretch}
 .book-form .btn.full{margin-top:2px}
 @media(max-width:640px){.booking-fields{grid-template-columns:1fr}.booking-fields .btn{width:100%}.map-pick-actions .btn{min-width:0}.route-step{padding:12px}}
+
+/* Mobile-first navigation and clearer route forms */
+.bottom{justify-content:flex-start;overflow-x:auto;overflow-y:hidden;gap:4px;scrollbar-width:none;overscroll-behavior-x:contain}
+.bottom::-webkit-scrollbar{display:none}
+.bottom button{flex:0 0 auto;min-width:88px;white-space:nowrap;border-radius:11px}
+.bottom button:focus-visible,.btn:focus-visible{outline:2px solid #c6f36a;outline-offset:2px}
+.bottom button:active{background:#c6f36a20;color:#c6f36a}
+.stop-list{display:grid;gap:8px;margin-top:12px}
+.stop-chip{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 13px;border:1px solid #ffffff1c;border-radius:12px;background:#0b1422;color:#e7edf5;font-size:13px}
+.stop-chip .text-btn{margin:0;padding:5px 8px;color:#ffaaaa}
+.line-stop-map-tools{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:end}
+.line-stop-map-tools .btn{min-width:0}
+.route-step{margin:12px 0}
+.book-form .notice{margin:0}
+@media(max-width:640px){.bottom{padding-inline:10px}.bottom button{min-width:82px;font-size:11px;padding:8px 7px}.line-stop-map-tools{grid-template-columns:1fr 1fr}.line-stop-map-tools label{grid-column:1/-1}.line-stop-map-tools #stopCurrentLocation{grid-column:1}.line-stop-map-tools #addMapStop{grid-column:2}}
