@@ -1499,7 +1499,7 @@ function shareHome() {
 
   async function loadLegacyShareBookings(){
     const host=$('legacyShareBookings'); if(!host)return;
-    const columns='id,ride_id,passenger_id,pickup_name,dropoff_name,seats_requested,passenger_offer_egp,captain_counter_offer_egp,agreed_price_egp,booking_status,created_at';
+    const columns='id,ride_id,passenger_id,pickup_name,dropoff_name,seats_requested,passenger_offer_egp,captain_counter_offer_egp,agreed_price_egp,booking_status,created_at,pickup_route_offset_m,dropoff_route_offset_m';
     let bs=[];
     if(isCaptain){
       const [{data:asRequester,error:e1},{data:rides,error:e2}]=await Promise.all([
@@ -1522,8 +1522,20 @@ function shareHome() {
       bs=result.data||[];
     }
     if(!bs.length){host.innerHTML='<p class="muted">لا توجد حجوزات كراسي حتى الآن.</p>';return;}
+    const rideIds=[...new Set(bs.map(b=>b.ride_id))];
+    const {data:rideInfoRows}=await supabase.from('rides').select('id,departure_at,route_distance_m,route_duration_seconds').in('id',rideIds);
+    const rideInfo=new Map((rideInfoRows||[]).map(r=>[r.id,r]));
+    window.__sekkaPickupReminders=window.__sekkaPickupReminders||{};
+    const activeReminderIds=new Set(bs.filter(b=>b.passenger_id===profile.id&&['accepted','confirmed','in_progress'].includes(b.booking_status)).map(b=>b.id));
+    Object.keys(window.__sekkaPickupReminders).forEach(id=>{if(!activeReminderIds.has(id))delete window.__sekkaPickupReminders[id];});
     host.innerHTML=bs.map(b=>{
       const requester=b.passenger_id===profile.id;
+      const ride=rideInfo.get(b.ride_id);
+      const pickupEta=ride&&ride.route_distance_m>0&&ride.route_duration_seconds>0&&b.pickup_route_offset_m!=null
+        ?new Date(new Date(ride.departure_at).getTime()+ride.route_duration_seconds*1000*(b.pickup_route_offset_m/ride.route_distance_m)):null;
+      const reminderAction=requester&&pickupEta&&['accepted','confirmed','in_progress'].includes(b.booking_status)
+        ?'<p class="muted">وصول الكابتن المتوقع: '+pickupEta.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})+' تقريبًا، حسب زمن الطريق التقديري وليس المرور الحي.</p><button class="btn outline" data-pickup-reminder="'+b.id+'" data-pickup-eta="'+pickupEta.getTime()+'">تفعيل تنبيه قبل الوصول بـ10 دقائق</button>':'';
+
       let actions='';
       if(requester&&b.booking_status==='counter_offer') actions=
         '<div class="share-actions"><button class="btn primary" data-b-accept="'+b.id+'">قبول سعر الكابتن</button><input id="b-offer-'+b.id+'" type="number" min="0" step="0.5" placeholder="سعرك الجديد"><button class="btn outline" data-b-counter="'+b.id+'">سعر مقابل</button><button class="btn ghost" data-b-cancel="'+b.id+'">إلغاء</button></div>';
@@ -1532,9 +1544,30 @@ function shareHome() {
         '<div class="share-actions"><button class="btn primary" data-b-captain-accept="'+b.id+'">قبول عرض الراكب</button><input id="b-counter-'+b.id+'" type="number" min="0" step="0.5" placeholder="سعرك المقابل"><button class="btn outline" data-b-captain-counter="'+b.id+'">سعر مقابل</button><button class="btn ghost" data-b-reject="'+b.id+'">رفض</button></div>';
       return '<article class="share-item"><b>'+esc(b.pickup_name)+' ← '+esc(b.dropoff_name)+'</b>'+
         '<small>'+b.seats_requested+' كرسي · '+(requester?'طلب أرسلته':'طلب على عرضك')+' · '+new Date(b.created_at).toLocaleString('ar-EG')+'</small>'+
-        '<p>عرض الراكب: '+Number(b.passenger_offer_egp).toLocaleString('ar-EG')+' جنيه · '+(b.captain_counter_offer_egp==null?'لا يوجد سعر مقابل':'سعر الكابتن: '+Number(b.captain_counter_offer_egp).toLocaleString('ar-EG')+' جنيه')+' · الحالة: '+shareStatus(b.booking_status)+'</p>'+actions+'</article>';
+        '<p>عرض الراكب: '+Number(b.passenger_offer_egp).toLocaleString('ar-EG')+' جنيه · '+(b.captain_counter_offer_egp==null?'لا يوجد سعر مقابل':'سعر الكابتن: '+Number(b.captain_counter_offer_egp).toLocaleString('ar-EG')+' جنيه')+' · الحالة: '+shareStatus(b.booking_status)+'</p>'+actions+reminderAction+'</article>';
     }).join('');
     const call=async(id,fn,args)=>{const {error}=await supabase.rpc(fn,args);if(error){alert(shareError(error));return;}await loadLegacyShareBookings();};
+    host.querySelectorAll('[data-pickup-reminder]').forEach(button=>button.addEventListener('click',async()=>{
+      if(!('Notification' in window)){alert('المتصفح لا يدعم إشعارات الوصول. اترك صفحة السكة مفتوحة لمتابعة الموعد.');return;}
+      let permission=Notification.permission;
+      if(permission!=='granted')permission=await Notification.requestPermission();
+      if(permission!=='granted'){alert('لم يتم تفعيل الإشعارات. يمكنك تفعيلها من إعدادات المتصفح.');return;}
+      const id=button.dataset.pickupReminder,eta=Number(button.dataset.pickupEta);
+      window.__sekkaPickupReminders[id]={at:eta-10*60*1000,eta,label:button.closest('.share-item')?.querySelector('b')?.textContent||'رحلتك',sent:false};
+      if(!window.__sekkaPickupReminderTimer){
+        window.__sekkaPickupReminderTimer=setInterval(()=>{
+          const now=Date.now();
+          Object.entries(window.__sekkaPickupReminders||{}).forEach(([key,reminder])=>{
+            if(!reminder.sent&&now>=reminder.at){
+              try{new Notification('السكة: الكابتن قرب يوصل',{body:reminder.label+' · الوصول المتوقع '+new Date(reminder.eta).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}),tag:'sekka-pickup-'+key});}catch{}
+              reminder.sent=true;
+            }
+          });
+        },30000);
+      }
+      button.textContent='تم تفعيل تنبيه الوصول';
+      button.disabled=true;
+    }));
     host.querySelectorAll('[data-b-accept]').forEach(b=>b.addEventListener('click',()=>call(b.dataset.bAccept,'passenger_reply_booking',{p_booking_id:b.dataset.bAccept,p_action:'accept',p_new_offer:null})));
     host.querySelectorAll('[data-b-counter]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.bCounter,price=Number($('b-offer-'+id).value);if(!Number.isFinite(price)||price<0){alert('اكتب سعراً صحيحاً.');return;}call(id,'passenger_reply_booking',{p_booking_id:id,p_action:'counter',p_new_offer:price});}));
     host.querySelectorAll('[data-b-cancel]').forEach(b=>b.addEventListener('click',()=>call(b.dataset.bCancel,'passenger_reply_booking',{p_booking_id:b.dataset.bCancel,p_action:'cancel',p_new_offer:null})));
