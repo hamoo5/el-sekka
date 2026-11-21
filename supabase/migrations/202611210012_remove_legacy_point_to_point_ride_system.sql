@@ -56,14 +56,16 @@ drop policy if exists trip_audio_insert_sender on storage.objects;
 drop policy if exists trip_audio_read_participants on storage.objects;
 drop policy if exists trip_audio_delete_own_upload on storage.objects;
 
-do $$
+do $
 begin
   if exists (select 1 from storage.objects where bucket_id = 'trip-audio') then
     raise exception 'trip_audio_bucket_not_empty';
   end if;
-  delete from storage.buckets where id = 'trip-audio';
+  -- Storage protects bucket deletion from SQL. Keep this empty private bucket
+  -- inert after removing every policy; it has no objects and no application use.
+  update storage.buckets set public = false where id = 'trip-audio';
 end;
-$$;
+$;
 
 -- The generic reports table also supports shared-seat bookings; remove only its
 -- legacy point-to-point reference.
