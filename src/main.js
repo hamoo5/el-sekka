@@ -1609,7 +1609,7 @@ function shareHome() {
 
   async function loadAvailableRides(){
     const host=$('shareAvailableRides');if(!host)return;
-    let q=supabase.from('rides').select('id,captain_id,vehicle_id,ride_mode,origin_name,destination_name,departure_at,available_seats,seat_price_egp')
+    let q=supabase.from('rides').select('id,captain_id,vehicle_id,ride_mode,origin_name,destination_name,departure_at,available_seats,seat_price_egp,route_distance_m,route_duration_seconds,route_geometry')
       .eq('ride_status','open').order('departure_at',{ascending:true}).limit(40);
     const {data,error}=await q;
     if(error){host.textContent='تعذر تحميل عروض الكراسي.';return;}
@@ -1621,6 +1621,7 @@ function shareHome() {
       <b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b>
       <small>${r.ride_mode==='live_share'?'فوري':'مجدول'} · ${new Date(r.departure_at).toLocaleString('ar-EG')}</small>
       <p>المتاح: ${r.available_seats} · السعر المطلوب: ${Number(r.seat_price_egp).toLocaleString('ar-EG')} جنيه للكرسي</p>
+      ${r.route_distance_m?'<p class="muted">مسار قيادة: '+(r.route_distance_m/1000).toFixed(1)+' كم · زمن تقديري '+Math.round((r.route_duration_seconds||0)/60)+' دقيقة</p>':'<p class="muted">مسار الطريق التفصيلي غير متاح لهذا العرض.</p>'}
       <div class="share-actions"><input type="number" min="1" max="${r.available_seats}" value="1" id="ride-seats-${r.id}" aria-label="عدد الكراسي">
       <input type="number" min="0" step="0.5" value="${Number(r.seat_price_egp)}" id="ride-offer-${r.id}" aria-label="عرضك للكرسي"></div>
       <div class="share-actions"><input id="ride-pickup-${r.id}" placeholder="مكان صعودك" value="${esc(r.origin_name)}">
