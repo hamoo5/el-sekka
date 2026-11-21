@@ -86,3 +86,41 @@ textarea:focus{border-color:#c6f36a;box-shadow:0 0 0 3px #c6f36a20}
  .rider-help{align-items:flex-start}
  .rider-help .text-btn{padding:5px;font-size:11px}
 }
+
+
+/* Passenger seat search: guided steps, readable route cards and booking points */
+.booking-guide{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:18px 0 14px}
+.booking-guide-step{display:flex;align-items:center;gap:9px;padding:12px 10px;border:1px solid #ffffff16;border-radius:13px;background:#ffffff06;color:#dce6f2;font-size:12px}
+.booking-guide-step span,.point-number{display:grid;place-items:center;flex:0 0 25px;height:25px;border-radius:50%;background:#c6f36a;color:#142638;font-size:12px;font-weight:900}
+.booking-map-panel{margin-bottom:24px}
+.map-panel-heading{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.map-panel-heading h2{margin:0 0 5px}
+.map-panel-heading .muted{margin:0;font-size:12px}
+.map-legend{font-size:11px;color:#c6f36a;white-space:nowrap}
+.map-hint{margin:4px 0 0;color:#aab8ca;font-size:11px;line-height:1.8}
+.rider-results-heading{margin:22px 0 12px}
+.rider-results-heading h2{font-size:21px;margin:4px 0}
+.rider-ride-card{padding:20px;margin-bottom:14px}
+.rider-route-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;line-height:1.6}
+.route-arrow{color:#c6f36a;font-size:20px}
+.ride-price{font-size:17px;color:#c6f36a}
+.ride-price small{font-size:11px;color:#aab8ca}
+.ride-meta{display:flex;flex-wrap:wrap;gap:8px 15px;color:#aab8ca;font-size:11px;margin:8px 0}
+.ride-description{font-size:12px;line-height:1.8}
+.booking-point{padding:13px;margin-top:12px;border:1px solid #ffffff14;border-radius:14px;background:#0b142255}
+.booking-point-heading{display:flex;align-items:center;gap:9px;margin-bottom:10px;font-size:13px}
+.booking-point .booking-fields{grid-template-columns:minmax(0,1fr);gap:8px}
+.booking-point .map-pick-actions{margin-top:0}
+.booking-point .map-pick-actions .btn{min-width:0}
+.booking-seat-row{display:flex;align-items:end;gap:12px;margin:14px 0}
+.booking-seat-row label{flex:1}
+.booking-seat-row>.muted{font-size:11px;padding-bottom:12px;white-space:nowrap}
+@media(max-width:640px){
+ .booking-guide{gap:6px}
+ .booking-guide-step{flex-direction:column;justify-content:center;text-align:center;gap:6px;padding:9px 4px;font-size:10px}
+ .map-panel-heading{align-items:flex-start;flex-direction:column}
+ .rider-ride-card{padding:15px}
+ .rider-route-title{font-size:16px;gap:7px}
+ .booking-seat-row{align-items:stretch;flex-direction:column;gap:4px}
+ .booking-seat-row>.muted{padding:0}
+}
