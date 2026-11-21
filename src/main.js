@@ -643,20 +643,53 @@ const upload=async(field,bucket)=>{const file=f.get(field);if(!(file instanceof 
 }
 async function adminHome(){
  const [{data:apps,error:appsError},{data:subscriptions,error:subscriptionsError},{data:pendingLines,error:linesError}] = await Promise.all([
-  db.from('captain_applications').select('id,user_id,application_status,national_id_last4,license_number,created_at').order('created_at',{ascending:false}).limit(50),
+  db.from('captain_applications').select('id,user_id,application_status,admin_notes,national_id_last4,national_id_expiry,license_number,license_expiry,vehicle_license_expiry,national_id_front_path,national_id_back_path,driver_license_front_path,driver_license_back_path,vehicle_license_front_path,vehicle_license_back_path,vehicle_id,created_at').order('created_at',{ascending:false}).limit(50),
   db.from('captain_subscriptions').select('id,captain_id,plan_days,amount_egp,payment_reference,payment_proof_path,created_at').eq('payment_status','submitted').order('created_at',{ascending:true}).limit(50),
   db.from('sekka_lines').select('id,title,origin_name,destination_name,created_at').eq('approval_status','pending').order('created_at',{ascending:true}).limit(50)
  ]);
+ const userIds=[...new Set((apps||[]).map(a=>a.user_id).filter(Boolean))];
+ const vehicleIds=[...new Set((apps||[]).map(a=>a.vehicle_id).filter(Boolean))];
+ const [{data:captainProfiles},{data:captainVehicles}] = await Promise.all([
+  userIds.length?db.from('profiles').select('id,display_name').in('id',userIds):Promise.resolve({data:[]}),
+  vehicleIds.length?db.from('vehicles').select('id,vehicle_type,make,model,model_year,color,plate_number,passenger_capacity,approval_status,is_active,photo_front_path,photo_side_path,photo_rear_path').in('id',vehicleIds):Promise.resolve({data:[]})
+ ]);
+ const profileMap=new Map((captainProfiles||[]).map(p=>[p.id,p]));
+ const vehicleMap=new Map((captainVehicles||[]).map(v=>[v.id,v]));
+ const docLabels=[['national_id_front_path','البطاقة الشخصية — أمامي'],['national_id_back_path','البطاقة الشخصية — خلفي'],['driver_license_front_path','رخصة القيادة — أمامي'],['driver_license_back_path','رخصة القيادة — خلفي'],['vehicle_license_front_path','رخصة المركبة — أمامي'],['vehicle_license_back_path','رخصة المركبة — خلفي']];
+ const applicationRows=await Promise.all((apps||[]).map(async a=>{
+  const vehicle=vehicleMap.get(a.vehicle_id),captain=profileMap.get(a.user_id);
+  const docs=await Promise.all(docLabels.map(async([field,label])=>{
+   if(!a[field])return '<span class="muted">'+label+': غير مرفق</span>';
+   const {data}=await db.storage.from('captain-documents').createSignedUrl(a[field],600);
+   return data?.signedUrl?'<a href="'+esc(data.signedUrl)+'" target="_blank" rel="noopener">'+label+'</a>':'<span class="notice error">'+label+': تعذر فتح الملف</span>';
+  }));
+  const vehiclePhotos=vehicle?await Promise.all([['photo_front_path','صورة أمامية'],['photo_side_path','صورة جانبية'],['photo_rear_path','صورة خلفية']].map(([field,label])=>{
+   if(!vehicle[field])return Promise.resolve('');
+   const {data}=db.storage.from('captain-media').getPublicUrl(vehicle[field]);
+   return '<a href="'+esc(data.publicUrl)+'" target="_blank" rel="noopener">'+label+'</a>';
+  })):[]; 
+  const statusLabels={pending:'قيد المراجعة',approved:'معتمد',rejected:'مرفوض',suspended:'موقوف'};
+  const canReview=['pending','suspended'].includes(a.application_status);
+  return '<article class="request"><div class="ride-top"><b>'+esc(captain?.display_name||'كابتن بدون اسم')+'</b><span class="pill">'+esc(statusLabels[a.application_status]||a.application_status)+'</span></div><p>آخر 4 أرقام من البطاقة: '+esc(a.national_id_last4||'—')+' · رخصة القيادة: '+esc(a.license_number||'—')+'</p><p>انتهاء البطاقة: '+esc(a.national_id_expiry||'—')+' · رخصة القيادة: '+esc(a.license_expiry||'—')+' · رخصة المركبة: '+esc(a.vehicle_license_expiry||'—')+'</p><p class="muted">تاريخ التقديم: '+date(a.created_at)+'</p>'+(a.admin_notes?'<p class="notice">ملاحظات سابقة: '+esc(a.admin_notes)+'</p>':'')+'<p><b>مستندات التحقق</b></p><div class="actions">'+docs.join(' · ')+'</div>'+(vehicle?'<p><b>بيانات المركبة</b>: '+esc(vehicle.make)+' '+esc(vehicle.model)+' ('+esc(vehicle.model_year)+') · '+esc(vehicle.plate_number)+' · '+esc(vehicle.passenger_capacity)+' مقعد · '+esc(vehicle.color)+'<br>حالة المركبة: '+esc(vehicle.approval_status)+(vehicle.is_active?' · نشطة':' · غير نشطة')+'</p><div class="actions">'+vehiclePhotos.filter(Boolean).join(' · ')+'</div>':'<p class="notice error">لا توجد مركبة مرتبطة بطلب التقديم.</p>')+(canReview?'<div class="actions"><button class="btn primary" data-review="'+a.id+'" data-status="approved">اعتماد الكابتن والمركبة</button><button class="btn danger" data-review="'+a.id+'" data-status="rejected">رفض مع ملاحظات</button></div>':'')+'</article>';
+ })).join('');
  const pendingRows=await Promise.all((subscriptions||[]).map(async s=>{
   const {data}=await db.storage.from('captain-payment-proofs').createSignedUrl(s.payment_proof_path,600);
   const proofUrl=data?.signedUrl;
   return `<article class="request"><b>طلب اشتراك · ${s.plan_days===90?'3 شهور':'شهر واحد'} · ${money(s.amount_egp)}</b><p>رقم الكابتن: ${esc(String(s.captain_id).slice(0,8))}…</p><p>مرجع التحويل: ${esc(s.payment_reference||'—')}</p><p class="muted">${date(s.created_at)}</p>${proofUrl?`<p><a href="${esc(proofUrl)}" target="_blank" rel="noopener">عرض إثبات الدفع</a></p>`:'<p class="notice error">تعذر إنشاء رابط إثبات الدفع. تحقق من صلاحية قراءة الملفات.</p>'}<button class="btn primary" data-subscription-review="${s.id}" data-decision="approve">اعتماد الاشتراك</button> <button class="btn danger" data-subscription-review="${s.id}" data-decision="reject">رفض الطلب</button></article>`;
  })).join('');
- shell(`<main class="wrap"><div class="page-head"><h1>لوحة الإدارة</h1><p>مراجعة طلبات الكباتن والاشتراكات.</p></div>
+ shell(`<main class="wrap"><div class="page-head"><h1>لوحة الإدارة</h1><p>مراجعة طلبات الكباتن والاشتراكات والخطوط. افتح المستندات قبل اتخاذ قرار الاعتماد.</p></div>
  ${card('خطوط السكة قيد المراجعة',linesError?esc(linesError.message):(pendingLines||[]).map(l=>`<article class="request"><b>${esc(l.title)}</b><p>${esc(l.origin_name)} ← ${esc(l.destination_name)}</p><button class="btn primary" data-line-review="${l.id}" data-approve="true">اعتماد الخط</button> <button class="btn danger" data-line-review="${l.id}" data-approve="false">رفض الخط</button></article>`).join('')||'<p>لا توجد خطوط جديدة.</p>')}
  ${card('طلبات الاشتراك',subscriptionsError?esc(subscriptionsError.message):(pendingRows||'<p>لا توجد طلبات اشتراك قيد المراجعة.</p>'))}
- ${card('طلبات انضمام الكباتن',appsError?esc(appsError.message):(apps||[]).map(a=>`<article class="request"><b>${esc(a.national_id_last4||'—')} · ${esc(a.license_number||'—')}</b><p>${esc(a.application_status)} · ${date(a.created_at)}</p><button class="btn outline" data-review="${a.id}" data-status="approved">اعتماد</button> <button class="btn danger" data-review="${a.id}" data-status="rejected">رفض</button></article>`).join('')||'<p>لا توجد طلبات.</p>')}</main>`);
- document.querySelectorAll('[data-review]').forEach(b=>b.onclick=async()=>{const {error}=await db.rpc('review_captain_application_v2',{p_application_id:b.dataset.review,p_decision:b.dataset.status,p_admin_notes:null});if(error)alert(error.message);else adminHome();});
+ ${card('طلبات انضمام الكباتن',appsError?esc(appsError.message):(applicationRows||'<p>لا توجد طلبات.</p>'))}</main>`);
+ document.querySelectorAll('[data-review]').forEach(b=>b.onclick=async()=>{
+  const decision=b.dataset.status;
+  const notes=decision==='rejected'?prompt('اكتب ملاحظات توضح سبب الرفض وما يحتاج الكابتن إلى استكماله (اختياري):',''):null;
+  if(decision==='rejected'&&notes===null)return;
+  if(!confirm(decision==='approved'?'تأكيد اعتماد الكابتن والمركبة بعد مراجعة المستندات؟':'تأكيد رفض الطلب وإرسال الملاحظات؟'))return;
+  busyButton(b,true);
+  try{const {error}=await db.rpc('review_captain_application_v2',{p_application_id:b.dataset.review,p_decision:decision,p_admin_notes:notes});if(error)throw error;await adminHome();}
+  catch(err){alert(err.message||'تعذر تحديث طلب الكابتن.');busyButton(b,false);}
+ });
  document.querySelectorAll('[data-line-review]').forEach(b=>b.onclick=async()=>{busyButton(b,true);try{const {error}=await db.rpc('admin_review_sekka_line',{p_line_id:b.dataset.lineReview,p_approve:b.dataset.approve==='true'});if(error)throw error;await adminHome();}catch(err){alert(err.message||'تعذر مراجعة الخط.');busyButton(b,false);}});
  document.querySelectorAll('[data-subscription-review]').forEach(b=>b.onclick=async()=>{
   const decision=b.dataset.decision;
