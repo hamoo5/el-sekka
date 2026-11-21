@@ -240,7 +240,7 @@ async function linesPage(){
 async function tripsPage(){
   shell(`<main class="wrap"><div class="page-head"><h1>حجوزاتي</h1><p>تابع طلبات المقاعد على الرحلات المنشورة.</p></div><div id="myTrips" class="stack">جارٍ التحميل…</div></main>`);
   const box=document.querySelector('#myTrips');
-  const {data,error}=await db.from('bookings').select('id,ride_id,pickup_name,dropoff_name,booking_status,agreed_price_egp,created_at').eq('passenger_id',session.user.id).order('created_at',{ascending:false}).limit(50);
+  const {data,error}=await db.from('bookings').select('id,ride_id,pickup_name,dropoff_name,booking_status,passenger_offer_egp,agreed_price_egp,created_at').eq('passenger_id',session.user.id).order('created_at',{ascending:false}).limit(50);
   if(error){box.innerHTML='<section class="panel empty">تعذر تحميل الحجوزات. '+esc(error.message)+'</section>';return;}
   const rows=data||[];
   box.innerHTML=rows.length?rows.map(x=>`<section class="panel"><div class="ride-top"><b>${esc(x.pickup_name)} ← ${esc(x.dropoff_name)}</b><span class="pill">${esc(x.booking_status)}</span></div><p>${money(x.agreed_price_egp??x.passenger_offer_egp)} · ${date(x.created_at)}</p>${x.booking_status==='accepted'?'<button class="btn primary" data-confirm-booking="'+x.id+'">تأكيد الحجز</button>':''}${['pending','counter_offer','accepted','confirmed'].includes(x.booking_status)?'<button class="btn danger" data-cancel-booking="'+x.id+'">إلغاء الحجز</button>':''}</section>`).join(''):'<section class="panel empty">لا توجد حجوزات مسجلة حتى الآن.</section>';
