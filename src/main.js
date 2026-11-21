@@ -23,6 +23,9 @@ let currentTripId = null;
 let activeChatChannels = [];
 let activeTripChannels = [];
 let passengerBookingChannel = null;
+let userNotificationChannel = null;
+let userNotifications = [];
+let unreadNotificationCount = 0;
 let publicTrackingTimer = null;
 let publicTrackingMap = null;
 let publicTrackingMarker = null;
@@ -70,9 +73,11 @@ function layout(body) {
   document.body.dataset.page=page;
   const captain=profile?.account_type==='captain'||profile?.role==='captain';
   const rider=profile?.account_type==='rider'||profile?.role==='passenger';
+  ensureNotificationStyles();
   app.innerHTML = `
     <header class="topbar">
       <div class="logo">س</div><div class="brand"><b>السكة</b><small>مشوارك.. على طريقك</small></div><div class="grow"></div>
+      ${session && profile?.account_type==='rider' ? `<div class="notification-wrap"><button type="button" class="notification-toggle" id="notificationsToggle" aria-label="الإشعارات" aria-expanded="false">🔔<span id="notificationBadge" class="notification-badge" hidden></span></button><section id="notificationPanel" class="notification-panel" hidden aria-label="مركز الإشعارات"><div class="notification-panel-head"><b>إشعاراتك</b><button type="button" id="markAllNotificationsRead" class="notification-mark-all">قراءة الكل</button></div><div id="notificationList" class="notification-list"><p class="notification-empty">جارٍ تحميل الإشعارات...</p></div></section></div>` : ''}
       ${session ? '<button class="btn ghost" id="logout">خروج</button>' : ''}
     </header>
     ${body}
@@ -86,10 +91,32 @@ function layout(body) {
       <button type="button" data-nav-page="profile" class="${page==='profile'||page==='rewards'?'active':''}"><span>👤</span><small>حسابي</small></button>
     </nav>` : `<nav class="app-bottom-nav"><button type="button" data-nav-page="admin" class="${page==='admin'?'active':''}"><span>⚙️</span><small>الإدارة</small></button><button type="button" data-nav-page="profile"><span>👤</span><small>حسابي</small></button></nav>` : ''}
     <footer>السكة © 2026 · منصة تنقل ومشاركة طريق${!session && !selectedAuthRole ? '<a class="admin-entry-link" id="adminEntry" href="#">دخول الإدارة</a>' : ''}</footer>`;
+  renderUserNotifications();
+  const notificationsToggle=document.getElementById('notificationsToggle');
+  notificationsToggle?.addEventListener('click',()=>{
+    const panel=document.getElementById('notificationPanel');
+    if(!panel)return;
+    panel.hidden=!panel.hidden;
+    notificationsToggle.setAttribute('aria-expanded',String(!panel.hidden));
+    if(!panel.hidden)loadUserNotifications();
+  });
+  document.getElementById('markAllNotificationsRead')?.addEventListener('click',async()=>{
+    if(!supabase||!profile?.id)return;
+    const {error}=await supabase.from('user_notifications').update({read_at:new Date().toISOString()}).eq('user_id',profile.id).is('read_at',null);
+    if(error){console.warn('Mark all notifications read failed:',error.message);return;}
+    await loadUserNotifications();
+  });
+  document.querySelectorAll('[data-notification-read]').forEach(button=>button.addEventListener('click',async()=>{
+    if(!supabase||!profile?.id)return;
+    const id=button.dataset.notificationRead;
+    const {error}=await supabase.from('user_notifications').update({read_at:new Date().toISOString()}).eq('id',id).eq('user_id',profile.id).is('read_at',null);
+    if(error){console.warn('Mark notification read failed:',error.message);return;}
+    await loadUserNotifications();
+  }));
   document.querySelectorAll('[data-nav-page]').forEach(button=>button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();const target=button.dataset.navPage;if(!target)return;page=target;try{sessionStorage.setItem(PAGE_STORAGE_KEY,page);}catch(_){}render();}));
   document.querySelector('#adminEntry')?.addEventListener('click',event=>{event.preventDefault();selectedAuthRole='admin';try{sessionStorage.setItem('el-sekka-auth-role','admin');}catch(_){}render();});
   document.querySelector('#logout')?.addEventListener('click', async () => {
-    await supabase.auth.signOut();session=null;profile=null;page='home';selectedAuthRole='';
+    await supabase.auth.signOut();stopPassengerBookingUpdates();stopUserNotificationUpdates();session=null;profile=null;page='home';selectedAuthRole='';
     try{sessionStorage.removeItem(PAGE_STORAGE_KEY);sessionStorage.removeItem('el-sekka-auth-role');}catch(_){}
     render();
   });
@@ -185,10 +212,63 @@ async function authAction(mode,email,password,referralCode='') {
   await loadProfile();
 }
 
-function stopPassengerBookingUpdates(){
-  if(passengerBookingChannel){try{supabase?.removeChannel(passengerBookingChannel);}catch(_){}passengerBookingChannel=null;}
+function ensureNotificationStyles(){
+  if(document.getElementById('sekkaNotificationStyles'))return;
+  const style=document.createElement('style');
+  style.id='sekkaNotificationStyles';
+  style.textContent=`
+    .notification-wrap{position:relative;display:flex;align-items:center}
+    .notification-toggle{position:relative;width:42px;height:42px;border:1px solid #ffffff24;border-radius:13px;background:#ffffff0d;color:#fff;font-size:20px}
+    .notification-badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 4px;border-radius:10px;background:#e05252;color:#fff;font-size:10px;font-weight:900;display:grid;place-items:center}
+    .notification-panel{position:absolute;top:calc(100% + 10px);right:0;width:min(360px,calc(100vw - 24px));max-height:min(70vh,520px);overflow:hidden;display:flex;flex-direction:column;background:#142033;border:1px solid #ffffff22;border-radius:17px;box-shadow:0 18px 48px #0008;z-index:1200;color:#f8fafc}
+    .notification-panel[hidden],.notification-badge[hidden]{display:none}
+    .notification-panel-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #ffffff18}
+    .notification-mark-all{border:0;background:transparent;color:#b7f36b;font-size:12px;font-weight:800}
+    .notification-list{overflow:auto;padding:8px 12px}
+    .notification-item{padding:12px 10px;border-bottom:1px solid #ffffff12;border-radius:10px}
+    .notification-item.unread{background:#ffffff0b}
+    .notification-item b{display:block;font-size:13px;margin-bottom:5px}
+    .notification-item p{font-size:12px;line-height:1.7;color:#cbd5e1;margin:0 0 7px}
+    .notification-item time{font-size:10px;color:#94a3b8}
+    .notification-item button{display:block;margin-top:7px;border:0;background:transparent;color:#b7f36b;padding:3px 0;font-size:11px}
+    .notification-empty{padding:22px 8px;text-align:center;color:#94a3b8;font-size:13px}
+    .topbar .notification-panel :where(b,small){color:inherit!important}
+    @media(max-width:420px){.topbar{gap:8px;padding-left:12px;padding-right:12px}.notification-panel{right:-54px}}
+  `;
+  document.head.appendChild(style);
 }
-function showBookingCancellationNotice(){
+function renderUserNotifications(){
+  ensureNotificationStyles();
+  const badge=document.getElementById('notificationBadge');
+  const list=document.getElementById('notificationList');
+  if(badge){badge.textContent=unreadNotificationCount>99?'99+':String(unreadNotificationCount);badge.hidden=unreadNotificationCount<1;}
+  if(!list)return;
+  if(!userNotifications.length){list.innerHTML='<p class="notification-empty">لا توجد إشعارات حتى الآن.</p>';return;}
+  list.innerHTML=userNotifications.map(item=>{
+    const date=new Date(item.created_at);
+    const dateText=Number.isNaN(date.getTime())?'':date.toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'});
+    return `<article class="notification-item ${item.read_at?'':'unread'}"><b>${esc(item.title)}</b><p>${esc(item.body)}</p><time>${esc(dateText)}</time>${item.read_at?'':'<button type="button" data-notification-read="'+esc(item.id)+'">تحديد كمقروء</button>'}</article>`;
+  }).join('');
+  list.querySelectorAll('[data-notification-read]').forEach(button=>button.addEventListener('click',async()=>{
+    if(!supabase||!profile?.id)return;
+    const {error}=await supabase.from('user_notifications').update({read_at:new Date().toISOString()}).eq('id',button.dataset.notificationRead).eq('user_id',profile.id).is('read_at',null);
+    if(error){console.warn('Mark notification read failed:',error.message);return;}
+    await loadUserNotifications();
+  }));
+}
+async function loadUserNotifications(){
+  if(!supabase||profile?.account_type!=='rider'||!profile?.id)return;
+  const [rowsResult,countResult]=await Promise.all([
+    supabase.from('user_notifications').select('id,notification_type,title,body,related_ride_id,related_booking_id,created_at,read_at').eq('user_id',profile.id).order('created_at',{ascending:false}).limit(30),
+    supabase.from('user_notifications').select('id',{count:'exact',head:true}).eq('user_id',profile.id).is('read_at',null)
+  ]);
+  if(rowsResult.error)console.warn('Load notifications failed:',rowsResult.error.message);
+  if(countResult.error)console.warn('Count notifications failed:',countResult.error.message);
+  userNotifications=rowsResult.data||[];
+  unreadNotificationCount=countResult.count??userNotifications.filter(item=>!item.read_at).length;
+  renderUserNotifications();
+}
+function showUserNotificationToast(item){
   let toast=document.getElementById('sekkaBookingNotice');
   if(!toast){
     toast=document.createElement('div');
@@ -198,12 +278,33 @@ function showBookingCancellationNotice(){
     toast.style.cssText='position:fixed;z-index:10000;top:calc(env(safe-area-inset-top,0px) + 14px);left:16px;right:16px;max-width:520px;margin:0 auto;padding:14px 16px;border-radius:14px;background:#183b31;color:#fff;box-shadow:0 8px 28px #0003;font-size:14px;line-height:1.6;text-align:right;direction:rtl';
     document.body.appendChild(toast);
   }
-  toast.textContent='تنبيه من السكة: تم إلغاء أحد حجوزات مشاركة الطريق المرتبطة بحسابك. افتح «مشاركة الطريق» لمراجعة التفاصيل.';
+  toast.textContent=(item?.title?item.title+' · ':'')+(item?.body||'لديك إشعار جديد في السكة.');
   clearTimeout(window.__sekkaBookingNoticeTimer);
   window.__sekkaBookingNoticeTimer=window.setTimeout(()=>toast?.remove(),7000);
   if(document.visibilityState==='hidden'&&'Notification' in window&&Notification.permission==='granted'){
-    try{new Notification('السكة: تم إلغاء حجزك',{body:'تم إلغاء أحد حجوزات مشاركة الطريق المرتبطة بحسابك. افتح التطبيق لمراجعة التفاصيل.',tag:'sekka-booking-cancelled'});}catch(_){}
+    try{new Notification(item?.title||'السكة: إشعار جديد',{body:item?.body||'افتح التطبيق لمراجعة التفاصيل.',tag:item?.id||'sekka-notification'});}catch(_){}
   }
+}
+function stopUserNotificationUpdates(){
+  if(userNotificationChannel){try{supabase?.removeChannel(userNotificationChannel);}catch(_){}userNotificationChannel=null;}
+}
+function startUserNotificationUpdates(){
+  stopUserNotificationUpdates();
+  if(!supabase||!profile||profile.account_type!=='rider'||!profile.id)return;
+  userNotificationChannel=supabase.channel('sekka-user-notifications-'+profile.id)
+    .on('postgres_changes',{
+      event:'INSERT',schema:'public',table:'user_notifications',filter:'user_id=eq.'+profile.id
+    },payload=>{
+      if(payload.new?.user_id!==profile.id)return;
+      showUserNotificationToast(payload.new);
+      loadUserNotifications();
+    })
+    .subscribe((status,error)=>{
+      if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')console.warn('User notification realtime unavailable:',error?.message||status);
+    });
+}
+function stopPassengerBookingUpdates(){
+  if(passengerBookingChannel){try{supabase?.removeChannel(passengerBookingChannel);}catch(_){}passengerBookingChannel=null;}
 }
 function startPassengerBookingUpdates(){
   stopPassengerBookingUpdates();
@@ -213,7 +314,6 @@ function startPassengerBookingUpdates(){
       event:'UPDATE',schema:'public',table:'bookings',filter:'passenger_id=eq.'+profile.id
     },payload=>{
       if(payload.new?.booking_status!=='cancelled')return;
-      showBookingCancellationNotice();
       if(typeof window.__sekkaReloadShareBookings==='function')window.__sekkaReloadShareBookings();
     })
     .subscribe((status,error)=>{
@@ -227,11 +327,13 @@ async function loadProfile() {
     .eq('id', session.user.id).maybeSingle();
   if (error) console.error(error);
   profile = data;
-  if(!profile){stopPassengerBookingUpdates();await supabase.auth.signOut();session=null;render();return;}
+  if(!profile){stopPassengerBookingUpdates();stopUserNotificationUpdates();await supabase.auth.signOut();session=null;render();return;}
   const actualRole=profile.account_type||(profile.role==='captain'?'captain':profile.role==='admin'?'admin':'rider');
-  if(selectedAuthRole&&actualRole!=='admin'&&actualRole!==selectedAuthRole){stopPassengerBookingUpdates();await supabase.auth.signOut();session=null;profile=null;document.getElementById('msg')?.replaceChildren(document.createTextNode(selectedAuthRole==='admin'?'هذا الحساب لا يملك صلاحية دخول الإدارة.':'هذا البريد الإلكتروني مسجل كحساب '+(selectedAuthRole==='rider'?'كابتن ولا يمكن استخدامه كراكب، يرجى التسجيل ببريد إلكتروني منفصل.':'راكب ولا يمكن استخدامه ككابتن، يرجى التسجيل ببريد إلكتروني منفصل.')));return;}
+  if(selectedAuthRole&&actualRole!=='admin'&&actualRole!==selectedAuthRole){stopPassengerBookingUpdates();stopUserNotificationUpdates();await supabase.auth.signOut();session=null;profile=null;document.getElementById('msg')?.replaceChildren(document.createTextNode(selectedAuthRole==='admin'?'هذا الحساب لا يملك صلاحية دخول الإدارة.':'هذا البريد الإلكتروني مسجل كحساب '+(selectedAuthRole==='rider'?'كابتن ولا يمكن استخدامه كراكب، يرجى التسجيل ببريد إلكتروني منفصل.':'راكب ولا يمكن استخدامه ككابتن، يرجى التسجيل ببريد إلكتروني منفصل.')));return;}
   profile.account_type=actualRole;
   startPassengerBookingUpdates();
+  startUserNotificationUpdates();
+  await loadUserNotifications();
   page=actualRole==='captain'?'captain':actualRole==='admin'?'admin':'trip';
   if (profile?.role === 'captain') {
     const {error: statusError} = await supabase.rpc('process_my_captain_document_status');
@@ -2566,6 +2668,8 @@ async function init() {
     if (next) loadProfile();
     else {
       stopPassengerBookingUpdates();
+      stopUserNotificationUpdates();
+      userNotifications=[];unreadNotificationCount=0;
       profile = null; page = 'home';
       try { sessionStorage.removeItem(PAGE_STORAGE_KEY); } catch (_) {}
       render();
