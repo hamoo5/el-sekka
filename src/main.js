@@ -1609,6 +1609,7 @@ function shareHome() {
       if(marker)marker.setLatLng(p);else{marker=window.L.marker(p,{draggable:true,icon:icon}).addTo(seatOfferMap);if(origin)seatOfferOriginMarker=marker;else seatOfferDestinationMarker=marker;marker.on('dragend',async e=>{const q=e.target.getLatLng();$(origin?'seatOfferOrigin':'seatOfferDestination').value=await reversePlace(q.lat,q.lng);});}
       $(origin?'seatOfferOrigin':'seatOfferDestination').value=await reversePlace(p.lat,p.lng);
       $('seatOfferMapHint').textContent=origin?'تم تحديد البداية. اختار تحديد النهاية ثم اضغط على الخريطة.':'تم تحديد النهاية. راجع العنوانين قبل النشر.';
+      if(seatOfferOriginMarker&&seatOfferDestinationMarker){const a=seatOfferOriginMarker.getLatLng(),b=seatOfferDestinationMarker.getLatLng();$('seatOfferMapHint').textContent='جارٍ رسم الطريق وإظهار الأماكن القريبة...';getShareRoadRoute(a,b).then(route=>showSeatOfferRouteAndPois(route,a,b)).catch(error=>{$('seatOfferMapHint').textContent=error.message||'تعذر رسم الطريق.';});}
     });
     $('seatPickOrigin')?.addEventListener('click',()=>{seatOfferActivePoint='origin';$('seatPickOrigin').classList.add('active');$('seatPickDestination').classList.remove('active');});
     $('seatPickDestination')?.addEventListener('click',()=>{seatOfferActivePoint='destination';$('seatPickDestination').classList.add('active');$('seatPickOrigin').classList.remove('active');});
