@@ -1805,7 +1805,7 @@ function shareHome() {
     host.innerHTML=data.map(ride=>'<article class="share-item captain-own-route-card"><b>'+esc(ride.origin_name)+' ← '+esc(ride.destination_name)+'</b><small>'+new Date(ride.departure_at).toLocaleString('ar-EG')+' · الحالة: '+esc(shareStatus(ride.ride_status))+'</small><p>المتاح: '+Number(ride.available_seats||0)+' من '+Number(ride.seat_capacity||0)+' مقعد · '+Number(ride.seat_price_egp||0).toLocaleString('ar-EG')+' جنيه للكرسي</p>'+(ride.route_distance_m?'<small>طول المسار '+(ride.route_distance_m/1000).toFixed(1)+' كم</small>':'')+(['open','full'].includes(ride.ride_status)?'<button type="button" class="btn ghost" data-cancel-share-ride="'+ride.id+'">إلغاء الخط</button>':'')+'</article>').join('');
     host.querySelectorAll('[data-cancel-share-ride]').forEach(button=>button.addEventListener('click',async()=>{
       const rideId=button.dataset.cancelShareRide;
-      if(!window.confirm('هل تريد إلغاء هذا الخط؟ سيتم إلغاء الحجوزات التي لم تبدأ وإبلاغ الركاب من خلال حالة الحجز. لا يمكن الإلغاء إذا بدأت رحلة أحد الركاب.'))return;
+      if(!window.confirm('هل تريد إلغاء هذا الخط؟ سيتم تحويل الحجوزات التي لم تبدأ إلى ملغاة، وسيظهر ذلك للركاب عند تحديث حجوزاتهم. لا يمكن الإلغاء إذا بدأت رحلة أحد الركاب.'))return;
       button.disabled=true;
       const {error}=await supabase.rpc('captain_cancel_shared_ride',{p_ride_id:rideId});
       if(error){alert(shareError(error));button.disabled=false;return;}
