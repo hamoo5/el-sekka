@@ -240,10 +240,12 @@ async function linesPage(){
 async function tripsPage(){
   shell(`<main class="wrap"><div class="page-head"><h1>حجوزاتي</h1><p>تابع طلبات المقاعد على الرحلات المنشورة.</p></div><div id="myTrips" class="stack">جارٍ التحميل…</div></main>`);
   const box=document.querySelector('#myTrips');
-  const {data,error}=await db.from('bookings').select('id,ride_id,pickup_name,dropoff_name,booking_status,agreed_price_egp,created_at').eq('passenger_id',session.user.id).order('created_at',{ascending:false}).limit(50);
+  const {data,error}=await db.from('bookings').select('id,ride_id,pickup_name,dropoff_name,booking_status,passenger_offer_egp,agreed_price_egp,created_at').eq('passenger_id',session.user.id).order('created_at',{ascending:false}).limit(50);
   if(error){box.innerHTML='<section class="panel empty">تعذر تحميل الحجوزات. '+esc(error.message)+'</section>';return;}
   const rows=data||[];
-  box.innerHTML=rows.length?rows.map(x=>`<section class="panel"><div class="ride-top"><b>${esc(x.pickup_name)} ← ${esc(x.dropoff_name)}</b><span class="pill">${esc(x.booking_status)}</span></div><p>${money(x.agreed_price_egp)} · ${date(x.created_at)}</p></section>`).join(''):'<section class="panel empty">لا توجد حجوزات مسجلة حتى الآن.</section>';
+  box.innerHTML=rows.length?rows.map(x=>`<section class="panel"><div class="ride-top"><b>${esc(x.pickup_name)} ← ${esc(x.dropoff_name)}</b><span class="pill">${esc(x.booking_status)}</span></div><p>${money(x.agreed_price_egp??x.passenger_offer_egp)} · ${date(x.created_at)}</p>${x.booking_status==='accepted'?'<button class="btn primary" data-confirm-booking="'+x.id+'">تأكيد الحجز</button>':''}${['pending','counter_offer','accepted','confirmed'].includes(x.booking_status)?'<button class="btn danger" data-cancel-booking="'+x.id+'">إلغاء الحجز</button>':''}</section>`).join(''):'<section class="panel empty">لا توجد حجوزات مسجلة حتى الآن.</section>';
+  box.querySelectorAll('[data-confirm-booking]').forEach(btn=>btn.onclick=async()=>{busyButton(btn,true);try{const {error}=await db.rpc('confirm_seat_booking',{p_booking_id:btn.dataset.confirmBooking});if(error)throw error;await tripsPage();}catch(err){alert(err.message||'تعذر تأكيد الحجز.');busyButton(btn,false);}});
+  box.querySelectorAll('[data-cancel-booking]').forEach(btn=>btn.onclick=async()=>{if(!confirm('تأكيد إلغاء الحجز؟'))return;busyButton(btn,true);try{const {error}=await db.rpc('passenger_cancel_shared_ride_booking',{p_booking_id:btn.dataset.cancelBooking});if(error)throw error;await tripsPage();}catch(err){alert(err.message||'تعذر إلغاء الحجز.');busyButton(btn,false);}});
   const {data:lineBookings}=await db.from('sekka_line_bookings').select('id,run_id,pickup_stop_id,dropoff_stop_id,seats_requested,total_price_egp,booking_status,created_at').eq('passenger_id',session.user.id).order('created_at',{ascending:false}).limit(30);
   if(lineBookings?.length){
    const stopIds=[...new Set(lineBookings.flatMap(b=>[b.pickup_stop_id,b.dropoff_stop_id]))],runIds=[...new Set(lineBookings.map(b=>b.run_id))];
@@ -264,6 +266,13 @@ async function captainHome(){
    db.from('rides').select('id,origin_name,destination_name,departure_at,available_seats,seat_price_egp,ride_status').eq('captain_id',session.user.id).order('departure_at',{ascending:false}).limit(20),
    db.from('captain_subscriptions').select('id,plan_days,amount_egp,payment_status,starts_at,expires_at,created_at').eq('captain_id',session.user.id).order('created_at',{ascending:false}).limit(10)
   ]);
+  const ownRideIds=(rides||[]).map(r=>r.id);
+  let captainBookings=[];
+  if(ownRideIds.length){
+   const {data:bookingRows}=await db.from('bookings').select('id,ride_id,passenger_id,pickup_name,dropoff_name,seats_requested,passenger_offer_egp,agreed_price_egp,booking_status,created_at').in('ride_id',ownRideIds).order('created_at',{ascending:false}).limit(60);
+   captainBookings=bookingRows||[];
+  }
+  const captainBookingsHtml=captainBookings.map(b=>`<article class="request"><b>${esc(b.pickup_name)} ← ${esc(b.dropoff_name)}</b><p>${b.seats_requested} مقعد · عرض الراكب: ${money(b.passenger_offer_egp)} · ${esc(b.booking_status)}</p><p class="muted">${date(b.created_at)}</p>${b.booking_status==='pending'||b.booking_status==='counter_offer'?'<button class="btn primary" data-captain-booking="accept" data-booking="'+b.id+'">قبول الحجز</button> <button class="btn danger" data-captain-booking="reject" data-booking="'+b.id+'">رفض</button>':''}</article>`).join('')||'<p>لا توجد طلبات حجز جديدة على رحلاتك.</p>';
   const now=Date.now();
   const activeSubscription=(subscriptions||[]).find(s=>s.payment_status==='approved'&&s.starts_at&&new Date(s.starts_at).getTime()<=now&&s.expires_at&&new Date(s.expires_at).getTime()>now);
   const pendingSubscription=(subscriptions||[]).find(s=>s.payment_status==='submitted');
@@ -291,13 +300,16 @@ async function captainHome(){
     <details class="subscription-details" ${pendingSubscription?'':'open'}><summary>تقديم / تجديد الاشتراك</summary>${pendingSubscription?'<p class="notice">طلب الاشتراك قيد المراجعة بالفعل. لن تحتاج إلى إرسال طلب آخر.</p>':subscriptionForm}</details>
    </section>`;
   }
-  const ridesHtml=(rides||[]).map(r=>`<article class="request"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><p>${r.available_seats} مقعد متاح · ${money(r.seat_price_egp)} للمقعد</p><p class="muted">${date(r.departure_at)} · ${esc(r.ride_status)}</p></article>`).join('')||'<p>لم تنشر أي طريق حتى الآن.</p>';
+  const ridesHtml=(rides||[]).map(r=>`<article class="request"><b>${esc(r.origin_name)} ← ${esc(r.destination_name)}</b><p>${r.available_seats} مقعد متاح · ${money(r.seat_price_egp)} للمقعد</p><p class="muted">${date(r.departure_at)} · ${esc(r.ride_status)}</p>${['open','full'].includes(r.ride_status)?'<button class="btn danger" data-cancel-ride="'+r.id+'">إلغاء الطريق</button>':''}</article>`).join('')||'<p>لم تنشر أي طريق حتى الآن.</p>';
   shell(`<main class="wrap"><div class="page-head"><span class="eyebrow">مساحة الكابتن</span><h1>أهلاً ${esc(profile.display_name||'يا كابتن')}</h1><p>انشر طريقك ومقاعدك المتاحة، وتابع حجوزات الركاب.</p></div>
   ${subscriptionPanel}
+  ${card('طلبات حجز المقاعد',captainBookingsHtml)}
   ${card('رحلاتي المنشورة',`<div class="stack">${ridesHtml}</div><button class="btn primary" data-view="share">انشر طريقًا جديدًا</button>`)}
   ${card('حالة طلب الانضمام',`<p class="pill">${esc(appRow?.application_status||'لم يتم التقديم')}</p><p>${esc(appRow?.admin_notes||'قدّم بياناتك ومستنداتك لاستكمال التفعيل.')}</p><button class="btn primary" data-view="apply">تقديم / تحديث بيانات الكابتن</button>`)}
   ${card('مركباتي',(vehicles||[]).map(v=>`<p>${esc(v.make)} ${esc(v.model)} · ${esc(v.plate_number)} — ${esc(v.approval_status)}</p>`).join('')||'<p>لا توجد مركبات مسجلة.</p>')}
   </main>`);
+  document.querySelectorAll('[data-captain-booking]').forEach(btn=>btn.onclick=async()=>{busyButton(btn,true);try{const {error}=await db.rpc('captain_reply_booking',{p_booking_id:btn.dataset.booking,p_action:btn.dataset.captainBooking,p_counter_price:null});if(error)throw error;await captainHome();}catch(err){alert(err.message||'تعذر تحديث طلب الحجز.');busyButton(btn,false);}});
+  document.querySelectorAll('[data-cancel-ride]').forEach(btn=>btn.onclick=async()=>{if(!confirm('إلغاء الطريق سيؤدي إلى إلغاء الحجوزات المرتبطة به. هل تريد المتابعة؟'))return;busyButton(btn,true);try{const {error}=await db.rpc('captain_cancel_shared_ride',{p_ride_id:btn.dataset.cancelRide});if(error)throw error;await captainHome();}catch(err){alert(err.message||'تعذر إلغاء الطريق.');busyButton(btn,false);}});
   document.querySelector('#copyPaymentNumber')?.addEventListener('click',async()=>{try{await navigator.clipboard.writeText('01010530716');const n=document.querySelector('#subscriptionNotice');if(n)n.textContent='تم نسخ الرقم.';}catch{alert('تعذر النسخ تلقائيًا. الرقم هو 01010530716');}});
   document.querySelector('#subscriptionForm')?.addEventListener('submit',async e=>{
    e.preventDefault();
