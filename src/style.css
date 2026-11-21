@@ -1619,3 +1619,37 @@ body[data-page="trip-options"] .map-locate-button{
 
 /* Captain route map and recognizable nearby places */
 #seatOfferMap{height:320px!important;margin:8px 0 4px}.sekka-poi-icon{background:#fff;border:2px solid #263445;border-radius:50%;display:grid;place-items:center;box-shadow:0 2px 9px #0008}.sekka-poi-icon span{font-size:17px;line-height:1}.map-pick-mode{margin:5px 0}.map-legend{gap:8px}
+
+
+/* Role-specific shared-road experience */
+.share-hero{position:relative;overflow:hidden;padding:22px 20px;border-radius:22px}
+.share-hero:after{content:"";position:absolute;inset:auto -30px -75px auto;width:190px;height:190px;border-radius:50%;background:radial-gradient(circle,#10b98125,transparent 68%);pointer-events:none}
+.share-hero h1{max-width:620px;font-size:clamp(23px,5vw,32px);line-height:1.45;margin:8px 0}
+.share-hero p{max-width:560px;margin:0;color:var(--muted);font-size:13px;line-height:1.8}
+.share-hero-points{display:flex;flex-wrap:wrap;gap:7px;margin-top:15px}
+.share-hero-points span{padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2);font-size:10px;font-weight:850}
+.captain-share-hero{border:1px solid #10b98155;background:linear-gradient(135deg,var(--surface),rgba(16,185,129,.09))}
+.rider-share-hero{border:1px solid #3b82f655;background:linear-gradient(135deg,var(--surface),rgba(59,130,246,.08))}
+.share-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.share-section-heading h2{margin:5px 0;font-size:19px}
+.share-section-heading p{margin:0;font-size:11px}
+.share-section-icon{width:48px;height:48px;display:grid;place-items:center;border-radius:16px;background:var(--surface-2);font-size:24px;flex:0 0 auto}
+.rider-share-map{height:300px!important;min-height:230px;margin:10px 0 14px;border-radius:18px;overflow:hidden;border:1px solid var(--line)}
+.rider-route-card{padding:15px!important;border-radius:17px!important;border:1px solid var(--line)!important;background:var(--surface)!important}
+.rider-route-card-head{display:flex;align-items:center;gap:10px}
+.route-car-icon{width:40px;height:40px;display:grid;place-items:center;border-radius:13px;background:var(--surface-2);font-size:21px;flex:0 0 auto}
+.rider-route-card-head>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.rider-route-card-head b{font-size:13px;line-height:1.6}
+.rider-route-card-head small{font-size:10px;color:var(--muted)}
+.rider-route-card-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:13px 0;padding:10px 11px;border-radius:12px;background:var(--surface-2);font-size:11px}
+.rider-route-card-meta strong{color:#059669;font-size:14px;white-space:nowrap}
+.rider-route-card-meta strong small{font-size:9px;font-weight:700}
+.rider-route-card .share-actions{gap:8px}
+.rider-route-card .share-actions input{min-width:0}
+.rider-share-pin-wrap{background:transparent;border:0}
+.rider-share-pin{width:19px;height:19px;display:grid;place-items:center;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px #0008;font-size:10px;color:#fff}
+.rider-start-pin{background:#10b981}.rider-end-pin{background:#ef4444}
+.captain-own-route-card{border-inline-start:4px solid #10b981}
+body[data-page="share"] .share-rule{font-size:12px}
+body[data-page="share"] .share-rule summary{cursor:pointer}
+@media(max-width:420px){.share-hero{padding:18px 15px}.share-hero-points{gap:5px}.share-hero-points span{font-size:9px;padding:6px 8px}.rider-share-map{height:260px!important}.rider-route-card-meta{align-items:flex-start;flex-direction:column}}
