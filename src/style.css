@@ -124,3 +124,13 @@ textarea:focus{border-color:#c6f36a;box-shadow:0 0 0 3px #c6f36a20}
  .booking-seat-row{align-items:stretch;flex-direction:column;gap:4px}
  .booking-seat-row>.muted{padding:0}
 }
+
+
+/* Passenger bookings overview across the three ride systems */
+.rider-booking-item{padding:14px 0;border-top:1px solid #ffffff16}
+.rider-booking-item:first-of-type{border-top:0}
+.rider-booking-item h3{font-size:15px;margin:12px 0 6px}
+.rider-booking-item p{font-size:12px;line-height:1.8;margin:7px 0;color:#d5deea}
+.rider-booking-item .muted{color:#9eafc4}
+.rider-booking-item .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.rider-booking-item label{display:grid;gap:7px;margin:12px 0}
