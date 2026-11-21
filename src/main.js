@@ -1290,7 +1290,7 @@ function shareHome() {
           <div class="map-heading"><b>حدد الطريق على الخريطة</b><small>اختار الحقل ثم اضغط على الخريطة أو حرّك الدبوس.</small></div>
           <div id="shareMap" class="trip-map" role="application" aria-label="خريطة تحديد بداية ونهاية المشاركة"></div>
           <div class="map-legend"><span>🟢 البداية</span><span>🔴 الوجهة</span><span id="shareMapHint">حدد النقطتين لعرض المسار.</span></div>
-          <label>عدد الكراسي المطلوبة<input id="shareSeats" type="number" min="1" max="3" value="1" required></label>
+          <label>عدد الكراسي المطلوبة<input id="shareSeats" type="number" min="1" max="13" value="1" required></label>
           <label>السعر المبدئي للكرسي (جنيه)<input id="sharePrice" type="number" min="0" step="0.5" required placeholder="اكتب السعر الذي تقترحه"></label>
           <label>نوع المركبة المفضل (اختياري)
             <select id="shareVehicle"><option value="">أي مركبة مناسبة</option>${types.map(([v,n])=>`<option value="${v}">${n}</option>`).join('')}</select>
@@ -1314,7 +1314,7 @@ function shareHome() {
           <div id="seatOfferMap" class="trip-map trip-map-dark" role="application" aria-label="خريطة خط السير"></div>
           <div class="map-legend"><span>🟢 البداية</span><span>🔴 النهاية</span><span>⛽ بنزينة</span><span>🏦 بنك</span><span>🛒 سوبر ماركت</span><span>💊 صيدلية</span><span id="seatOfferMapHint">اضغط على الخريطة لتحديد البداية والنهاية.</span></div>
           <label id="seatOfferDateField" hidden>موعد التحرك<input id="seatOfferDeparture" type="datetime-local"></label>
-          <label>عدد الكراسي المتاحة<input id="seatOfferSeats" type="number" min="1" max="3" value="1" required></label>
+          <label>عدد الكراسي المتاحة<input id="seatOfferSeats" type="number" min="1" max="13" value="1" required></label>
           <label>سعر الكرسي (جنيه)<input id="seatOfferPrice" type="number" min="0" step="0.5" required></label>
           <button class="btn primary" type="submit">نشر عرض الكراسي</button>
           <p id="seatOfferMessage" class="message" aria-live="polite"></p>
@@ -1925,7 +1925,8 @@ function shareHome() {
       line.bindPopup('<b>'+esc(ride.origin_name)+' ← '+esc(ride.destination_name)+'</b><br>'+Number(ride.available_seats||0)+' مقعد متاح');
       bounds.push(line.getBounds());
     });
-    if(bounds.length){const all=window.L.latLngBounds(bounds.flatMap(b=>[b.getSouthWest(),b.getNorthEast()]));riderShareMap.fitBounds(all,{padding:[24,24],maxZoom:13});}
+    if(riderCurrentLocation){window.L.circleMarker([riderCurrentLocation.lat,riderCurrentLocation.lng],{radius:8,color:'#2563eb',fillColor:'#60a5fa',fillOpacity:.9}).bindPopup('موقعك التقريبي').addTo(riderShareMarkerLayer);riderShareMap.setView([riderCurrentLocation.lat,riderCurrentLocation.lng],11);}
+    else if(bounds.length){const all=window.L.latLngBounds(bounds.flatMap(b=>[b.getSouthWest(),b.getNorthEast()]));riderShareMap.fitBounds(all,{padding:[24,24],maxZoom:13});}
     else riderShareMap.setView([30.0444,31.2357],10);
     setTimeout(()=>riderShareMap?.invalidateSize(),100);
     loadRiderSharePois(rides);
@@ -1982,6 +1983,7 @@ function shareHome() {
     // The database trigger guarantees that every newly published ride uses a shared-service vehicle.
     // Do not query vehicles here: rider RLS intentionally limits direct vehicle reads to owners/admins.
     const rides=(data||[]).filter(r=>r.captain_id!==profile.id);
+    if(riderCurrentLocation)rides.sort((a,b)=>distanceToRideRouteMeters(a,riderCurrentLocation)-distanceToRideRouteMeters(b,riderCurrentLocation));
     window.__sekkaAvailableRides=rides;
     if(!isCaptain)renderRiderShareRoutes(rides);
     if(!rides.length){host.innerHTML='<p class="muted">لا توجد خطوط متاحة حالياً. ارجع لاحقاً لاكتشاف خطوط جديدة.</p>';return;}
